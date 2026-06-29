@@ -1,0 +1,41 @@
+name: Live Vega Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      mutating:
+        description: Run opt-in mutating faucet/submit smoke checks
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 8 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-vega-smoke
+  cancel-in-progress: false
+
+jobs:
+  live-vega-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ZINCHA_LIVE_MUTATING: ${{ inputs.mutating && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build zincha CLI
+        run: cargo build -p zincha-cli
+
+      - name: Run live Vega smoke
+        run: scripts/live-vega-smoke.sh

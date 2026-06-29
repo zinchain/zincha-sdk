@@ -37,8 +37,30 @@ npm test
 
 ```bash
 cd sdk/python
-python -m pytest
+PYTHONPATH=src python -m unittest discover -s tests
 ```
+
+## Test Suite
+
+Run the deterministic offline suite before opening a pull request:
+
+```bash
+scripts/ci-offline.sh
+```
+
+This formats and tests the Rust workspace, builds the `zincha` CLI, runs the
+Python and TypeScript SDK tests, parses the public OpenAPI artifact, and checks
+that private runtime dependencies have not leaked into the public SDK surface.
+
+Live public-chain smoke tests are separate from required PR CI:
+
+```bash
+cargo build -p zincha-cli
+scripts/live-vega-smoke.sh
+```
+
+The live smoke uses read-only `zincha --release vega` commands by default.
+Mutating faucet/submit coverage must remain opt-in.
 
 ## CLI
 
@@ -53,7 +75,12 @@ zincha tx transfer --secret-key wallet.key --to zn1... --amount 1000 --fee 1000 
 
 ## Repository Boundary
 
-The full private development surface lives in
-<https://github.com/zinchain/zincha-dev>. This public SDK repository is the
-canonical developer-facing surface for application builders.
+High-churn private development happens in
+<https://github.com/zinchain/zincha-dev>. Release-ready core code is promoted
+to the hardened <https://github.com/zinchain/zincha> repository. This public SDK
+repository is updated from that hardened release source by explicit promotion,
+not by automatic sync from `zincha-dev`.
 
+Release binaries for the `zincha` CLI are built by GitHub Actions on version
+tags and attached to GitHub Releases with SHA256 checksums. Generated binaries
+are not committed to this repository.

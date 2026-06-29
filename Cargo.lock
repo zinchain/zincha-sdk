@@ -2479,6 +2479,7 @@ name = "zincha-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "serde_json",
  "tokio",
  "zincha-cli-core",
 ]

@@ -1,0 +1,109 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  ensure-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name || github.ref_name }}
+
+      - name: Ensure GitHub release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.tag.outputs.tag }}
+        run: |
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" --title "$TAG_NAME" --notes "Zincha CLI binaries for $TAG_NAME"
+          fi
+
+  build:
+    needs: ensure-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: zincha-linux-x86_64.tar.gz
+            binary: zincha
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: zincha-linux-aarch64.tar.gz
+            binary: zincha
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            archive: zincha-macos-x86_64.tar.gz
+            binary: zincha
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: zincha-macos-aarch64.tar.gz
+            binary: zincha
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zincha-windows-x86_64.tar.gz
+            binary: zincha.exe
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG_NAME: ${{ needs.ensure-release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build release binary
+        run: cargo build --release -p zincha-cli --target ${{ matrix.target }}
+
+      - name: Package binary
+        shell: bash
+        env:
+          ARCHIVE_NAME: ${{ matrix.archive }}
+          BINARY_NAME: ${{ matrix.binary }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          mkdir -p dist/pkg
+          cp "target/$TARGET/release/$BINARY_NAME" "dist/pkg/$BINARY_NAME"
+          cp README.md LICENSE dist/pkg/
+          tar -czf "dist/$ARCHIVE_NAME" -C dist/pkg .
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          archive = Path("dist") / os.environ["ARCHIVE_NAME"]
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          (Path(str(archive) + ".sha256")).write_text(f"{digest}  {archive.name}\n")
+          PY
+
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_NAME: ${{ matrix.archive }}
+        run: gh release upload "$TAG_NAME" "dist/$ARCHIVE_NAME" "dist/$ARCHIVE_NAME.sha256" --clobber

@@ -103,7 +103,9 @@ pub struct FaucetCommand {
     #[arg(long)]
     pub address: String,
     #[arg(long)]
-    pub amount: Option<u64>,
+    pub amount_micro_zin: Option<u64>,
+    #[arg(long)]
+    pub amount_zin: Option<u64>,
 }
 
 #[derive(Debug, Parser)]
@@ -237,7 +239,11 @@ async fn run_faucet(command: FaucetCommand, client: ZinchaClient, json: bool) ->
     emit(
         "faucet",
         client
-            .request_faucet(&command.address, command.amount)
+            .request_faucet(
+                &command.address,
+                command.amount_micro_zin,
+                command.amount_zin,
+            )
             .await?,
         json,
     )

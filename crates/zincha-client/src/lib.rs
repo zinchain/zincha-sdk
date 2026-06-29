@@ -18,6 +18,7 @@ impl ZinchaClient {
         let base_url = normalize_base_url(base_url.as_ref())?;
         let websocket_url = derive_websocket_url(&base_url).ok();
         let http = Client::builder()
+            .user_agent(concat!("zincha-sdk-rust/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(30))
             .build()
@@ -80,7 +81,7 @@ impl ZinchaClient {
 
     pub async fn submit_signed_transaction_hex(&self, signed_tx_hex: &str) -> Result<Value> {
         self.post_json(
-            "/v1/transactions",
+            "/v1/tx/submit",
             &SubmitTransactionRequest {
                 signed_tx_hex: signed_tx_hex.to_string(),
             },
@@ -88,12 +89,18 @@ impl ZinchaClient {
         .await
     }
 
-    pub async fn request_faucet(&self, address: &str, amount: Option<u64>) -> Result<Value> {
+    pub async fn request_faucet(
+        &self,
+        address: &str,
+        amount_micro_zin: Option<u64>,
+        amount_zin: Option<u64>,
+    ) -> Result<Value> {
         self.post_json(
-            "/v1/faucet/request",
+            "/v1/faucet",
             &FaucetRequest {
                 address: address.to_string(),
-                amount,
+                amount_micro_zin,
+                amount_zin,
             },
         )
         .await
@@ -109,17 +116,40 @@ pub struct SubmitTransactionRequest {
 pub struct FaucetRequest {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub amount: Option<u64>,
+    pub amount_micro_zin: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_zin: Option<u64>,
 }
 
 async fn decode_response<T: DeserializeOwned>(response: reqwest::Response) -> Result<T> {
     let status = response.status();
     let bytes = response.bytes().await.context("read response body")?;
     if !status.is_success() {
+        if let Ok(api) = serde_json::from_slice::<ApiResponse<Value>>(&bytes) {
+            if let Some(error) = api.error {
+                anyhow::bail!("API request failed with HTTP {status}: {error}");
+            }
+        }
         let body = String::from_utf8_lossy(&bytes);
         anyhow::bail!("API request failed with HTTP {status}: {body}");
     }
-    serde_json::from_slice(&bytes).context("decode JSON response")
+    let api: ApiResponse<Value> =
+        serde_json::from_slice(&bytes).context("decode API response envelope")?;
+    if !api.success {
+        let error = api
+            .error
+            .unwrap_or_else(|| "API response reported failure".to_string());
+        anyhow::bail!("API request failed: {error}");
+    }
+    serde_json::from_value(api.data).context("decode API response data")
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiResponse<T> {
+    success: bool,
+    #[serde(default)]
+    data: T,
+    error: Option<String>,
 }
 
 fn normalize_base_url(raw: &str) -> Result<Url> {

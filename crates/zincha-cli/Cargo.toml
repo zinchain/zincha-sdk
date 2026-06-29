@@ -17,3 +17,5 @@ anyhow.workspace = true
 tokio.workspace = true
 zincha-cli-core = { path = "../zincha-cli-core" }
 
+[dev-dependencies]
+serde_json.workspace = true
