@@ -82,5 +82,13 @@ repository is updated from that hardened release source by explicit promotion,
 not by automatic sync from `zincha-dev`.
 
 Release binaries for the `zincha` CLI are built by GitHub Actions on version
-tags and attached to GitHub Releases with SHA256 checksums. Generated binaries
-are not committed to this repository.
+tags and uploaded to <https://github.com/zinchain/zincha-releases>. Generated
+binaries are not committed to this repository. The source workflow requires a
+`ZINCHA_RELEASES_TOKEN` secret with `contents: write` access to the release hub.
+
+To dry-run local packaging after building the CLI:
+
+```bash
+cargo build --release -p zincha-cli
+scripts/package-cli-binary.sh v0.1.0 "$(rustc -vV | sed -n 's/^host: //p')" local target/release/zincha
+```

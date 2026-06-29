@@ -4,64 +4,134 @@ on:
   push:
     tags:
       - "v*"
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, for example v0.1.0"
+        required: true
+        type: string
+      force_republish:
+        description: "Replace existing assets in zincha-releases"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+  id-token: write
+  attestations: write
 
 jobs:
+  offline-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run offline CI gate
+        run: scripts/ci-offline.sh
+
   ensure-release:
     runs-on: ubuntu-latest
+    environment: release
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      force_republish: ${{ steps.tag.outputs.force_republish }}
     steps:
       - name: Resolve tag
         id: tag
-        run: echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
         env:
-          TAG_NAME: ${{ github.event.release.tag_name || github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+          FORCE_REPUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.force_republish == true }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$REF_NAME"
+          fi
+          if ! [[ "$tag" =~ ^v[0-9]+ ]]; then
+            echo "::error::release tag must start with v followed by a number: $tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "force_republish=$FORCE_REPUBLISH" >> "$GITHUB_OUTPUT"
 
-      - name: Ensure GitHub release exists
+      - name: Ensure aggregate release exists
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ZINCHA_RELEASES_TOKEN }}
           TAG_NAME: ${{ steps.tag.outputs.tag }}
         run: |
-          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release create "$TAG_NAME" --title "$TAG_NAME" --notes "Zincha CLI binaries for $TAG_NAME"
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::ZINCHA_RELEASES_TOKEN is required to upload to zinchain/zincha-releases"
+            exit 1
+          fi
+          if ! gh release view "$TAG_NAME" -R zinchain/zincha-releases >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" -R zinchain/zincha-releases \
+              --draft \
+              --prerelease \
+              --title "Zincha $TAG_NAME" \
+              --notes "Draft aggregate Zincha binary release for $TAG_NAME. Run the finalizer after all required source assets upload."
           fi
 
   build:
-    needs: ensure-release
+    needs:
+      - offline-gate
+      - ensure-release
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            archive: zincha-linux-x86_64.tar.gz
+            platform: linux-x86_64
             binary: zincha
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            archive: zincha-linux-aarch64.tar.gz
+            platform: linux-aarch64
             binary: zincha
           - os: macos-15-intel
             target: x86_64-apple-darwin
-            archive: zincha-macos-x86_64.tar.gz
+            platform: macos-x86_64
             binary: zincha
           - os: macos-latest
             target: aarch64-apple-darwin
-            archive: zincha-macos-aarch64.tar.gz
+            platform: macos-aarch64
             binary: zincha
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            archive: zincha-windows-x86_64.tar.gz
+            platform: windows-x86_64
             binary: zincha.exe
     runs-on: ${{ matrix.os }}
+    environment: release
     env:
       TAG_NAME: ${{ needs.ensure-release.outputs.tag }}
+      FORCE_REPUBLISH: ${{ needs.ensure-release.outputs.force_republish }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.ensure-release.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -80,30 +150,40 @@ jobs:
       - name: Build release binary
         run: cargo build --release -p zincha-cli --target ${{ matrix.target }}
 
+      - name: Smoke-test binary
+        shell: bash
+        run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version
+
       - name: Package binary
         shell: bash
         env:
-          ARCHIVE_NAME: ${{ matrix.archive }}
           BINARY_NAME: ${{ matrix.binary }}
-          TARGET: ${{ matrix.target }}
+          SOURCE_REPO: zinchain/zincha-sdk
+          SOURCE_TAG: ${{ env.TAG_NAME }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          mkdir -p dist/pkg
-          cp "target/$TARGET/release/$BINARY_NAME" "dist/pkg/$BINARY_NAME"
-          cp README.md LICENSE dist/pkg/
-          tar -czf "dist/$ARCHIVE_NAME" -C dist/pkg .
-          python - <<'PY'
-          import hashlib
-          import os
-          from pathlib import Path
+          scripts/package-cli-binary.sh "$TAG_NAME" "${{ matrix.target }}" "${{ matrix.platform }}"
 
-          archive = Path("dist") / os.environ["ARCHIVE_NAME"]
-          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-          (Path(str(archive) + ".sha256")).write_text(f"{digest}  {archive.name}\n")
-          PY
+      - name: Attest archive provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/zincha-${{ env.TAG_NAME }}-${{ matrix.platform }}.*
 
       - name: Upload release assets
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          ARCHIVE_NAME: ${{ matrix.archive }}
-        run: gh release upload "$TAG_NAME" "dist/$ARCHIVE_NAME" "dist/$ARCHIVE_NAME.sha256" --clobber
+          GH_TOKEN: ${{ secrets.ZINCHA_RELEASES_TOKEN }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::ZINCHA_RELEASES_TOKEN is required to upload to zinchain/zincha-releases"
+            exit 1
+          fi
+          args=()
+          if [ "$FORCE_REPUBLISH" = "true" ]; then
+            args+=(--clobber)
+          fi
+          gh release upload "$TAG_NAME" -R zinchain/zincha-releases \
+            dist/zincha-"$TAG_NAME"-"$PLATFORM".* \
+            "${args[@]}"
