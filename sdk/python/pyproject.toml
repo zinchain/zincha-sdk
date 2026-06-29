@@ -27,8 +27,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/zinchain/zincha-dev-sdk"
-Repository = "https://github.com/zinchain/zincha-dev-sdk"
+Homepage = "https://github.com/zinchain/zincha-sdk"
+Repository = "https://github.com/zinchain/zincha-sdk"
 
 [tool.setuptools.packages.find]
 where = ["src"]

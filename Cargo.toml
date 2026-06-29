@@ -12,7 +12,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["ZIN Chain Foundation <ai@zincha.com>"]
 license = "Apache-2.0"
-repository = "https://github.com/zinchain/zincha-dev-sdk"
+repository = "https://github.com/zinchain/zincha-sdk"
 homepage = "https://zincha.com"
 
 [workspace.dependencies]
