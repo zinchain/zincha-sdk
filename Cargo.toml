@@ -1,0 +1,46 @@
+[workspace]
+members = [
+    "crates/zincha-primitives",
+    "crates/zincha-client",
+    "crates/zincha-cli-core",
+    "crates/zincha-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["ZIN Chain Foundation <ai@zincha.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/zinchain/zincha-dev-sdk"
+homepage = "https://zincha.com"
+
+[workspace.dependencies]
+anyhow = "1"
+argon2 = "0.5"
+bincode = "1"
+bip39 = { version = "2", features = ["rand", "std"] }
+blake3 = "1"
+chacha20poly1305 = "0.10"
+clap = { version = "4", features = ["derive"] }
+ed25519-dalek = { version = "2", features = ["serde", "rand_core", "pkcs8", "pem"] }
+futures = "0.3"
+hex = "0.4"
+hmac = "0.12"
+pkcs8 = { version = "0.10", features = ["pem"] }
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rpassword = "7"
+rustls = "0.23"
+rustls-pemfile = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+tracing = "0.1"
+url = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+webpki-roots = "0.26"

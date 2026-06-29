@@ -1,0 +1,26 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Node / TypeScript
+**/node_modules/
+**/package-lock.json
+
+# Python
+**/__pycache__/
+*.pyc
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and coverage
+*.log
+/coverage/
+lcov.info
