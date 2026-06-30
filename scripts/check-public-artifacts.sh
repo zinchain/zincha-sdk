@@ -48,6 +48,10 @@ private_markers=(
     "src/api/endpoint_manifest"
     "src/release.rs"
     "release.rs"
+    "faucet zn1..."
+    "query balance"
+    "query nonce"
+    "\`--network\` is an alias"
 )
 
 for marker in "${private_markers[@]}"; do
@@ -63,6 +67,9 @@ required_skill_markers=(
     "https://zincha.com/openapi.json"
     "https://zincha.com/docs"
     "zincha --release vega info"
+    "zincha --release vega faucet --address zn1..."
+    "zincha --release vega query account zn1..."
+    "zincha --release vega query account-nonce zn1..."
     "provider-authenticated"
 )
 

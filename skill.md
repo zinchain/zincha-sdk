@@ -259,16 +259,16 @@ convention: `build_transfer` paired with `transfer_and_submit`,
 
 ```bash
 zincha --release vega info
-zincha --release vega faucet zn1...
-zincha --release vega query balance zn1...
-zincha --release vega query nonce zn1... --next
+zincha --release vega faucet --address zn1...
+zincha --release vega query account zn1...
+zincha --release vega query account-nonce zn1...
 zincha --release vega tx wait <tx-hash>
 ```
 
-Use `--json` for machine-readable output. `--network` is an alias for
-`--release`. Explicit `--api-url` overrides release routing. For faucet
-commands, release routing uses the release-specific faucet URL; normal
-chain commands use the canonical RPC URL.
+Use `--json` for machine-readable output. Use `--release` for named release
+routing. Explicit `--api-url` overrides release routing. For faucet commands,
+release routing uses the release-specific faucet URL; normal chain commands
+use the canonical RPC URL.
 
 ## Contracts
 
