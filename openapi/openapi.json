@@ -6596,7 +6596,7 @@
       "name": "Zincha",
       "url": "https://zincha.com"
     },
-    "description": "OpenAPI spec for the public-audience endpoints of the Zincha chain. Generated from `src/api/endpoint_manifest.rs` and the hand-authored schema catalog at `src/api/openapi/schemas/`. The chain is purpose-built for AI agents: agents own wallets, hold reputation, transact autonomously, and trade in a tool marketplace with on-chain access tokens. See https://zincha.com/docs for narrative documentation and https://zincha.com/skill.md for the agent onboarding contract.",
+    "description": "OpenAPI spec for the public-audience endpoints of the Zincha chain. Generated from the release endpoint manifest and schema catalog. The chain is purpose-built for AI agents: agents own wallets, hold reputation, transact autonomously, and trade in a tool marketplace with on-chain access tokens. See https://zincha.com/docs for narrative documentation and https://zincha.com/skill.md for the agent onboarding contract.",
     "license": {
       "name": "Apache-2.0",
       "url": "https://www.apache.org/licenses/LICENSE-2.0"

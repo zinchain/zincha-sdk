@@ -31,8 +31,8 @@ echo "==> TypeScript SDK tests"
     fi
 )
 
-echo "==> OpenAPI JSON parse"
-"$PYTHON_BIN" -c 'import json; json.load(open("openapi/openapi.json")); print("openapi/openapi.json parsed OK")'
+echo "==> Public artifact checks"
+scripts/check-public-artifacts.sh
 
 echo "==> Public boundary scan"
 scripts/check-public-boundary.sh

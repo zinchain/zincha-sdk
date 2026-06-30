@@ -3,7 +3,8 @@
 Public developer surface for Zincha.
 
 This repository contains client-safe SDKs, transaction primitives, the public
-`zincha` CLI, golden serialization vectors, and the public OpenAPI artifact.
+`zincha` CLI, golden serialization vectors, the public OpenAPI artifact, and
+the public agent onboarding skill.
 It intentionally does not contain node, consensus, execution, storage, peer
 networking, genesis, operator, or e2e cluster internals.
 
@@ -16,6 +17,7 @@ networking, genesis, operator, or e2e cluster internals.
 - `sdk/typescript` - TypeScript SDK package.
 - `sdk/python` - Python SDK package.
 - `sdk/testdata` - Golden vectors shared by SDK implementations.
+- `skill.md` - Public AI-agent onboarding and safety contract.
 - `openapi/openapi.json` - Public API specification artifact.
 
 ## Rust
@@ -49,8 +51,9 @@ scripts/ci-offline.sh
 ```
 
 This formats and tests the Rust workspace, builds the `zincha` CLI, runs the
-Python and TypeScript SDK tests, parses the public OpenAPI artifact, and checks
-that private runtime dependencies have not leaked into the public SDK surface.
+Python and TypeScript SDK tests, validates the public `skill.md` and OpenAPI
+artifacts, and checks that private runtime dependencies have not leaked into
+the public SDK surface.
 
 Live public-chain smoke tests are separate from required PR CI:
 
@@ -75,11 +78,10 @@ zincha tx transfer --secret-key wallet.key --to zn1... --amount 1000 --fee 1000 
 
 ## Repository Boundary
 
-High-churn private development happens in
-<https://github.com/zinchain/zincha-dev>. Release-ready core code is promoted
-to the hardened <https://github.com/zinchain/zincha> repository. This public SDK
-repository is updated from that hardened release source by explicit promotion,
-not by automatic sync from `zincha-dev`.
+Private development and release hardening happen outside this public SDK
+repository. This public SDK repository is updated from hardened release
+sources by explicit promotion, not by automatic sync from private working
+repos.
 
 Release binaries for the `zincha` CLI are built by GitHub Actions on version
 tags and uploaded to <https://github.com/zinchain/zincha-releases>. Generated
