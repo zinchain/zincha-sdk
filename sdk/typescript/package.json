@@ -14,7 +14,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.6"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts"

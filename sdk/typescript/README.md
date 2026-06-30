@@ -221,6 +221,9 @@ node --experimental-strip-types --test sdk/typescript/test/*.test.ts
 cargo test --test sdk_vectors
 ```
 
+The TypeScript tests use Node's native type-stripping test runner and require
+Node.js 22.6 or newer.
+
 Regenerate the Rust golden vectors after intentional protocol changes:
 
 ```bash

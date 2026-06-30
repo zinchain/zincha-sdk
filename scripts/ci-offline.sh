@@ -24,6 +24,11 @@ echo "==> Python SDK unittest"
 echo "==> TypeScript SDK tests"
 (
     cd sdk/typescript
+    if ! node --experimental-strip-types -e "" >/dev/null 2>&1; then
+        echo "Node.js 22.6+ is required for TypeScript SDK tests." >&2
+        echo "The tests use node --experimental-strip-types to execute .ts files directly." >&2
+        exit 1
+    fi
     if command -v npm >/dev/null 2>&1; then
         npm test
     else
