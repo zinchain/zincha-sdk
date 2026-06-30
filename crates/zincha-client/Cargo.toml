@@ -11,6 +11,8 @@ homepage.workspace = true
 [dependencies]
 anyhow.workspace = true
 futures.workspace = true
+hex.workspace = true
+rand.workspace = true
 reqwest.workspace = true
 rustls.workspace = true
 rustls-pemfile.workspace = true
@@ -21,4 +23,3 @@ tokio-tungstenite.workspace = true
 url.workspace = true
 webpki-roots.workspace = true
 zincha-primitives = { path = "../zincha-primitives" }
-

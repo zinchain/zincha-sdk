@@ -13,9 +13,10 @@ anyhow.workspace = true
 bincode.workspace = true
 clap.workspace = true
 hex.workspace = true
+rpassword.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 zincha-client = { path = "../zincha-client" }
 zincha-primitives = { path = "../zincha-primitives" }
-

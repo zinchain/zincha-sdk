@@ -3,12 +3,14 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-use zincha_client::ZinchaClient;
+use zincha_client::{signed_request_parts, RequestOptions, ZinchaClient};
+use zincha_primitives::crypto::{hash_bytes, Keypair};
 
 #[derive(Debug)]
 struct RecordedRequest {
     method: String,
     path: String,
+    headers: String,
     body: String,
 }
 
@@ -57,10 +59,27 @@ fn serve_once(
             .write_all(response.as_bytes())
             .expect("write response");
 
-        RecordedRequest { method, path, body }
+        RecordedRequest {
+            method,
+            path,
+            headers: headers.to_string(),
+            body,
+        }
     });
 
     (format!("http://{addr}"), handle)
+}
+
+fn header_value<'a>(headers: &'a str, name: &str) -> &'a str {
+    headers
+        .lines()
+        .find_map(|line| {
+            let (header_name, value) = line.split_once(':')?;
+            header_name
+                .eq_ignore_ascii_case(name)
+                .then_some(value.trim())
+        })
+        .unwrap_or_else(|| panic!("missing header {name}\n{headers}"))
 }
 
 fn find_header_end(buffer: &[u8]) -> Option<usize> {
@@ -181,4 +200,98 @@ async fn success_false_envelopes_fail_even_with_http_200() {
     let request = server.join().expect("server thread");
     assert_eq!(request.method, "GET");
     assert_eq!(request.path, "/v1/chain/info");
+}
+
+#[test]
+fn signed_request_parts_use_exact_server_message() {
+    let secret = [7u8; 32];
+    let signer = Keypair::from_secret_bytes(&secret);
+    let body = br#"{"amount":1}"#;
+    let body_hash = hash_bytes(body).to_hex();
+
+    let parts = signed_request_parts(
+        &signer,
+        "post",
+        "/v1/accounts/znabc/tasks?limit=1",
+        body,
+        Some(1_700_000_000_123),
+        Some("00112233445566778899aabbccddeeff"),
+    )
+    .expect("signed parts");
+
+    assert_eq!(parts.body_sha256, body_hash);
+    assert_eq!(parts.timestamp_ms, 1_700_000_000_123);
+    assert_eq!(parts.nonce, "00112233445566778899aabbccddeeff");
+    assert_eq!(parts.address, signer.address().to_string());
+    assert_eq!(
+        parts.public_key,
+        hex::encode(signer.public_key().as_bytes())
+    );
+    assert_eq!(
+        parts.message,
+        format!(
+            "zincha-rpc-signed-request-v1\nPOST\n/v1/accounts/znabc/tasks?limit=1\n1700000000123\n00112233445566778899aabbccddeeff\n{}\n{}\n{}",
+            body_hash,
+            signer.address(),
+            hex::encode(signer.public_key().as_bytes())
+        )
+    );
+    assert_eq!(
+        parts.signature,
+        hex::encode(signer.sign(parts.message.as_bytes()).to_bytes())
+    );
+}
+
+#[tokio::test]
+async fn signed_request_hashes_the_exact_body_bytes_it_sends() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"accepted":true},"error":null}"#,
+    );
+    let signer = Keypair::from_secret_bytes(&[8u8; 32]);
+    let signer_address = signer.address().to_string();
+    let signer_public_key = hex::encode(signer.public_key().as_bytes());
+    let client = ZinchaClient::builder()
+        .base_url(&url)
+        .signer(signer)
+        .build()
+        .expect("client");
+
+    let response: Value = client
+        .request(
+            reqwest::Method::POST,
+            "/v1/participant/jobs",
+            RequestOptions::default()
+                .body_json(serde_json::json!({"signed": true, "amount": 7}))
+                .signed()
+                .timestamp_ms(1_700_000_000_999)
+                .nonce("ffeeddccbbaa99887766554433221100"),
+        )
+        .await
+        .expect("signed response");
+
+    assert_eq!(response["accepted"], true);
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "POST");
+    assert_eq!(request.path, "/v1/participant/jobs");
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-body-sha256"),
+        hash_bytes(request.body.as_bytes()).to_hex()
+    );
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-timestamp-ms"),
+        "1700000000999"
+    );
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-nonce"),
+        "ffeeddccbbaa99887766554433221100"
+    );
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-address"),
+        signer_address
+    );
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-public-key"),
+        signer_public_key
+    );
 }

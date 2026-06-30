@@ -2492,6 +2492,8 @@ dependencies = [
  "bincode",
  "clap",
  "hex",
+ "reqwest",
+ "rpassword",
  "serde",
  "serde_json",
  "tokio",
@@ -2505,6 +2507,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures",
+ "hex",
+ "rand 0.8.5",
  "reqwest",
  "rustls",
  "rustls-pemfile",

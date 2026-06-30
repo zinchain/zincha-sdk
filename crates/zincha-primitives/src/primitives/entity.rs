@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::{hash_bytes, Address, PublicKey, Signature};
 use crate::error::{Result, ZinchaError};
 
-fn entity_link_message(chain_id: &str, linked: &Address, entity: &Address) -> [u8; 32] {
+pub fn entity_link_message(chain_id: &str, linked: &Address, entity: &Address) -> [u8; 32] {
     let message = format!(
         "zincha:entity_link:{}:{}:{}",
         chain_id,
