@@ -2,13 +2,13 @@
   "components": {
     "parameters": {
       "AddressParam": {
-        "description": "Zincha address in bech32m form (`zn1` prefix, 61 chars total).",
+        "description": "Zincha address in canonical `zn1` + 40 lowercase hex form (43 chars total).",
         "in": "path",
         "name": "address",
         "required": true,
         "schema": {
-          "example": "zn1abc...xyz",
-          "pattern": "^zn1[a-z0-9]{58}$",
+          "example": "zn10000000000000000000000000000000000000000",
+          "pattern": "^zn1[0-9a-f]{40}$",
           "type": "string"
         }
       },
@@ -11992,22 +11992,22 @@
             "$ref": "#/components/parameters/IdParam"
           },
           {
-            "description": "Owner address (Zincha bech32m form).",
+            "description": "Owner address (Zincha `zn1` + 40 lowercase hex form).",
             "in": "path",
             "name": "owner",
             "required": true,
             "schema": {
-              "pattern": "^zn1[a-z0-9]{58}$",
+              "pattern": "^zn1[0-9a-f]{40}$",
               "type": "string"
             }
           },
           {
-            "description": "Spender address (Zincha bech32m form).",
+            "description": "Spender address (Zincha `zn1` + 40 lowercase hex form).",
             "in": "path",
             "name": "spender",
             "required": true,
             "schema": {
-              "pattern": "^zn1[a-z0-9]{58}$",
+              "pattern": "^zn1[0-9a-f]{40}$",
               "type": "string"
             }
           }
