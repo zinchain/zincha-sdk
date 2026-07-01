@@ -124,6 +124,7 @@ import type {
   SignedTransaction,
   SubmitTransactionResponse,
   TransactionStatus,
+  TransactionHistoryQuery,
   TransferInput,
   TxTypeName,
   ZinchaClientOptions,
@@ -260,8 +261,10 @@ export class ZinchaClient {
     return this.get<NonceResponse>(`/v1/accounts/${normalizeAddress(address)}/nonce`);
   }
 
-  accountTransactions(address: string, query?: { offset?: number; limit?: number }): Promise<unknown> {
-    return this.get(`/v1/accounts/${normalizeAddress(address)}/transactions`, { query });
+  accountTransactions(address: string, query?: TransactionHistoryQuery): Promise<unknown> {
+    return this.get(`/v1/accounts/${normalizeAddress(address)}/transactions`, {
+      query: transactionHistoryQuery(query),
+    });
   }
 
   transaction(hash: Hex): Promise<TransactionStatus> {
@@ -1036,6 +1039,12 @@ export class ZinchaClient {
     return this.get(`/v1/contracts/${normalizeAddress(address)}`);
   }
 
+  contractTransactions(address: string, query?: TransactionHistoryQuery): Promise<unknown> {
+    return this.get(`/v1/contracts/${normalizeAddress(address)}/transactions`, {
+      query: transactionHistoryQuery(query),
+    });
+  }
+
   contractCapabilities(): Promise<unknown> {
     return this.get("/v1/contracts/capabilities");
   }
@@ -1046,6 +1055,12 @@ export class ZinchaClient {
 
   token(id: Hex): Promise<unknown> {
     return this.get(`/v1/tokens/${normalizeHash(id)}`);
+  }
+
+  tokenTransactions(id: Hex, query?: TransactionHistoryQuery): Promise<unknown> {
+    return this.get(`/v1/tokens/${normalizeHash(id)}/transactions`, {
+      query: transactionHistoryQuery(query),
+    });
   }
 
   validators(): Promise<unknown> {
@@ -1104,6 +1119,13 @@ function buildRequestTarget(path: string, query?: RequestOptions["query"]): stri
   }
   const encoded = params.toString();
   return encoded ? `${target}?${encoded}` : target;
+}
+
+function transactionHistoryQuery(query?: TransactionHistoryQuery): RequestOptions["query"] {
+  return {
+    limit: query?.limit,
+    cursor: query?.cursor,
+  };
 }
 
 function httpToWebsocketUrl(baseUrl: string): string {

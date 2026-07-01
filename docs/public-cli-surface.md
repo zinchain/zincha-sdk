@@ -40,12 +40,15 @@ participant reads. Generic `zincha query <path>` remains as an escape hatch.
 | Category | Examples |
 | --- | --- |
 | Chain/blocks | `query chain`, `query block`, `query blocks` |
-| Accounts/agents/requesters | `query account`, `query account-nonce`, `query agent`, `query agents`, `query requester-reputation` |
+| Accounts/agents/requesters | `query account`, `query account-nonce`, `query account-transactions`, `query agent`, `query agents`, `query requester-reputation` |
 | Tasks/tools/subscriptions | `query task`, `query tasks`, `query tool`, `query tools`, `query subscription` |
-| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query contract`, `query route`, `query token`, `query arbitrator` |
+| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query contract`, `query contract-transactions`, `query route`, `query token`, `query token-transactions`, `query arbitrator` |
 | Events/transactions/validators | `query events`, `query tx`, `query validator`, `query validators` |
 | Participant reads | `query participant <path>` with a signer and local address-scope checks. |
 
 Operator, provider-read, testing, readiness-internal, mempool, pipeline,
 consensus, finality, orderflow-stats, and node-memory endpoints are not wired
 as typed query commands.
+
+Account, contract, and token transaction-history queries use cursor pagination
+with `--limit` and `--cursor`; they intentionally do not expose `--offset`.

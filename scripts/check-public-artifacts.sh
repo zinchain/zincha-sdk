@@ -36,6 +36,48 @@ for required in (
     if required not in description:
         raise SystemExit(f"error: OpenAPI description missing {required!r}")
 
+history_paths = {
+    "/v1/accounts/{address}/transactions": "TransactionList",
+    "/v1/contracts/{address}/transactions": "TransactionList",
+    "/v1/tokens/{id}/transactions": "TokenTransactionList",
+}
+
+for path, data_schema_name in history_paths.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    if not operation:
+        raise SystemExit(f"error: OpenAPI missing GET {path}")
+    parameter_refs = [parameter.get("$ref") for parameter in operation.get("parameters") or []]
+    if "#/components/parameters/PaginationLimit" not in parameter_refs:
+        raise SystemExit(f"error: {path} missing PaginationLimit")
+    if "#/components/parameters/PaginationCursor" not in parameter_refs:
+        raise SystemExit(f"error: {path} missing PaginationCursor")
+    if "#/components/parameters/PaginationOffset" in parameter_refs:
+        raise SystemExit(f"error: {path} must not expose PaginationOffset")
+
+    response_schema = (
+        (((operation.get("responses") or {}).get("200") or {}).get("content") or {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    envelope_ref = response_schema.get("$ref")
+    if not envelope_ref:
+        raise SystemExit(f"error: {path} 200 response must reference a response envelope")
+    envelope = spec["components"]["schemas"][envelope_ref.rsplit("/", 1)[-1]]
+    data_refs = [
+        item.get("$ref")
+        for item in (
+            ((envelope.get("properties") or {}).get("data") or {}).get("oneOf") or []
+        )
+        if item.get("$ref")
+    ]
+    expected_data_ref = f"#/components/schemas/{data_schema_name}"
+    if expected_data_ref not in data_refs:
+        raise SystemExit(f"error: {path} response data must reference {data_schema_name}")
+    data_schema = spec["components"]["schemas"][data_schema_name]
+    pagination_ref = ((data_schema.get("properties") or {}).get("pagination") or {}).get("$ref")
+    if pagination_ref != "#/components/schemas/CursorPagination":
+        raise SystemExit(f"error: {path} must use CursorPagination")
+
 print("openapi/openapi.json parsed OK")
 PY
 
@@ -52,6 +94,7 @@ private_markers=(
     "query balance"
     "query nonce"
     "\`--network\` is an alias"
+    "contract/address/token transaction history) only to"
 )
 
 for marker in "${private_markers[@]}"; do
@@ -70,6 +113,9 @@ required_skill_markers=(
     "zincha --release vega faucet --address zn1..."
     "zincha --release vega query account zn1..."
     "zincha --release vega query account-nonce zn1..."
+    "index-backed"
+    "pagination.next_cursor"
+    "agents must not retry with \`offset\`"
     "provider-authenticated"
 )
 

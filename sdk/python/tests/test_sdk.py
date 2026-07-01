@@ -176,6 +176,54 @@ class PythonSdkTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 429)
         self.assertEqual(caught.exception.data, {"retry_after_secs": 10})
 
+    def test_transaction_history_helpers_use_cursor_pagination(self):
+        calls = []
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "items": [],
+                        "pagination": {
+                            "total": 0,
+                            "limit": 5,
+                            "has_more": False,
+                            "next_cursor": None,
+                            "cursor": "abcdef",
+                        },
+                    },
+                    "error": None,
+                }
+            )
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        client.account_transactions(GOLDEN["sender"], limit=5, cursor="abcdef")
+        client.contract_transactions(GOLDEN["recipient"], limit=2, cursor="c0ffee")
+        client.token_transactions("11" * 32, limit=3, cursor="1234")
+
+        self.assertEqual(
+            calls[0][1],
+            "http://node.test/v1/accounts/%s/transactions?limit=5&cursor=abcdef"
+            % GOLDEN["sender"],
+        )
+        self.assertEqual(
+            calls[1][1],
+            "http://node.test/v1/contracts/%s/transactions?limit=2&cursor=c0ffee"
+            % GOLDEN["recipient"],
+        )
+        self.assertEqual(
+            calls[2][1],
+            "http://node.test/v1/tokens/%s/transactions?limit=3&cursor=1234" % ("11" * 32),
+        )
+        for method, url, _headers, _body, _timeout in calls:
+            self.assertEqual(method, "GET")
+            self.assertNotIn("offset", url)
+
+        with self.assertRaises(TypeError):
+            client.account_transactions(GOLDEN["sender"], offset=0)
+
     def test_release_faucet_helper_uses_release_faucet_api_while_normal_calls_use_canonical_rpc(self):
         calls = []
 

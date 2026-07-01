@@ -75,6 +75,24 @@ fn help_and_version_are_available() {
 }
 
 #[test]
+fn transaction_history_query_help_uses_cursor_not_offset() {
+    for command in [
+        "account-transactions",
+        "contract-transactions",
+        "token-transactions",
+    ] {
+        let output = zincha()
+            .args(["query", command, "--help"])
+            .output()
+            .unwrap_or_else(|error| panic!("run query {command} help: {error}"));
+        assert_success(&output);
+        let help = stdout(&output);
+        assert!(help.contains("--cursor"), "{help}");
+        assert!(!help.contains("--offset"), "{help}");
+    }
+}
+
+#[test]
 fn keygen_json_prints_wallet_material_when_explicitly_requested() {
     let output = zincha()
         .args(["--json", "keygen", "--unsafe-print-secret"])

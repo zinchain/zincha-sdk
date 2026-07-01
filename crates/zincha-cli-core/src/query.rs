@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use reqwest::Method;
 use serde_json::Value;
-use zincha_client::{RequestOptions, ZinchaClient};
+use zincha_client::{RequestOptions, TransactionHistoryQuery, ZinchaClient};
 
 #[derive(Debug, Parser)]
 pub struct QueryCommand {
@@ -34,6 +34,8 @@ pub enum QueryCommands {
         address: String,
         #[arg(long)]
         limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
     },
     Agent {
         address: String,
@@ -59,12 +61,26 @@ pub enum QueryCommands {
     Contract {
         address: String,
     },
+    ContractTransactions {
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     Route {
         deployer: String,
         route_name: String,
     },
     Token {
         token_id: String,
+    },
+    TokenTransactions {
+        token_id: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
     },
     Arbitrator {
         address: String,
@@ -114,14 +130,15 @@ pub async fn run_query(
         Some(QueryCommands::AccountNonce { address }) => {
             ("query-account-nonce", client.nonce(&address).await?)
         }
-        Some(QueryCommands::AccountTransactions { address, limit }) => (
+        Some(QueryCommands::AccountTransactions {
+            address,
+            limit,
+            cursor,
+        }) => (
             "query-account-transactions",
-            get_with_limit(
-                &client,
-                &format!("/v1/accounts/{address}/transactions"),
-                limit,
-            )
-            .await?,
+            client
+                .account_transactions(&address, transaction_history_query(limit, cursor))
+                .await?,
         ),
         Some(QueryCommands::Agent { address }) => (
             "query-agent",
@@ -160,6 +177,16 @@ pub async fn run_query(
             "query-contract",
             client.get(&format!("/v1/contracts/{address}")).await?,
         ),
+        Some(QueryCommands::ContractTransactions {
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-contract-transactions",
+            client
+                .contract_transactions(&address, transaction_history_query(limit, cursor))
+                .await?,
+        ),
         Some(QueryCommands::Route {
             deployer,
             route_name,
@@ -172,6 +199,16 @@ pub async fn run_query(
         Some(QueryCommands::Token { token_id }) => (
             "query-token",
             client.get(&format!("/v1/tokens/{token_id}")).await?,
+        ),
+        Some(QueryCommands::TokenTransactions {
+            token_id,
+            limit,
+            cursor,
+        }) => (
+            "query-token-transactions",
+            client
+                .token_transactions(&token_id, transaction_history_query(limit, cursor))
+                .await?,
         ),
         Some(QueryCommands::Arbitrator { address }) => (
             "query-arbitrator",
@@ -210,6 +247,20 @@ pub async fn run_query(
         }
     };
     emit(label, payload, context.json)
+}
+
+fn transaction_history_query(
+    limit: Option<u64>,
+    cursor: Option<String>,
+) -> TransactionHistoryQuery {
+    let mut query = TransactionHistoryQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
+    }
+    query
 }
 
 async fn get_with_limit(client: &ZinchaClient, path: &str, limit: Option<u64>) -> Result<Value> {
@@ -251,4 +302,120 @@ fn enforce_address_scope(path: &str, signer_address: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::{CommandFactory, Parser};
+
+    #[test]
+    fn account_transactions_accepts_cursor_not_offset() {
+        let parsed = QueryCommand::try_parse_from([
+            "query",
+            "account-transactions",
+            "zn1abc",
+            "--limit",
+            "5",
+            "--cursor",
+            "abcdef",
+        ])
+        .expect("parse account transaction history query");
+
+        match parsed.command.expect("typed query command") {
+            QueryCommands::AccountTransactions {
+                address,
+                limit,
+                cursor,
+            } => {
+                assert_eq!(address, "zn1abc");
+                assert_eq!(limit, Some(5));
+                assert_eq!(cursor.as_deref(), Some("abcdef"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let err = QueryCommand::try_parse_from([
+            "query",
+            "account-transactions",
+            "zn1abc",
+            "--offset",
+            "0",
+        ])
+        .expect_err("offset must not parse for transaction history");
+        assert!(err.to_string().contains("--offset"), "{err}");
+    }
+
+    #[test]
+    fn contract_and_token_transactions_accept_cursor_not_offset() {
+        let contract = QueryCommand::try_parse_from([
+            "query",
+            "contract-transactions",
+            "zn1contract",
+            "--limit",
+            "2",
+            "--cursor",
+            "c0ffee",
+        ])
+        .expect("parse contract transaction history query");
+        match contract.command.expect("typed query command") {
+            QueryCommands::ContractTransactions {
+                address,
+                limit,
+                cursor,
+            } => {
+                assert_eq!(address, "zn1contract");
+                assert_eq!(limit, Some(2));
+                assert_eq!(cursor.as_deref(), Some("c0ffee"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let token = QueryCommand::try_parse_from([
+            "query",
+            "token-transactions",
+            "11",
+            "--limit",
+            "3",
+            "--cursor",
+            "abcdef",
+        ])
+        .expect("parse token transaction history query");
+        match token.command.expect("typed query command") {
+            QueryCommands::TokenTransactions {
+                token_id,
+                limit,
+                cursor,
+            } => {
+                assert_eq!(token_id, "11");
+                assert_eq!(limit, Some(3));
+                assert_eq!(cursor.as_deref(), Some("abcdef"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        for command in ["contract-transactions", "token-transactions"] {
+            let err = QueryCommand::try_parse_from(["query", command, "zn1abc", "--offset", "0"])
+                .expect_err("offset must not parse for transaction history");
+            assert!(err.to_string().contains("--offset"), "{err}");
+        }
+    }
+
+    #[test]
+    fn transaction_history_help_shows_cursor_not_offset() {
+        let mut command = QueryCommand::command();
+        for name in [
+            "account-transactions",
+            "contract-transactions",
+            "token-transactions",
+        ] {
+            let help = command
+                .find_subcommand_mut(name)
+                .unwrap_or_else(|| panic!("missing subcommand {name}"))
+                .render_long_help()
+                .to_string();
+            assert!(help.contains("--cursor"), "{help}");
+            assert!(!help.contains("--offset"), "{help}");
+        }
+    }
 }

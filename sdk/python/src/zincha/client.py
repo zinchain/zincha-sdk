@@ -259,12 +259,12 @@ class ZinchaClient:
         self,
         address: str,
         *,
-        offset: Optional[int] = None,
         limit: Optional[int] = None,
+        cursor: Optional[str] = None,
     ) -> Any:
         return self.get(
             "/v1/accounts/%s/transactions" % normalize_address(address),
-            query={"offset": offset, "limit": limit},
+            query={"limit": limit, "cursor": cursor},
         )
 
     def transaction(self, tx_hash: str) -> Dict[str, Any]:
@@ -2028,6 +2028,18 @@ class ZinchaClient:
     def contract(self, address: str) -> Any:
         return self.get("/v1/contracts/%s" % normalize_address(address))
 
+    def contract_transactions(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/contracts/%s/transactions" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+        )
+
     def contract_capabilities(self) -> Any:
         return self.get("/v1/contracts/capabilities")
 
@@ -2036,6 +2048,18 @@ class ZinchaClient:
 
     def token(self, token_id: str) -> Any:
         return self.get("/v1/tokens/%s" % _normalize_hash(token_id))
+
+    def token_transactions(
+        self,
+        token_id: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tokens/%s/transactions" % _normalize_hash(token_id),
+            query={"limit": limit, "cursor": cursor},
+        )
 
     def validators(self) -> Any:
         return self.get("/v1/consensus/validators")

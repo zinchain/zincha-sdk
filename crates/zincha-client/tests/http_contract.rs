@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-use zincha_client::{signed_request_parts, RequestOptions, ZinchaClient};
+use zincha_client::{signed_request_parts, RequestOptions, TransactionHistoryQuery, ZinchaClient};
 use zincha_primitives::crypto::{hash_bytes, Keypair};
 
 #[derive(Debug)]
@@ -165,6 +165,73 @@ async fn faucet_uses_openapi_path_and_amount_fields() {
             "amount_zin": 1,
         })
     );
+}
+
+#[tokio::test]
+async fn transaction_history_helpers_use_cursor_pagination_without_offset() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"pagination":{"total":0,"limit":5,"has_more":false,"next_cursor":null,"cursor":"abcdef"}},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    let response = client
+        .account_transactions(
+            "zn1account",
+            TransactionHistoryQuery::new().limit(5).cursor("abcdef"),
+        )
+        .await
+        .expect("account history");
+
+    assert_eq!(response["items"], serde_json::json!([]));
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(
+        request.path,
+        "/v1/accounts/zn1account/transactions?limit=5&cursor=abcdef"
+    );
+    assert!(!request.path.contains("offset"));
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"pagination":{"total":0,"limit":2,"has_more":false,"next_cursor":null,"cursor":"c0ffee"}},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .contract_transactions(
+            "zn1contract",
+            TransactionHistoryQuery::new().limit(2).cursor("c0ffee"),
+        )
+        .await
+        .expect("contract history");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(
+        request.path,
+        "/v1/contracts/zn1contract/transactions?limit=2&cursor=c0ffee"
+    );
+    assert!(!request.path.contains("offset"));
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"pagination":{"total":0,"limit":3,"has_more":false,"next_cursor":null,"cursor":"1234"}},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .token_transactions("11", TransactionHistoryQuery::new().limit(3).cursor("1234"))
+        .await
+        .expect("token history");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(
+        request.path,
+        "/v1/tokens/11/transactions?limit=3&cursor=1234"
+    );
+    assert!(!request.path.contains("offset"));
 }
 
 #[tokio::test]

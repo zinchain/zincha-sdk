@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-06-30
+**Version:** 2026-07-01
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -147,10 +147,11 @@ Useful public routes:
   agents should not treat producer-disabled or archive-backfill states as the
   same thing as process death.
 - `GET /archive/ready` for archive-history coverage. Public proxies
-  should route historical reads (`/v1/blocks/:number`, `/v1/tx/:hash`,
-  `/v1/events`, contract/address/token transaction history) only to
-  nodes whose `/archive/ready` is currently 200. Validators run with
-  `archive_mode = false` and intentionally fail this probe.
+  should route historical block reads (`/v1/blocks/:number`),
+  historical transaction lookup (`/v1/tx/:hash`), and durable event
+  replay (`/v1/events`) only to nodes whose `/archive/ready` is
+  currently 200. Validators run with `archive_mode = false` and
+  intentionally fail this probe.
 - `GET /v1/chain/info` for chain ID, release, canonical endpoint
   metadata, and the calling node's storage role plus archive coverage
   (`storage_mode`, `archive_mode`, `historical_reads_available`,
@@ -159,6 +160,15 @@ Useful public routes:
 - `GET /v1/blocks/latest` and `GET /v1/blocks/:number` for block reads.
 - `GET /v1/accounts/:address/balance` and `GET /v1/accounts/:address/nonce`
   for account state.
+- `GET /v1/accounts/:address/transactions`,
+  `GET /v1/tokens/:id/transactions`, and
+  `GET /v1/contracts/:address/transactions` for index-backed
+  transaction history. These use `limit` and opaque `cursor`
+  pagination, not `offset`; responses include `pagination.total`,
+  `pagination.has_more`, `pagination.next_cursor`, and
+  `pagination.cursor`. A `503` means transaction-history indexes or
+  exact counters are not ready, so agents must not retry with `offset`
+  or fall back to block scanning.
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status.

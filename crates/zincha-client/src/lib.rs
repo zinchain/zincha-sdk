@@ -128,6 +128,45 @@ impl ZinchaClient {
         self.get(&format!("/v1/accounts/{address}/nonce")).await
     }
 
+    pub async fn account_transactions(
+        &self,
+        address: &str,
+        query: TransactionHistoryQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/accounts/{address}/transactions"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn contract_transactions(
+        &self,
+        address: &str,
+        query: TransactionHistoryQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/contracts/{address}/transactions"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn token_transactions(
+        &self,
+        token_id: &str,
+        query: TransactionHistoryQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tokens/{token_id}/transactions"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
     pub async fn transaction_status(&self, hash: &str) -> Result<Value> {
         self.get(&format!("/v1/tx/{hash}")).await
     }
@@ -382,6 +421,39 @@ impl RequestOptions {
     pub fn nonce(mut self, nonce: impl Into<String>) -> Self {
         self.nonce = Some(nonce.into());
         self
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct TransactionHistoryQuery {
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+}
+
+impl TransactionHistoryQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    fn into_request_options(self) -> RequestOptions {
+        let mut options = RequestOptions::default();
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
+        options
     }
 }
 

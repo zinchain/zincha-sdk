@@ -63,6 +63,11 @@ export interface NonceResponse {
   next_nonce: number;
 }
 
+export interface TransactionHistoryQuery {
+  limit?: number;
+  cursor?: string;
+}
+
 export interface SubmitTransactionResponse {
   tx_hash: Hex;
   status: string;

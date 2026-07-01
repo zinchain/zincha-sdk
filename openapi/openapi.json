@@ -52,6 +52,16 @@
           "type": "integer"
         }
       },
+      "PaginationCursor": {
+        "description": "Opaque lower-hex cursor returned by the previous page.",
+        "in": "query",
+        "name": "cursor",
+        "required": false,
+        "schema": {
+          "pattern": "^[0-9a-f]+$",
+          "type": "string"
+        }
+      },
       "PaginationLimit": {
         "description": "Page size. Defaults to 20.",
         "in": "query",
@@ -2552,6 +2562,50 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "CursorPagination": {
+        "properties": {
+          "cursor": {
+            "description": "Cursor supplied on the request, or null for the first page.",
+            "pattern": "^[0-9a-f]+$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "description": "Whether more records exist beyond this page.",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Page size used for this response.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "next_cursor": {
+            "description": "Opaque lower-hex cursor to pass as `cursor` for the next page; null when there is no next page.",
+            "pattern": "^[0-9a-f]+$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "description": "Exact number of indexed transaction-history rows for the entity.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "has_more",
+          "next_cursor",
+          "cursor"
+        ],
         "type": "object"
       },
       "DirectFinalityValidationStatus": {
@@ -6074,7 +6128,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           },
           "token_id": {
             "pattern": "^[0-9a-f]{64}$",
@@ -6265,7 +6319,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -6989,7 +7043,7 @@
     },
     "/v1/accounts/{address}/transactions": {
       "get": {
-        "description": "Returns the address's transactions across all transaction types (transfers, token operations, agent or task actions, contract calls, etc.) most-recent first. Use `limit` and `offset` to paginate; default page size is 20, max is 100. Each item includes the transaction hash, block number, block hash, position in block, transaction type, fee, status, and the transaction payload shape appropriate to its type.",
+        "description": "Returns the address's transactions across all transaction types (transfers, token operations, agent or task actions, contract calls, etc.) most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate; default page size is 20, max is 100. `total` is an exact indexed row count for the address. Each item includes the transaction hash, block number, block hash, position in block, transaction type, fee, status, and the transaction payload shape appropriate to its type.",
         "operationId": "get_account_transactions",
         "parameters": [
           {
@@ -6999,7 +7053,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -7077,11 +7131,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Archive history unavailable on this node"
+            "description": "Transaction history index or exact counters are not ready"
           }
         },
         "security": [
@@ -7100,7 +7154,7 @@
         "x-zincha-auth": "bearer",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
         "x-zincha-rate-limit-class": "expensive_read",
-        "x-zincha-requires-archive-history": true,
+        "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "public"
       }
     },
@@ -9735,7 +9789,7 @@
     },
     "/v1/contracts/{address}/transactions": {
       "get": {
-        "description": "Returns transactions involving the contract: deployment, calls, upgrades, direct ZIN transfers in. Each item includes the transaction hash, type, gas used, and result (success or revert).",
+        "description": "Returns transactions involving the contract: deployment, calls, upgrades, direct ZIN transfers in. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. `total` is an exact indexed row count for the contract. Each item includes the transaction hash, type, gas used, and result (success or revert).",
         "operationId": "get_contract_transactions",
         "parameters": [
           {
@@ -9745,7 +9799,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -9823,11 +9877,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Archive history unavailable on this node"
+            "description": "Transaction history index or exact counters are not ready"
           }
         },
         "security": [
@@ -9846,7 +9900,7 @@
         "x-zincha-auth": "bearer",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
         "x-zincha-rate-limit-class": "expensive_read",
-        "x-zincha-requires-archive-history": true,
+        "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "public"
       }
     },
@@ -12401,7 +12455,7 @@
     },
     "/v1/tokens/{id}/transactions": {
       "get": {
-        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Each item includes the transaction hash, block, type, and the principals involved (from/to/owner/spender depending on type).",
+        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. `total` is an exact indexed row count for the token. Each item includes the transaction hash, block, type, and the principals involved (from/to/owner/spender depending on type).",
         "operationId": "get_token_transactions",
         "parameters": [
           {
@@ -12411,7 +12465,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -12489,11 +12543,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Archive history unavailable on this node"
+            "description": "Transaction history index or exact counters are not ready"
           }
         },
         "security": [
@@ -12512,7 +12566,7 @@
         "x-zincha-auth": "bearer",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
         "x-zincha-rate-limit-class": "expensive_read",
-        "x-zincha-requires-archive-history": true,
+        "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "public"
       }
     },

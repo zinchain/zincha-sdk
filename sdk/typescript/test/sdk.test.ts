@@ -177,6 +177,51 @@ test("client unwraps API responses and surfaces API errors", async () => {
   );
 });
 
+test("transaction history helpers use cursor pagination and drop offset", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: {
+          items: [],
+          pagination: {
+            total: 0,
+            limit: 5,
+            has_more: false,
+            next_cursor: null,
+            cursor: "abcdef",
+          },
+        },
+        error: null,
+      });
+    },
+  });
+
+  await client.accountTransactions(golden.sender, { limit: 5, cursor: "abcdef", offset: 0 } as any);
+  await client.contractTransactions(golden.recipient, { limit: 2, cursor: "c0ffee", offset: 1 } as any);
+  await client.tokenTransactions("11".repeat(32), { limit: 3, cursor: "1234", offset: 2 } as any);
+
+  assert.equal(
+    calls[0].url,
+    `http://node.test/v1/accounts/${golden.sender}/transactions?limit=5&cursor=abcdef`,
+  );
+  assert.equal(
+    calls[1].url,
+    `http://node.test/v1/contracts/${golden.recipient}/transactions?limit=2&cursor=c0ffee`,
+  );
+  assert.equal(
+    calls[2].url,
+    `http://node.test/v1/tokens/${"11".repeat(32)}/transactions?limit=3&cursor=1234`,
+  );
+  for (const call of calls) {
+    assert.equal(call.init.method, "GET");
+    assert.equal(call.url.includes("offset"), false);
+  }
+});
+
 test("release faucet helper uses release faucet API while normal calls use canonical RPC", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = ZinchaClient.forRelease("vega", {
