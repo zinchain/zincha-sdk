@@ -6180,12 +6180,13 @@
             "format": "int64",
             "type": "integer"
           },
+          "block_timestamp_ms": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
           "from": {
             "type": "string"
-          },
-          "timestamp_ms": {
-            "format": "int64",
-            "type": "integer"
           },
           "to": {
             "type": "string"
@@ -6495,6 +6496,11 @@
           "block_number": {
             "format": "int64",
             "minimum": 0,
+            "type": "integer"
+          },
+          "block_timestamp_ms": {
+            "format": "int64",
+            "minimum": 1,
             "type": "integer"
           },
           "fee_micro_zin": {

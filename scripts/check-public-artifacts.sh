@@ -42,6 +42,11 @@ history_paths = {
     "/v1/tokens/{id}/transactions": "TokenTransactionList",
 }
 
+history_item_schemas = {
+    "TransactionList": "TransactionListItem",
+    "TokenTransactionList": "TokenTransaction",
+}
+
 for path, data_schema_name in history_paths.items():
     operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
     if not operation:
@@ -77,6 +82,18 @@ for path, data_schema_name in history_paths.items():
     pagination_ref = ((data_schema.get("properties") or {}).get("pagination") or {}).get("$ref")
     if pagination_ref != "#/components/schemas/CursorPagination":
         raise SystemExit(f"error: {path} must use CursorPagination")
+    item_schema_ref = (
+        (((data_schema.get("properties") or {}).get("items") or {}).get("items") or {}).get("$ref")
+    )
+    expected_item_schema = history_item_schemas[data_schema_name]
+    if item_schema_ref != f"#/components/schemas/{expected_item_schema}":
+        raise SystemExit(f"error: {path} items must reference {expected_item_schema}")
+    item_schema = spec["components"]["schemas"][expected_item_schema]
+    item_properties = item_schema.get("properties") or {}
+    if "block_timestamp_ms" not in item_properties:
+        raise SystemExit(f"error: {expected_item_schema} missing block_timestamp_ms")
+    if "timestamp_ms" in item_properties:
+        raise SystemExit(f"error: {expected_item_schema} must not expose timestamp_ms")
 
 print("openapi/openapi.json parsed OK")
 PY

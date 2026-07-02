@@ -104,6 +104,7 @@ export interface TransactionStatus {
   mempool_stage?: string | null;
   block_number?: number | null;
   block_hash?: Hex | null;
+  block_timestamp_ms?: number | null;
   tx_index?: number | null;
   sender?: AddressString;
   tx_type?: string;
