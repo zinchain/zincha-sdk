@@ -95,6 +95,13 @@ for path, data_schema_name in history_paths.items():
     if "timestamp_ms" in item_properties:
         raise SystemExit(f"error: {expected_item_schema} must not expose timestamp_ms")
 
+transaction_status = spec["components"]["schemas"]["TransactionStatus"]
+transaction_status_properties = transaction_status.get("properties") or {}
+if "block_timestamp_ms" not in transaction_status_properties:
+    raise SystemExit("error: TransactionStatus missing block_timestamp_ms")
+if "timestamp_ms" in transaction_status_properties:
+    raise SystemExit("error: TransactionStatus must not expose timestamp_ms")
+
 print("openapi/openapi.json parsed OK")
 PY
 

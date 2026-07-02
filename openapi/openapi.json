@@ -6554,6 +6554,14 @@
               "null"
             ]
           },
+          "block_timestamp_ms": {
+            "format": "int64",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "known": {
             "description": "True if the node has any record of this hash.",
             "type": "boolean"
