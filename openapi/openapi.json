@@ -1660,6 +1660,85 @@
             "minimum": 0,
             "type": "integer"
           },
+          "archive_state_log_first_pending_height": {
+            "description": "Lowest pending state-log materialization height, or null when none are pending.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "archive_state_log_materialization_decision": {
+            "description": "Current state-log materialization scheduler decision reason.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "archive_state_log_materialization_target_height": {
+            "description": "Current selected state-log materialization target height, or null when coalescing/skipping.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "archive_state_log_pending_count": {
+            "description": "Number of canonical state-log materialization records still pending.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archive_state_log_promotion_bytes": {
+            "description": "Bytes promoted by the last state-log materialization worker.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archive_state_log_promotion_chunk_count": {
+            "description": "Chunk files promoted by the last state-log materialization worker.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archive_state_log_worker_active": {
+            "description": "True while an archive state-log materialization worker is active.",
+            "type": "boolean"
+          },
+          "archive_state_log_worker_duration_ms": {
+            "description": "Duration in milliseconds for the last state-log materialization worker.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archive_state_log_worker_last_range": {
+            "description": "Last state-log materialization worker height range, or null if none has completed.",
+            "oneOf": [
+              {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "format": "int64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "format": "int64",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "checkpoint_artifact_consensus_block_reason": {
             "type": [
               "string",
@@ -1764,7 +1843,16 @@
           "archive_projection_ledger_first_incomplete",
           "archive_projection_ledger_last_error",
           "archive_projection_local_repair_in_progress",
-          "archive_projection_local_repair_last_height"
+          "archive_projection_local_repair_last_height",
+          "archive_state_log_pending_count",
+          "archive_state_log_first_pending_height",
+          "archive_state_log_materialization_target_height",
+          "archive_state_log_materialization_decision",
+          "archive_state_log_worker_active",
+          "archive_state_log_worker_last_range",
+          "archive_state_log_worker_duration_ms",
+          "archive_state_log_promotion_bytes",
+          "archive_state_log_promotion_chunk_count"
         ],
         "type": "object"
       },
@@ -6310,6 +6398,74 @@
         ],
         "type": "object"
       },
+      "TransactionHistoryUnavailableResponse": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "properties": {
+              "endpoint": {
+                "type": "string"
+              },
+              "handler": {
+                "type": "string"
+              },
+              "transaction_history_indexed_through_height": {
+                "description": "Highest canonical block height covered by hot transaction-history indexes.",
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "transaction_history_ready": {
+                "description": "Whether hot canonical transaction-history rows and exact counters are ready for serving.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "transaction_history_rebuild_in_progress": {
+                "description": "True while a transaction-history schema migration or hot-index rebuild is in progress.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "transaction_history_repair_required": {
+                "description": "True when counter corruption or another transaction-history-specific fault requires repair.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "transaction_history_ready",
+              "transaction_history_indexed_through_height",
+              "transaction_history_repair_required",
+              "transaction_history_rebuild_in_progress"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "description": "Human-readable transaction-history readiness error.",
+            "type": "string"
+          },
+          "success": {
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "data",
+          "error"
+        ],
+        "type": "object"
+      },
       "TransactionList": {
         "properties": {
           "items": {
@@ -7131,7 +7287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/TransactionHistoryUnavailableResponse"
                 }
               }
             },
@@ -9877,7 +10033,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/TransactionHistoryUnavailableResponse"
                 }
               }
             },
@@ -12543,7 +12699,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/TransactionHistoryUnavailableResponse"
                 }
               }
             },
