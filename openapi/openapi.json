@@ -4633,6 +4633,31 @@
             ],
             "type": "string"
           },
+          "conduit_inbound_queue_full_rejected_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conduit_pending_response_capacity_rejected_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conduit_pending_response_channel_capacity": {
+            "type": "integer"
+          },
+          "conduit_pending_response_channel_per_peer_capacity": {
+            "type": "integer"
+          },
+          "conduit_pending_response_channels": {
+            "type": "integer"
+          },
+          "conduit_pending_response_expired_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conduit_response_unknown_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "contract_runtime": {
             "$ref": "#/components/schemas/ContractRuntimeProfileStatus"
           },
