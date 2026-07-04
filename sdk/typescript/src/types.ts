@@ -73,6 +73,45 @@ export interface ParticipantWorkflowQuery {
   cursor?: string;
 }
 
+export interface CapabilityListQuery {
+  limit?: number;
+  cursor?: string;
+  status?: "active" | "pending" | "deprecated" | "all" | string;
+  category?: string;
+  parent?: string;
+}
+
+export interface CapabilitySearchQuery {
+  limit?: number;
+  status?: "active" | "pending" | "deprecated" | "all" | string;
+  category?: string;
+}
+
+export interface CapabilityUsageSummary {
+  agent_count: number;
+  tool_count: number;
+  open_task_count: number;
+  market_sample_count: number;
+}
+
+export interface CapabilityCatalogEntry {
+  slug: string;
+  display_name: string;
+  description: string;
+  category: string;
+  parent?: string | null;
+  status: "active" | "pending" | "rejected" | "deprecated" | string;
+  aliases: string[];
+  keywords: string[];
+  examples: string[];
+  related: string[];
+  proposer?: AddressString | string | null;
+  source: "seed" | "user_proposed" | "curated" | string;
+  created_at_block: number;
+  updated_at_block: number;
+  usage: CapabilityUsageSummary;
+}
+
 export interface SubmitTransactionResponse {
   tx_hash: Hex;
   status: string;
@@ -249,4 +288,8 @@ export type TxTypeName =
   | "contract_publish_abi"
   | "contract_route_update"
   | "contract_route_call"
-  | "protocol_params_update";
+  | "protocol_params_update"
+  | "capability_propose"
+  | "capability_approve"
+  | "capability_reject"
+  | "capability_deprecate";

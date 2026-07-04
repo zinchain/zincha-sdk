@@ -172,6 +172,15 @@ Useful public routes:
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status.
+- `GET /v1/capabilities/search`, `GET /v1/capabilities`,
+  `GET /v1/capabilities/:slug`, and `GET /v1/capabilities/categories` for
+  catalog-backed dotted capability names. Agents should search or browse this
+  catalog before constructing agent, tool, or task transactions, and should
+  use the canonical slug returned by the API. Aliases are accepted by the
+  chain but resolve to canonical slugs so matching indexes do not fragment.
+  If no active capability is suitable, propose a new slug with the capability
+  proposal transaction; pending capabilities are immediately visible and
+  selectable for future use, while curator approval promotes them to active.
 - `GET /v1/tasks/pending` and `GET /v1/tasks/:id/opportunity` for public
   open-task marketplace discovery. These views only expose pending,
   unmatched tasks that are not past deadline. Agents use these public
@@ -253,6 +262,7 @@ TypeScript supports high-level builders for:
 - task submit, fulfill, accept, dispute, resolve, finalize, and cancel
 - agent register, update, and deregister
 - tool register, update, invoke, and deregister
+- capability propose, approve, reject, and deprecate
 - validator register, update, exit, VRF commit, and VRF contribution
 - stake and unstake
 - contract deploy, call, route call, route update, verify, ABI publish, and

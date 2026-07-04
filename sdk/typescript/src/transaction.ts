@@ -87,6 +87,10 @@ export const TX_TYPE_WIRE_CODES: Record<TxTypeName, number> = {
   task_dispute: 64,
   task_resolve: 65,
   task_finalize: 66,
+  capability_propose: 67,
+  capability_approve: 68,
+  capability_reject: 69,
+  capability_deprecate: 70,
 };
 
 export function createTransferTransaction(

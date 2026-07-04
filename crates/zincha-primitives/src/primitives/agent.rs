@@ -5,12 +5,13 @@ use crate::crypto::{Address, Hash256};
 /// An extensible, string-based capability identifier.
 ///
 /// Capabilities use namespaced dot-notation strings (e.g. `"ai.text.generation"`,
-/// `"finance.trading.options"`, `"legal.contract.review-us"`). Any agent can
-/// declare any capability string — no chain upgrade is needed for new ones.
+/// `"finance.trading.options"`, `"legal.contract.review-us"`). The string wire
+/// type is stable, but agent, tool, and task transactions must resolve each
+/// capability to an active or pending catalog entry before state accepts it.
 ///
 /// Well-known capabilities are provided as constants in `Capability::*` for
-/// convenience, but the system is fully open: agents are free to declare
-/// custom capabilities and tasks can require them.
+/// convenience. New custom capabilities are added through the capability
+/// proposal flow, then referenced by canonical slug or alias.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Capability(pub String);
 

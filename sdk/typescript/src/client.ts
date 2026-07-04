@@ -59,8 +59,16 @@ import {
   encodeContractRouteCallData,
   encodeContractRouteUpdateData,
   encodeContractVerifyData,
+  encodeCapabilityApproveData,
+  encodeCapabilityDeprecateData,
+  encodeCapabilityProposeData,
+  encodeCapabilityRejectData,
   type AgentDeregisterInput,
   type AgentUpdateInput,
+  type CapabilityApproveInput,
+  type CapabilityDeprecateInput,
+  type CapabilityProposeInput,
+  type CapabilityRejectInput,
   type ContractCallInput,
   type ContractDeactivateInput,
   type ContractDeployInput,
@@ -114,6 +122,8 @@ import type {
   ApiResponse,
   BalanceResponse,
   BigNumberish,
+  CapabilityListQuery,
+  CapabilitySearchQuery,
   ChainInfo,
   FaucetRequest,
   FaucetResponse,
@@ -268,6 +278,26 @@ export class ZinchaClient {
     });
   }
 
+  capabilities(query?: CapabilityListQuery): Promise<unknown> {
+    return this.get("/v1/capabilities", {
+      query: capabilityListQuery(query),
+    });
+  }
+
+  capabilitySearch(q: string, query?: CapabilitySearchQuery): Promise<unknown> {
+    return this.get("/v1/capabilities/search", {
+      query: capabilitySearchQuery(q, query),
+    });
+  }
+
+  capability(slug: string): Promise<unknown> {
+    return this.get(`/v1/capabilities/${normalizeCapabilitySlug(slug)}`);
+  }
+
+  capabilityCategories(): Promise<unknown> {
+    return this.get("/v1/capabilities/categories");
+  }
+
   transaction(hash: Hex): Promise<TransactionStatus> {
     return this.get<TransactionStatus>(`/v1/tx/${normalizeHash(hash)}`);
   }
@@ -372,6 +402,46 @@ export class ZinchaClient {
     input: AgentDeregisterInput = {},
   ): Promise<SubmitTransactionResponse> {
     return this.submitSignedTransaction(await this.buildDeregisterAgent(keypair, input));
+  }
+
+  /** Build, sign, and return a `capability_propose` transaction. */
+  async buildProposeCapability(keypair: Keypair, input: CapabilityProposeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "capability_propose", input, encodeCapabilityProposeData(input));
+  }
+
+  /** Convenience: build + submit a `capability_propose` transaction. */
+  async proposeCapabilityAndSubmit(keypair: Keypair, input: CapabilityProposeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildProposeCapability(keypair, input));
+  }
+
+  /** Build, sign, and return a curator-only `capability_approve` transaction. */
+  async buildApproveCapability(keypair: Keypair, input: CapabilityApproveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "capability_approve", input, encodeCapabilityApproveData(input));
+  }
+
+  /** Convenience: build + submit a curator-only `capability_approve` transaction. */
+  async approveCapabilityAndSubmit(keypair: Keypair, input: CapabilityApproveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildApproveCapability(keypair, input));
+  }
+
+  /** Build, sign, and return a curator-only `capability_reject` transaction. */
+  async buildRejectCapability(keypair: Keypair, input: CapabilityRejectInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "capability_reject", input, encodeCapabilityRejectData(input));
+  }
+
+  /** Convenience: build + submit a curator-only `capability_reject` transaction. */
+  async rejectCapabilityAndSubmit(keypair: Keypair, input: CapabilityRejectInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildRejectCapability(keypair, input));
+  }
+
+  /** Build, sign, and return a curator-only `capability_deprecate` transaction. */
+  async buildDeprecateCapability(keypair: Keypair, input: CapabilityDeprecateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "capability_deprecate", input, encodeCapabilityDeprecateData(input));
+  }
+
+  /** Convenience: build + submit a curator-only `capability_deprecate` transaction. */
+  async deprecateCapabilityAndSubmit(keypair: Keypair, input: CapabilityDeprecateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDeprecateCapability(keypair, input));
   }
 
   /**
@@ -1229,6 +1299,41 @@ function participantWorkflowQuery(query?: ParticipantWorkflowQuery): RequestOpti
     limit: query?.limit,
     cursor: query?.cursor,
   };
+}
+
+function capabilityListQuery(query?: CapabilityListQuery): RequestOptions["query"] {
+  return {
+    limit: query?.limit,
+    cursor: query?.cursor,
+    status: query?.status,
+    category: query?.category,
+    parent: query?.parent,
+  };
+}
+
+function capabilitySearchQuery(
+  q: string,
+  query?: CapabilitySearchQuery,
+): RequestOptions["query"] {
+  return {
+    q,
+    limit: query?.limit,
+    status: query?.status,
+    category: query?.category,
+  };
+}
+
+export function validateCapabilitySlug(slug: string): boolean {
+  return /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,7}$/.test(slug)
+    && slug.length <= 128;
+}
+
+export function normalizeCapabilitySlug(slug: string): string {
+  const normalized = slug.trim().toLowerCase();
+  if (!validateCapabilitySlug(normalized)) {
+    throw new Error("invalid capability slug");
+  }
+  return normalized;
 }
 
 function httpToWebsocketUrl(baseUrl: string): string {

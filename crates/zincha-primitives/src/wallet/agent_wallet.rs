@@ -3065,6 +3065,147 @@ impl AgentWallet {
         self.sign_transaction(tx)
     }
 
+    /// Propose a new capability catalog entry. Proposed entries are usable
+    /// immediately with pending status once included on chain.
+    pub fn build_propose_capability(
+        &mut self,
+        mut proposal: CapabilityProposeData,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        Self::normalize_capability_proposal(&mut proposal)?;
+        let tx = Transaction {
+            tx_type: TxType::CapabilityPropose,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&proposal)?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
+    /// Approve a pending capability catalog entry as an active curated entry.
+    pub fn build_approve_capability(
+        &mut self,
+        mut approval: CapabilityApproveData,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        Self::normalize_capability_approval(&mut approval)?;
+        let tx = Transaction {
+            tx_type: TxType::CapabilityApprove,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&approval)?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
+    /// Reject a pending capability catalog entry.
+    pub fn build_reject_capability(
+        &mut self,
+        mut rejection: CapabilityRejectData,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        rejection.slug = Self::normalize_capability_slug_field("slug", &rejection.slug)?;
+        let tx = Transaction {
+            tx_type: TxType::CapabilityReject,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&rejection)?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
+    /// Deprecate an active capability catalog entry in favor of another slug.
+    pub fn build_deprecate_capability(
+        &mut self,
+        mut deprecation: CapabilityDeprecateData,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        deprecation.slug = Self::normalize_capability_slug_field("slug", &deprecation.slug)?;
+        deprecation.replacement =
+            Self::normalize_capability_slug_field("replacement", &deprecation.replacement)?;
+        let tx = Transaction {
+            tx_type: TxType::CapabilityDeprecate,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&deprecation)?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
+    fn normalize_capability_proposal(proposal: &mut CapabilityProposeData) -> Result<()> {
+        proposal.slug = Self::normalize_capability_slug_field("slug", &proposal.slug)?;
+        if let Some(parent) = proposal.parent.as_mut() {
+            *parent = Self::normalize_capability_slug_field("parent", parent)?;
+        }
+        proposal.aliases = Self::normalize_capability_slug_list("alias", &proposal.aliases)?;
+        proposal.related = Self::normalize_capability_slug_list("related", &proposal.related)?;
+        Ok(())
+    }
+
+    fn normalize_capability_approval(approval: &mut CapabilityApproveData) -> Result<()> {
+        approval.slug = Self::normalize_capability_slug_field("slug", &approval.slug)?;
+        if let Some(Some(parent)) = approval.parent.as_mut() {
+            *parent = Self::normalize_capability_slug_field("parent", parent)?;
+        }
+        if let Some(aliases) = approval.aliases.as_mut() {
+            *aliases = Self::normalize_capability_slug_list("alias", aliases)?;
+        }
+        if let Some(related) = approval.related.as_mut() {
+            *related = Self::normalize_capability_slug_list("related", related)?;
+        }
+        Ok(())
+    }
+
+    fn normalize_capability_slug_list(label: &str, values: &[String]) -> Result<Vec<String>> {
+        values
+            .iter()
+            .map(|value| Self::normalize_capability_slug_field(label, value))
+            .collect()
+    }
+
+    fn normalize_capability_slug_field(label: &str, value: &str) -> Result<String> {
+        let normalized = value.trim().to_ascii_lowercase();
+        normalize_capability_slug(&normalized)
+            .map(|_| normalized)
+            .map_err(|error| ZinchaError::InvalidCapability(format!("{label}: {error}")))
+    }
+
     // -----------------------------------------------------------------------
     // Serialization helpers for RPC submission
     // -----------------------------------------------------------------------
@@ -3189,6 +3330,109 @@ mod tests {
         assert_eq!(tx.transaction.tx_type, TxType::AgentRegister);
         let data: AgentRegisterData = bincode::deserialize(&tx.transaction.data).unwrap();
         assert_eq!(data.neural_embedding, None);
+    }
+
+    #[test]
+    fn test_build_capability_catalog_transactions() {
+        let mut wallet = test_wallet();
+        let propose = CapabilityProposeData {
+            slug: " AI.Specialist.Test ".to_string(),
+            display_name: "Specialist Test".to_string(),
+            description: "A proposed test capability".to_string(),
+            category: "ai".to_string(),
+            parent: Some(" AI.Reasoning ".to_string()),
+            aliases: vec!["AI.Test-Specialist".to_string()],
+            keywords: vec!["test".to_string()],
+            examples: vec!["Use for tests".to_string()],
+            related: vec!["AI.Reasoning".to_string()],
+        };
+        let propose_tx = wallet
+            .build_propose_capability(propose.clone(), 100)
+            .expect("build capability propose");
+        assert!(propose_tx.verify().is_ok());
+        assert_eq!(propose_tx.transaction.tx_type, TxType::CapabilityPropose);
+        let decoded: CapabilityProposeData =
+            bincode::deserialize(&propose_tx.transaction.data).unwrap();
+        assert_eq!(decoded.slug, "ai.specialist.test");
+        assert_eq!(decoded.parent.as_deref(), Some("ai.reasoning"));
+        assert_eq!(decoded.aliases, ["ai.test-specialist"]);
+        assert_eq!(decoded.related, ["ai.reasoning"]);
+
+        let approve = CapabilityApproveData {
+            slug: " AI.Specialist.Test ".to_string(),
+            display_name: Some("Specialist Test".to_string()),
+            description: None,
+            category: Some("ai".to_string()),
+            parent: Some(Some(" AI.Reasoning ".to_string())),
+            aliases: Some(vec!["AI.Test-Specialist".to_string()]),
+            keywords: Some(vec!["test".to_string()]),
+            examples: None,
+            related: Some(vec!["AI.Reasoning".to_string()]),
+        };
+        let approve_tx = wallet
+            .build_approve_capability(approve, 0)
+            .expect("build capability approve");
+        assert_eq!(approve_tx.transaction.tx_type, TxType::CapabilityApprove);
+        let decoded: CapabilityApproveData =
+            bincode::deserialize(&approve_tx.transaction.data).unwrap();
+        assert_eq!(decoded.slug, "ai.specialist.test");
+        assert_eq!(decoded.parent, Some(Some("ai.reasoning".to_string())));
+        assert_eq!(
+            decoded.aliases,
+            Some(vec!["ai.test-specialist".to_string()])
+        );
+        assert_eq!(decoded.related, Some(vec!["ai.reasoning".to_string()]));
+
+        let reject_tx = wallet
+            .build_reject_capability(
+                CapabilityRejectData {
+                    slug: " AI.Specialist.Test ".to_string(),
+                    reason: "duplicate".to_string(),
+                },
+                0,
+            )
+            .expect("build capability reject");
+        assert_eq!(reject_tx.transaction.tx_type, TxType::CapabilityReject);
+        let decoded: CapabilityRejectData =
+            bincode::deserialize(&reject_tx.transaction.data).unwrap();
+        assert_eq!(decoded.slug, "ai.specialist.test");
+
+        let deprecate_tx = wallet
+            .build_deprecate_capability(
+                CapabilityDeprecateData {
+                    slug: " AI.Specialist.Test ".to_string(),
+                    replacement: " AI.Reasoning ".to_string(),
+                    reason: "merged".to_string(),
+                },
+                0,
+            )
+            .expect("build capability deprecate");
+        assert_eq!(
+            deprecate_tx.transaction.tx_type,
+            TxType::CapabilityDeprecate
+        );
+        let decoded: CapabilityDeprecateData =
+            bincode::deserialize(&deprecate_tx.transaction.data).unwrap();
+        assert_eq!(decoded.slug, "ai.specialist.test");
+        assert_eq!(decoded.replacement, "ai.reasoning");
+
+        let invalid = wallet
+            .build_propose_capability(
+                CapabilityProposeData {
+                    slug: "not valid".to_string(),
+                    display_name: "Invalid".to_string(),
+                    description: "Invalid".to_string(),
+                    category: "ai".to_string(),
+                    parent: None,
+                    aliases: Vec::new(),
+                    keywords: Vec::new(),
+                    examples: Vec::new(),
+                    related: Vec::new(),
+                },
+                0,
+            )
+            .expect_err("invalid capability slug must fail before signing");
+        assert!(matches!(invalid, ZinchaError::InvalidCapability(_)));
     }
 
     #[test]

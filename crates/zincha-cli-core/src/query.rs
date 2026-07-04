@@ -6,7 +6,8 @@ use clap::{Args, Parser, Subcommand};
 use reqwest::Method;
 use serde_json::Value;
 use zincha_client::{
-    ParticipantWorkflowQuery, RequestOptions, TransactionHistoryQuery, ZinchaClient,
+    CapabilityListQuery, CapabilitySearchQuery, ParticipantWorkflowQuery, RequestOptions,
+    TransactionHistoryQuery, ZinchaClient,
 };
 
 #[derive(Debug, Parser)]
@@ -46,6 +47,31 @@ pub enum QueryCommands {
     RequesterReputation {
         address: String,
     },
+    Capabilities {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        parent: Option<String>,
+    },
+    Capability {
+        slug: String,
+    },
+    CapabilitySearch {
+        text: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+    },
+    CapabilityCategories,
     Task {
         #[command(flatten)]
         signer: KeySourceArgs,
@@ -228,6 +254,38 @@ pub async fn run_query(
             client
                 .get(&format!("/v1/requesters/{address}/reputation"))
                 .await?,
+        ),
+        Some(QueryCommands::Capabilities {
+            limit,
+            cursor,
+            status,
+            category,
+            parent,
+        }) => (
+            "query-capabilities",
+            client
+                .capabilities(capability_list_query(
+                    limit, cursor, status, category, parent,
+                ))
+                .await?,
+        ),
+        Some(QueryCommands::Capability { slug }) => {
+            ("query-capability", client.capability(&slug).await?)
+        }
+        Some(QueryCommands::CapabilitySearch {
+            text,
+            limit,
+            status,
+            category,
+        }) => (
+            "query-capability-search",
+            client
+                .capability_search(&text, capability_search_query(limit, status, category))
+                .await?,
+        ),
+        Some(QueryCommands::CapabilityCategories) => (
+            "query-capability-categories",
+            client.capability_categories().await?,
         ),
         Some(QueryCommands::Task { signer, task_id }) => {
             let keypair = load_keypair(&signer)?;
@@ -482,6 +540,50 @@ fn transaction_history_query(
     query
 }
 
+fn capability_list_query(
+    limit: Option<u64>,
+    cursor: Option<String>,
+    status: Option<String>,
+    category: Option<String>,
+    parent: Option<String>,
+) -> CapabilityListQuery {
+    let mut query = CapabilityListQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
+    }
+    if let Some(status) = status {
+        query = query.status(status);
+    }
+    if let Some(category) = category {
+        query = query.category(category);
+    }
+    if let Some(parent) = parent {
+        query = query.parent(parent);
+    }
+    query
+}
+
+fn capability_search_query(
+    limit: Option<u64>,
+    status: Option<String>,
+    category: Option<String>,
+) -> CapabilitySearchQuery {
+    let mut query = CapabilitySearchQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(status) = status {
+        query = query.status(status);
+    }
+    if let Some(category) = category {
+        query = query.category(category);
+    }
+    query
+}
+
 fn participant_workflow_query(
     limit: Option<u64>,
     cursor: Option<String>,
@@ -710,6 +812,110 @@ mod tests {
             assert!(help.contains("--cursor"), "{help}");
             assert!(!help.contains("--offset"), "{help}");
         }
+    }
+
+    #[test]
+    fn capability_catalog_queries_are_public_and_cursor_paged() {
+        let parsed = QueryCommand::try_parse_from([
+            "query",
+            "capabilities",
+            "--limit",
+            "25",
+            "--cursor",
+            "ai.reasoning",
+            "--status",
+            "all",
+            "--category",
+            "ai",
+            "--parent",
+            "ai.reasoning",
+        ])
+        .expect("parse capability catalog query");
+        match parsed.command.expect("typed query command") {
+            QueryCommands::Capabilities {
+                limit,
+                cursor,
+                status,
+                category,
+                parent,
+            } => {
+                assert_eq!(limit, Some(25));
+                assert_eq!(cursor.as_deref(), Some("ai.reasoning"));
+                assert_eq!(status.as_deref(), Some("all"));
+                assert_eq!(category.as_deref(), Some("ai"));
+                assert_eq!(parent.as_deref(), Some("ai.reasoning"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let detail = QueryCommand::try_parse_from(["query", "capability", "ai.reasoning"])
+            .expect("parse capability detail query");
+        match detail.command.expect("typed query command") {
+            QueryCommands::Capability { slug } => assert_eq!(slug, "ai.reasoning"),
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let search = QueryCommand::try_parse_from([
+            "query",
+            "capability-search",
+            "smart contract",
+            "--limit",
+            "10",
+            "--status",
+            "active",
+            "--category",
+            "blockchain",
+        ])
+        .expect("parse capability search query");
+        match search.command.expect("typed query command") {
+            QueryCommands::CapabilitySearch {
+                text,
+                limit,
+                status,
+                category,
+            } => {
+                assert_eq!(text, "smart contract");
+                assert_eq!(limit, Some(10));
+                assert_eq!(status.as_deref(), Some("active"));
+                assert_eq!(category.as_deref(), Some("blockchain"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let categories = QueryCommand::try_parse_from(["query", "capability-categories"])
+            .expect("parse capability categories query");
+        assert!(matches!(
+            categories.command.expect("typed query command"),
+            QueryCommands::CapabilityCategories
+        ));
+
+        let err = QueryCommand::try_parse_from(["query", "capabilities", "--offset", "0"])
+            .expect_err("offset must not parse for capability catalog list");
+        assert!(err.to_string().contains("--offset"), "{err}");
+
+        let mut command = QueryCommand::command();
+        for name in [
+            "capabilities",
+            "capability",
+            "capability-search",
+            "capability-categories",
+        ] {
+            let help = command
+                .find_subcommand_mut(name)
+                .unwrap_or_else(|| panic!("missing subcommand {name}"))
+                .render_long_help()
+                .to_string();
+            assert!(!help.contains("--secret-key"), "{help}");
+            assert!(!help.contains("--key-file"), "{help}");
+            assert!(!help.contains("--keystore"), "{help}");
+        }
+        let help = command
+            .find_subcommand_mut("capabilities")
+            .expect("missing capabilities subcommand")
+            .render_long_help()
+            .to_string();
+        assert!(help.contains("--cursor"), "{help}");
+        assert!(!help.contains("--offset"), "{help}");
     }
 
     #[test]

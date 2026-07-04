@@ -20,6 +20,7 @@ from .crypto import hex_to_bytes, normalize_address, raw_address_hex
 from .transaction import Transaction, create_transaction
 
 ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
+CAPABILITY_PARENT_UNSET = object()
 
 Hex = str
 
@@ -91,6 +92,43 @@ def _write_capabilities(w: BincodeWriter, values: Sequence[str]) -> None:
 
 def _write_optional_capabilities(w: BincodeWriter, values: Optional[Sequence[str]]) -> None:
     w.write_option(list(values) if values is not None else None, _write_capabilities)
+
+
+def _validate_capability_slug(slug: str) -> bool:
+    import re
+
+    return len(slug) <= 128 and bool(
+        re.fullmatch(r"^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,7}$", slug)
+    )
+
+
+def _normalize_capability_slug(slug: str) -> str:
+    normalized = slug.strip().lower()
+    if not _validate_capability_slug(normalized):
+        raise ValueError("invalid capability slug")
+    return normalized
+
+
+def _normalize_capability_slugs(values: Optional[Sequence[str]]) -> Optional[List[str]]:
+    if values is None:
+        return None
+    return [_normalize_capability_slug(value) for value in values]
+
+
+def _write_string_vec(w: BincodeWriter, values: Sequence[str]) -> None:
+    w.write_vec(values, lambda writer, value: writer.write_string(value))
+
+
+def _write_optional_string_vec(w: BincodeWriter, values: Optional[Sequence[str]]) -> None:
+    w.write_option(list(values) if values is not None else None, _write_string_vec)
+
+
+def _write_optional_optional_string(w: BincodeWriter, value: object) -> None:
+    if value is CAPABILITY_PARENT_UNSET:
+        w.write_u8(0)
+        return
+    w.write_u8(1)
+    w.write_option(value, lambda writer, inner: writer.write_string(inner))  # type: ignore[arg-type]
 
 
 def _write_fee_schedule(w: BincodeWriter, values: Sequence[Tuple[str, BigNumberish]]) -> None:
@@ -986,6 +1024,100 @@ def encode_stake_data(*, target: str) -> bytes:
 def encode_unstake_data(*, target: str) -> bytes:
     """bincode-encode the ``StakeTarget`` payload for an ``unstake`` transaction."""
     return _encode_stake_target(target)
+
+
+# ─── capability catalog ─────────────────────────────────────────────
+
+
+def encode_capability_propose_data(
+    *,
+    slug: str,
+    display_name: str,
+    description: str,
+    category: str,
+    parent: Optional[str] = None,
+    aliases: Optional[Sequence[str]] = None,
+    keywords: Optional[Sequence[str]] = None,
+    examples: Optional[Sequence[str]] = None,
+    related: Optional[Sequence[str]] = None,
+) -> bytes:
+    """bincode-encode the ``CapabilityProposeData`` payload."""
+    w = BincodeWriter()
+    w.write_string(_normalize_capability_slug(slug))
+    w.write_string(display_name)
+    w.write_string(description)
+    w.write_string(category.strip().lower())
+    w.write_option(
+        _normalize_capability_slug(parent) if parent is not None else None,
+        lambda writer, value: writer.write_string(value),
+    )
+    _write_string_vec(w, _normalize_capability_slugs(aliases) or [])
+    _write_string_vec(w, list(keywords or []))
+    _write_string_vec(w, list(examples or []))
+    _write_string_vec(w, _normalize_capability_slugs(related) or [])
+    return w.finish()
+
+
+def encode_capability_approve_data(
+    *,
+    slug: str,
+    display_name: Optional[str] = None,
+    description: Optional[str] = None,
+    category: Optional[str] = None,
+    parent: object = CAPABILITY_PARENT_UNSET,
+    aliases: Optional[Sequence[str]] = None,
+    keywords: Optional[Sequence[str]] = None,
+    examples: Optional[Sequence[str]] = None,
+    related: Optional[Sequence[str]] = None,
+) -> bytes:
+    """bincode-encode the ``CapabilityApproveData`` payload.
+
+    ``parent`` uses ``CAPABILITY_PARENT_UNSET`` for no parent edit, ``None``
+    to clear, and a string to set a new parent.
+    """
+    w = BincodeWriter()
+    w.write_string(_normalize_capability_slug(slug))
+    w.write_option(display_name, lambda writer, value: writer.write_string(value))
+    w.write_option(description, lambda writer, value: writer.write_string(value))
+    w.write_option(
+        category.strip().lower() if category is not None else None,
+        lambda writer, value: writer.write_string(value),
+    )
+    _write_optional_optional_string(
+        w,
+        CAPABILITY_PARENT_UNSET
+        if parent is CAPABILITY_PARENT_UNSET
+        else None
+        if parent is None
+        else _normalize_capability_slug(str(parent)),
+    )
+    _write_optional_string_vec(w, _normalize_capability_slugs(aliases))
+    _write_optional_string_vec(w, list(keywords) if keywords is not None else None)
+    _write_optional_string_vec(w, list(examples) if examples is not None else None)
+    _write_optional_string_vec(w, _normalize_capability_slugs(related))
+    return w.finish()
+
+
+def encode_capability_reject_data(*, slug: str, reason: str = "") -> bytes:
+    """bincode-encode the ``CapabilityRejectData`` payload."""
+    w = BincodeWriter()
+    w.write_string(_normalize_capability_slug(slug))
+    w.write_string(reason)
+    return w.finish()
+
+
+def encode_capability_deprecate_data(
+    *,
+    slug: str,
+    replacement: str,
+    reason: str = "",
+) -> bytes:
+    """bincode-encode the ``CapabilityDeprecateData`` payload."""
+    w = BincodeWriter()
+    w.write_string(_normalize_capability_slug(slug))
+    w.write_string(_normalize_capability_slug(replacement))
+    w.write_string(reason)
+    return w.finish()
 
 
 # ─── Generic wrapper ────────────────────────────────────────────────

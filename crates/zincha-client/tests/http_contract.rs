@@ -4,8 +4,8 @@ use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use zincha_client::{
-    signed_request_parts, ParticipantWorkflowQuery, RequestOptions, TransactionHistoryQuery,
-    ZinchaClient,
+    signed_request_parts, CapabilityListQuery, CapabilitySearchQuery, ParticipantWorkflowQuery,
+    RequestOptions, TransactionHistoryQuery, ZinchaClient,
 };
 use zincha_primitives::crypto::{hash_bytes, Keypair};
 
@@ -260,6 +260,93 @@ async fn task_opportunity_helper_uses_public_unsigned_route() {
     let lower_headers = request.headers.to_ascii_lowercase();
     assert!(!lower_headers.contains("x-zincha-address:"));
     assert!(!lower_headers.contains("x-zincha-signature:"));
+}
+
+#[tokio::test]
+async fn capability_catalog_helpers_use_public_unsigned_routes() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"pagination":{"total":0,"limit":25,"has_more":false,"next_cursor":null,"cursor":"ai.reasoning"}},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .capabilities(
+            CapabilityListQuery::new()
+                .limit(25)
+                .cursor("ai.reasoning")
+                .status("all")
+                .category("ai")
+                .parent("ai.reasoning"),
+        )
+        .await
+        .expect("capability list");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(
+        request.path,
+        "/v1/capabilities?limit=25&cursor=ai.reasoning&status=all&category=ai&parent=ai.reasoning"
+    );
+    let lower_headers = request.headers.to_ascii_lowercase();
+    assert!(!lower_headers.contains("x-zincha-address:"));
+    assert!(!lower_headers.contains("x-zincha-signature:"));
+    assert!(!request.path.contains("offset"));
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"query":"smart contract","limit":10},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .capability_search(
+            "smart contract",
+            CapabilitySearchQuery::new()
+                .limit(10)
+                .status("active")
+                .category("blockchain"),
+        )
+        .await
+        .expect("capability search");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(
+        request.path,
+        "/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain"
+    );
+    assert!(!request.path.contains("offset"));
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"slug":"ai.reasoning"},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .capability("ai.reasoning")
+        .await
+        .expect("capability detail");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, "/v1/capabilities/ai.reasoning");
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"catalog_version":1,"categories":[]},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+
+    client
+        .capability_categories()
+        .await
+        .expect("capability categories");
+
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, "/v1/capabilities/categories");
 }
 
 #[tokio::test]

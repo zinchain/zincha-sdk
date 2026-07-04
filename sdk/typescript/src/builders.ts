@@ -121,6 +121,43 @@ function writeOptionalCapabilities(w: BincodeWriter, values: readonly string[] |
   });
 }
 
+function validateCapabilitySlug(slug: string): boolean {
+  return /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,7}$/.test(slug)
+    && slug.length <= 128;
+}
+
+function normalizeCapabilitySlug(slug: string): string {
+  const normalized = slug.trim().toLowerCase();
+  if (!validateCapabilitySlug(normalized)) {
+    throw new Error("invalid capability slug");
+  }
+  return normalized;
+}
+
+function normalizeCapabilitySlugs(values: readonly string[] | null | undefined): string[] | null | undefined {
+  if (values === null || values === undefined) {
+    return values;
+  }
+  return values.map(normalizeCapabilitySlug);
+}
+
+function writeStringVec(w: BincodeWriter, values: readonly string[]): void {
+  w.writeVec(values, (writer, value) => writer.writeString(value));
+}
+
+function writeOptionalStringVec(w: BincodeWriter, values: readonly string[] | null | undefined): void {
+  w.writeOption(values, writeStringVec);
+}
+
+function writeOptionalOptionalString(w: BincodeWriter, value: string | null | undefined): void {
+  if (value === undefined) {
+    w.writeU8(0);
+    return;
+  }
+  w.writeU8(1);
+  w.writeOption(value, (writer, inner) => writer.writeString(inner));
+}
+
 function writeFeeSchedule(w: BincodeWriter, values: ReadonlyArray<readonly [string, BigNumberish]>): void {
   w.writeVec(values, (writer, [name, fee]) => {
     writer.writeString(name);
@@ -1220,6 +1257,89 @@ export function encodeStakeData(input: Pick<StakeInput, "target">): Uint8Array {
 /** bincode-encode the `StakeTarget` payload for an `unstake` transaction. */
 export function encodeUnstakeData(input: Pick<UnstakeInput, "target">): Uint8Array {
   return encodeStakeTarget(input.target);
+}
+
+/* ─── capability catalog ────────────────────────────────────────── */
+
+export interface CapabilityProposeInput extends BaseTxOptions {
+  slug: string;
+  displayName: string;
+  description: string;
+  category: string;
+  parent?: string | null;
+  aliases?: readonly string[];
+  keywords?: readonly string[];
+  examples?: readonly string[];
+  related?: readonly string[];
+}
+
+export interface CapabilityApproveInput extends BaseTxOptions {
+  slug: string;
+  displayName?: string | null;
+  description?: string | null;
+  category?: string | null;
+  /** `undefined` leaves the parent unchanged; `null` clears it. */
+  parent?: string | null;
+  aliases?: readonly string[] | null;
+  keywords?: readonly string[] | null;
+  examples?: readonly string[] | null;
+  related?: readonly string[] | null;
+}
+
+export interface CapabilityRejectInput extends BaseTxOptions {
+  slug: string;
+  reason?: string;
+}
+
+export interface CapabilityDeprecateInput extends BaseTxOptions {
+  slug: string;
+  replacement: string;
+  reason?: string;
+}
+
+export function encodeCapabilityProposeData(input: CapabilityProposeInput): Uint8Array {
+  const w = new BincodeWriter();
+  w.writeString(normalizeCapabilitySlug(input.slug));
+  w.writeString(input.displayName);
+  w.writeString(input.description);
+  w.writeString(input.category.trim().toLowerCase());
+  w.writeOption(input.parent === undefined ? undefined : input.parent, (writer, parent) => {
+    writer.writeString(normalizeCapabilitySlug(parent));
+  });
+  writeStringVec(w, normalizeCapabilitySlugs(input.aliases ?? []) ?? []);
+  writeStringVec(w, [...(input.keywords ?? [])]);
+  writeStringVec(w, [...(input.examples ?? [])]);
+  writeStringVec(w, normalizeCapabilitySlugs(input.related ?? []) ?? []);
+  return w.finish();
+}
+
+export function encodeCapabilityApproveData(input: CapabilityApproveInput): Uint8Array {
+  const w = new BincodeWriter();
+  w.writeString(normalizeCapabilitySlug(input.slug));
+  w.writeOption(input.displayName, (writer, value) => writer.writeString(value));
+  w.writeOption(input.description, (writer, value) => writer.writeString(value));
+  w.writeOption(input.category === undefined || input.category === null ? input.category : input.category.trim().toLowerCase(), (writer, value) => writer.writeString(value));
+  writeOptionalOptionalString(w, input.parent === undefined ? undefined : input.parent === null ? null : normalizeCapabilitySlug(input.parent));
+  writeOptionalStringVec(w, normalizeCapabilitySlugs(input.aliases));
+  writeOptionalStringVec(w, input.keywords === undefined || input.keywords === null ? input.keywords : [...input.keywords]);
+  writeOptionalStringVec(w, input.examples === undefined || input.examples === null ? input.examples : [...input.examples]);
+  writeOptionalStringVec(w, normalizeCapabilitySlugs(input.related));
+  return w.finish();
+}
+
+export function encodeCapabilityRejectData(input: CapabilityRejectInput): Uint8Array {
+  const w = new BincodeWriter();
+  w.writeString(normalizeCapabilitySlug(input.slug));
+  w.writeString(input.reason ?? "");
+  return w.finish();
+}
+
+export function encodeCapabilityDeprecateData(input: CapabilityDeprecateInput): Uint8Array {
+  const w = new BincodeWriter();
+  w.writeString(normalizeCapabilitySlug(input.slug));
+  w.writeString(normalizeCapabilitySlug(input.replacement));
+  w.writeString(input.reason ?? "");
+  return w.finish();
 }
 
 /* ─── Generic wrapper ────────────────────────────────────────────── */

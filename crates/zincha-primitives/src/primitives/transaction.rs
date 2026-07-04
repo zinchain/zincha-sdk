@@ -112,6 +112,10 @@ define_tx_types! {
     ContractRouteUpdate = (60, "contract_route_update"),
     ContractRouteCall = (61, "contract_route_call"),
     ProtocolParamsUpdate = (62, "protocol_params_update"),
+    CapabilityPropose = (67, "capability_propose"),
+    CapabilityApprove = (68, "capability_approve"),
+    CapabilityReject = (69, "capability_reject"),
+    CapabilityDeprecate = (70, "capability_deprecate"),
 }
 
 impl Serialize for TxType {

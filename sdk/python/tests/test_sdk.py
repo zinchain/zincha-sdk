@@ -8,11 +8,16 @@ from zincha import (
     MatchPreferences,
     ZinchaApiError,
     ZinchaClient,
+    TX_TYPE_WIRE_CODES,
     bytes_to_hex,
     create_transfer_transaction,
     encode_agent_deregister_data,
     encode_agent_register_data,
     encode_agent_update_data,
+    encode_capability_approve_data,
+    encode_capability_deprecate_data,
+    encode_capability_propose_data,
+    encode_capability_reject_data,
     encode_task_accept_data,
     encode_task_cancel_data,
     encode_task_dispute_data,
@@ -223,6 +228,46 @@ class PythonSdkTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             client.account_transactions(GOLDEN["sender"], offset=0)
+
+    def test_capability_catalog_helpers_use_public_urls_and_drop_unsupported_keys(self):
+        calls = []
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps({"success": True, "data": {}, "error": None})
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        client.capabilities(
+            limit=25,
+            cursor="ai.reasoning",
+            status="all",
+            category="ai",
+            parent="ai.reasoning",
+        )
+        client.capability_search(
+            "smart contract",
+            limit=10,
+            status="active",
+            category="blockchain",
+        )
+        client.capability("AI.Reasoning")
+        client.capability_categories()
+
+        self.assertEqual(
+            calls[0][1],
+            "http://node.test/v1/capabilities?limit=25&cursor=ai.reasoning&status=all&category=ai&parent=ai.reasoning",
+        )
+        self.assertEqual(
+            calls[1][1],
+            "http://node.test/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain",
+        )
+        self.assertEqual(calls[2][1], "http://node.test/v1/capabilities/ai.reasoning")
+        self.assertEqual(calls[3][1], "http://node.test/v1/capabilities/categories")
+        for method, url, headers, _body, _timeout in calls:
+            self.assertEqual(method, "GET")
+            self.assertNotIn("offset", url)
+            self.assertNotIn("x-zincha-address", headers)
+            self.assertNotIn("x-zincha-signature", headers)
 
     def test_task_opportunity_helper_fetches_public_open_task_view_unsigned(self):
         calls = []
@@ -519,6 +564,100 @@ class PythonSdkTests(unittest.TestCase):
                 chain_id="zincha-vega-1",
                 nonce=5,
                 reference_block_height=42,
+            )
+
+    def test_capability_transaction_builders_use_catalog_wire_codes(self):
+        keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
+
+        def transport(method, url, headers, body, timeout):
+            raise AssertionError("network should not be used when signing inputs are explicit")
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        common = {
+            "chain_id": "zincha-vega-1",
+            "nonce": 7,
+            "timestamp_ms": 1_700_000_000_789,
+            "reference_block_height": 42,
+            "reference_block_hash": "11" * 32,
+            "max_valid_block_height": 142,
+        }
+
+        proposed = client.build_propose_capability(
+            keypair,
+            **common,
+            slug="AI.Custom.Research",
+            display_name="Custom Research",
+            description="Research capability",
+            category="Research",
+            aliases=["research.custom"],
+            keywords=["research"],
+            examples=["Find market references"],
+            related=["ai.web.research"],
+        )
+        self.assertEqual(proposed.transaction.tx_type, "capability_propose")
+        self.assertEqual(TX_TYPE_WIRE_CODES["capability_propose"], 67)
+
+        approved = client.build_approve_capability(
+            keypair,
+            **{**common, "nonce": 8},
+            slug="ai.custom.research",
+            display_name="Custom Research",
+            category="research",
+            parent=None,
+            aliases=["research.custom"],
+        )
+        self.assertEqual(approved.transaction.tx_type, "capability_approve")
+        self.assertEqual(TX_TYPE_WIRE_CODES["capability_approve"], 68)
+
+        rejected = client.build_reject_capability(
+            keypair,
+            **{**common, "nonce": 9},
+            slug="ai.custom.research",
+            reason="duplicate",
+        )
+        self.assertEqual(rejected.transaction.tx_type, "capability_reject")
+        self.assertEqual(TX_TYPE_WIRE_CODES["capability_reject"], 69)
+
+        deprecated = client.build_deprecate_capability(
+            keypair,
+            **{**common, "nonce": 10},
+            slug="ai.custom.research",
+            replacement="research.web",
+            reason="merged",
+        )
+        self.assertEqual(deprecated.transaction.tx_type, "capability_deprecate")
+        self.assertEqual(TX_TYPE_WIRE_CODES["capability_deprecate"], 70)
+
+    def test_capability_payload_encoders_validate_slugs(self):
+        self.assertGreater(
+            len(
+                encode_capability_propose_data(
+                    slug="AI.Custom.Search",
+                    display_name="Custom Search",
+                    description="Search",
+                    category="AI",
+                    aliases=["search.custom"],
+                )
+            ),
+            0,
+        )
+        self.assertGreater(len(encode_capability_approve_data(slug="ai.custom.search")), 0)
+        self.assertGreater(len(encode_capability_reject_data(slug="ai.custom.search")), 0)
+        self.assertGreater(
+            len(
+                encode_capability_deprecate_data(
+                    slug="ai.custom.search",
+                    replacement="ai.web.search",
+                )
+            ),
+            0,
+        )
+        with self.assertRaisesRegex(ValueError, "invalid capability slug"):
+            encode_capability_propose_data(
+                slug="not valid",
+                display_name="Invalid",
+                description="Invalid",
+                category="AI",
             )
 
 

@@ -14,7 +14,8 @@ use zincha_client::{OrderflowBundleOptions, ProtectedSubmitOptions, ZinchaClient
 use zincha_primitives::crypto::{Address, Hash256};
 use zincha_primitives::primitives::agreement::AgreementDisputeReputationEffect;
 use zincha_primitives::primitives::{
-    AgreementPayoutShare, ContractAbi, ContractSourceProof, HttpToolSettlementMode,
+    AgreementPayoutShare, CapabilityApproveData, CapabilityDeprecateData, CapabilityProposeData,
+    CapabilityRejectData, ContractAbi, ContractSourceProof, HttpToolSettlementMode,
     MatchPreferences, SignedTransaction, StakeTarget, SubTaskDef, SubscriptionOveragePolicy,
     ToolArbitrationPolicy, ToolMilestoneDef, ToolSubscriptionPlanUpdateData, ToolUpdateData,
     ValidatorExecutorService, ValidatorUpdateData,
@@ -197,6 +198,76 @@ pub enum TxCommands {
     DeregisterAgent {
         #[command(flatten)]
         build: TxBuildArgs,
+        #[arg(long, default_value_t = DEFAULT_TX_FEE)]
+        fee: u64,
+    },
+    CapabilityPropose {
+        #[command(flatten)]
+        build: TxBuildArgs,
+        #[arg(long)]
+        slug: String,
+        #[arg(long)]
+        display_name: String,
+        #[arg(long)]
+        description: String,
+        #[arg(long)]
+        category: String,
+        #[arg(long)]
+        parent: Option<String>,
+        #[arg(long = "alias")]
+        aliases: Vec<String>,
+        #[arg(long = "keyword")]
+        keywords: Vec<String>,
+        #[arg(long = "example")]
+        examples: Vec<String>,
+        #[arg(long = "related")]
+        related: Vec<String>,
+        #[arg(long, default_value_t = DEFAULT_TX_FEE)]
+        fee: u64,
+    },
+    CapabilityApprove {
+        #[command(flatten)]
+        build: TxBuildArgs,
+        #[arg(long)]
+        slug: String,
+        #[arg(long)]
+        display_name: Option<String>,
+        #[arg(long)]
+        description: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        parent: Option<String>,
+        #[arg(long = "alias")]
+        aliases: Vec<String>,
+        #[arg(long = "keyword")]
+        keywords: Vec<String>,
+        #[arg(long = "example")]
+        examples: Vec<String>,
+        #[arg(long = "related")]
+        related: Vec<String>,
+        #[arg(long, default_value_t = DEFAULT_TX_FEE)]
+        fee: u64,
+    },
+    CapabilityReject {
+        #[command(flatten)]
+        build: TxBuildArgs,
+        #[arg(long)]
+        slug: String,
+        #[arg(long, default_value = "")]
+        reason: String,
+        #[arg(long, default_value_t = DEFAULT_TX_FEE)]
+        fee: u64,
+    },
+    CapabilityDeprecate {
+        #[command(flatten)]
+        build: TxBuildArgs,
+        #[arg(long)]
+        slug: String,
+        #[arg(long)]
+        replacement: String,
+        #[arg(long, default_value = "")]
+        reason: String,
         #[arg(long, default_value_t = DEFAULT_TX_FEE)]
         fee: u64,
     },
@@ -1116,6 +1187,106 @@ async fn build_signed_transaction(
             Ok((
                 "tx-deregister-agent",
                 wallet.build_deregister_agent(fee)?,
+                build,
+            ))
+        }
+        TxCommands::CapabilityPropose {
+            build,
+            slug,
+            display_name,
+            description,
+            category,
+            parent,
+            aliases,
+            keywords,
+            examples,
+            related,
+            fee,
+        } => {
+            let mut wallet = resolve_wallet(&build, client).await?;
+            Ok((
+                "tx-capability-propose",
+                wallet.build_propose_capability(
+                    CapabilityProposeData {
+                        slug,
+                        display_name,
+                        description,
+                        category,
+                        parent,
+                        aliases,
+                        keywords,
+                        examples,
+                        related,
+                    },
+                    fee,
+                )?,
+                build,
+            ))
+        }
+        TxCommands::CapabilityApprove {
+            build,
+            slug,
+            display_name,
+            description,
+            category,
+            parent,
+            aliases,
+            keywords,
+            examples,
+            related,
+            fee,
+        } => {
+            let mut wallet = resolve_wallet(&build, client).await?;
+            Ok((
+                "tx-capability-approve",
+                wallet.build_approve_capability(
+                    CapabilityApproveData {
+                        slug,
+                        display_name,
+                        description,
+                        category,
+                        parent: parent.map(Some),
+                        aliases: (!aliases.is_empty()).then_some(aliases),
+                        keywords: (!keywords.is_empty()).then_some(keywords),
+                        examples: (!examples.is_empty()).then_some(examples),
+                        related: (!related.is_empty()).then_some(related),
+                    },
+                    fee,
+                )?,
+                build,
+            ))
+        }
+        TxCommands::CapabilityReject {
+            build,
+            slug,
+            reason,
+            fee,
+        } => {
+            let mut wallet = resolve_wallet(&build, client).await?;
+            Ok((
+                "tx-capability-reject",
+                wallet.build_reject_capability(CapabilityRejectData { slug, reason }, fee)?,
+                build,
+            ))
+        }
+        TxCommands::CapabilityDeprecate {
+            build,
+            slug,
+            replacement,
+            reason,
+            fee,
+        } => {
+            let mut wallet = resolve_wallet(&build, client).await?;
+            Ok((
+                "tx-capability-deprecate",
+                wallet.build_deprecate_capability(
+                    CapabilityDeprecateData {
+                        slug,
+                        replacement,
+                        reason,
+                    },
+                    fee,
+                )?,
                 build,
             ))
         }
@@ -2422,4 +2593,141 @@ fn extract_string(value: Option<&Value>, keys: &[&str]) -> Option<String> {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_str))
         .map(ToString::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_tx_command(args: Vec<&'static str>) -> TxCommand {
+        std::thread::Builder::new()
+            .name("parse-tx-command".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || TxCommand::try_parse_from(args).expect("parse tx command"))
+            .expect("spawn parse helper")
+            .join()
+            .expect("parse helper panicked")
+    }
+
+    #[test]
+    fn capability_transaction_commands_parse_catalog_arguments() {
+        let propose = parse_tx_command(vec![
+            "tx",
+            "capability-propose",
+            "--slug",
+            "ai.custom.search",
+            "--display-name",
+            "Custom Search",
+            "--description",
+            "Search custom sources",
+            "--category",
+            "ai",
+            "--parent",
+            "ai.web.search",
+            "--alias",
+            "search.custom",
+            "--keyword",
+            "search",
+            "--example",
+            "Find custom sources",
+            "--related",
+            "ai.web.research",
+        ]);
+        match propose.command {
+            TxCommands::CapabilityPropose {
+                slug,
+                display_name,
+                parent,
+                aliases,
+                keywords,
+                examples,
+                related,
+                ..
+            } => {
+                assert_eq!(slug, "ai.custom.search");
+                assert_eq!(display_name, "Custom Search");
+                assert_eq!(parent.as_deref(), Some("ai.web.search"));
+                assert_eq!(aliases, ["search.custom"]);
+                assert_eq!(keywords, ["search"]);
+                assert_eq!(examples, ["Find custom sources"]);
+                assert_eq!(related, ["ai.web.research"]);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        let approve = parse_tx_command(vec![
+            "tx",
+            "capability-approve",
+            "--slug",
+            "ai.custom.search",
+            "--display-name",
+            "Custom Search",
+            "--category",
+            "ai",
+            "--parent",
+            "ai.web.search",
+            "--alias",
+            "search.custom",
+        ]);
+        match approve.command {
+            TxCommands::CapabilityApprove {
+                slug,
+                display_name,
+                category,
+                parent,
+                aliases,
+                ..
+            } => {
+                assert_eq!(slug, "ai.custom.search");
+                assert_eq!(display_name.as_deref(), Some("Custom Search"));
+                assert_eq!(category.as_deref(), Some("ai"));
+                assert_eq!(parent.as_deref(), Some("ai.web.search"));
+                assert_eq!(aliases, ["search.custom"]);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn capability_curator_commands_parse_reject_and_deprecate() {
+        let reject = parse_tx_command(vec![
+            "tx",
+            "capability-reject",
+            "--slug",
+            "ai.custom.search",
+            "--reason",
+            "duplicate",
+        ]);
+        match reject.command {
+            TxCommands::CapabilityReject { slug, reason, .. } => {
+                assert_eq!(slug, "ai.custom.search");
+                assert_eq!(reason, "duplicate");
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        let deprecate = parse_tx_command(vec![
+            "tx",
+            "capability-deprecate",
+            "--slug",
+            "ai.custom.search",
+            "--replacement",
+            "ai.web.search",
+            "--reason",
+            "merged",
+        ]);
+        match deprecate.command {
+            TxCommands::CapabilityDeprecate {
+                slug,
+                replacement,
+                reason,
+                ..
+            } => {
+                assert_eq!(slug, "ai.custom.search");
+                assert_eq!(replacement, "ai.web.search");
+                assert_eq!(reason, "merged");
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
 }

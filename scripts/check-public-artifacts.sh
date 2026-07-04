@@ -38,6 +38,87 @@ for required in (
     if required not in description:
         raise SystemExit(f"error: OpenAPI description missing {required!r}")
 
+capability_paths = {
+    "/v1/capabilities": (
+        "list_capabilities",
+        "#/components/schemas/ApiResponse_CapabilityCatalogList",
+    ),
+    "/v1/capabilities/search": (
+        "search_capabilities",
+        "#/components/schemas/ApiResponse_CapabilitySuggestionList",
+    ),
+    "/v1/capabilities/categories": (
+        "get_capability_categories",
+        "#/components/schemas/ApiResponse_CapabilityCategoryList",
+    ),
+    "/v1/capabilities/{slug}": (
+        "get_capability",
+        "#/components/schemas/ApiResponse_CapabilityCatalogEntry",
+    ),
+}
+for path, (operation_id, response_ref) in capability_paths.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    if not operation:
+        raise SystemExit(f"error: OpenAPI missing GET {path}")
+    if operation.get("operationId") != operation_id:
+        raise SystemExit(f"error: GET {path} must use operationId {operation_id}")
+    if operation.get("x-zincha-audience") != "public":
+        raise SystemExit(f"error: GET {path} must be public audience")
+    if operation.get("x-zincha-auth") != "bearer":
+        raise SystemExit(f"error: GET {path} must use optional bearer/global auth")
+    security = operation.get("security") or []
+    if not any(item == {} for item in security):
+        raise SystemExit(f"error: GET {path} must permit anonymous calls when deployment auth is disabled")
+    if any((item or {}).get("signedAddress") == [] for item in security):
+        raise SystemExit(f"error: GET {path} must not declare signedAddress security")
+    schema = (
+        (((operation.get("responses") or {}).get("200") or {}).get("content") or {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if schema.get("$ref") != response_ref:
+        raise SystemExit(f"error: GET {path} must return {response_ref}")
+
+capability_list = (((spec.get("paths") or {}).get("/v1/capabilities") or {}).get("get") or {})
+capability_list_params = capability_list.get("parameters") or []
+capability_param_refs = [param.get("$ref") for param in capability_list_params if param.get("$ref")]
+if "#/components/parameters/PaginationLimit" not in capability_param_refs:
+    raise SystemExit("error: GET /v1/capabilities must expose PaginationLimit")
+if "#/components/parameters/PaginationCursor" not in capability_param_refs:
+    raise SystemExit("error: GET /v1/capabilities must expose PaginationCursor")
+if "#/components/parameters/PaginationOffset" in capability_param_refs:
+    raise SystemExit("error: GET /v1/capabilities must not expose PaginationOffset")
+capability_list_schema = spec["components"]["schemas"].get("CapabilityCatalogList")
+if not capability_list_schema:
+    raise SystemExit("error: OpenAPI missing CapabilityCatalogList schema")
+capability_pagination_ref = (
+    (capability_list_schema.get("properties") or {}).get("pagination") or {}
+).get("$ref")
+if capability_pagination_ref != "#/components/schemas/CursorPagination":
+    raise SystemExit("error: CapabilityCatalogList must use CursorPagination")
+
+capability_entry_schema = spec["components"]["schemas"].get("CapabilityCatalogEntry")
+if not capability_entry_schema:
+    raise SystemExit("error: OpenAPI missing CapabilityCatalogEntry schema")
+capability_entry_properties = capability_entry_schema.get("properties") or {}
+for required in (
+    "slug",
+    "display_name",
+    "description",
+    "category",
+    "status",
+    "aliases",
+    "keywords",
+    "examples",
+    "related",
+    "source",
+    "created_at_block",
+    "updated_at_block",
+    "usage",
+):
+    if required not in capability_entry_properties:
+        raise SystemExit(f"error: CapabilityCatalogEntry missing {required}")
+
 task_opportunity = (((spec.get("paths") or {}).get("/v1/tasks/{id}/opportunity") or {}).get("get") or {})
 if not task_opportunity:
     raise SystemExit("error: OpenAPI missing GET /v1/tasks/{id}/opportunity")
@@ -400,6 +481,10 @@ required_skill_markers=(
     "requires signed address authentication"
     "Signed participant workflow reads are available for agreements, tool jobs"
     "GET /v1/tool-jobs/:id"
+    "GET /v1/capabilities/search"
+    "catalog-backed dotted capability names"
+    "pending capabilities are immediately visible"
+    "resolve to canonical slugs"
     "terminally removed"
     "created/opened block, final update block, final update timestamp"
     "/v1/tool-jobs/provider/:address"

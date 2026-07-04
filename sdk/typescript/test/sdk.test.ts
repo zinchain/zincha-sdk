@@ -6,11 +6,16 @@ import {
   Keypair,
   ZinchaApiError,
   ZinchaClient,
+  TX_TYPE_WIRE_CODES,
   bytesToHex,
   createTransferTransaction,
   encodeAgentDeregisterData,
   encodeAgentRegisterData,
   encodeAgentUpdateData,
+  encodeCapabilityApproveData,
+  encodeCapabilityDeprecateData,
+  encodeCapabilityProposeData,
+  encodeCapabilityRejectData,
   encodeTaskAcceptData,
   encodeTaskCancelData,
   encodeTaskDisputeData,
@@ -219,6 +224,56 @@ test("transaction history helpers use cursor pagination and drop offset", async 
   for (const call of calls) {
     assert.equal(call.init.method, "GET");
     assert.equal(call.url.includes("offset"), false);
+  }
+});
+
+test("capability catalog helpers use public URLs and drop unsupported keys", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: {},
+        error: null,
+      });
+    },
+  });
+
+  await client.capabilities({
+    limit: 25,
+    cursor: "ai.reasoning",
+    status: "all",
+    category: "ai",
+    parent: "ai.reasoning",
+    offset: 0,
+  } as any);
+  await client.capabilitySearch("smart contract", {
+    limit: 10,
+    status: "active",
+    category: "blockchain",
+    offset: 1,
+  } as any);
+  await client.capability("AI.Reasoning");
+  await client.capabilityCategories();
+
+  assert.equal(
+    calls[0].url,
+    "http://node.test/v1/capabilities?limit=25&cursor=ai.reasoning&status=all&category=ai&parent=ai.reasoning",
+  );
+  assert.equal(
+    calls[1].url,
+    "http://node.test/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain",
+  );
+  assert.equal(calls[2].url, "http://node.test/v1/capabilities/ai.reasoning");
+  assert.equal(calls[3].url, "http://node.test/v1/capabilities/categories");
+  for (const call of calls) {
+    assert.equal(call.init.method, "GET");
+    assert.equal(call.url.includes("offset"), false);
+    const headers = new Headers(call.init.headers);
+    assert.equal(headers.has("x-zincha-address"), false);
+    assert.equal(headers.has("x-zincha-signature"), false);
   }
 });
 
@@ -451,6 +506,94 @@ test("typed builders reject partial validity windows", async () => {
       referenceBlockHeight: 42n,
     }),
     /referenceBlockHeight, referenceBlockHash, and maxValidBlockHeight must be provided together/,
+  );
+});
+
+test("capability transaction builders use catalog wire codes", async () => {
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async () => {
+      throw new Error("network should not be used when signing inputs are explicit");
+    },
+  });
+  const common = {
+    chainId: "zincha-vega-1",
+    nonce: 7n,
+    timestampMs: 1_700_000_000_789n,
+    referenceBlockHeight: 42n,
+    referenceBlockHash: "11".repeat(32),
+    maxValidBlockHeight: 142n,
+  };
+
+  const proposed = await client.buildProposeCapability(keypair, {
+    ...common,
+    slug: "AI.Custom.Research",
+    displayName: "Custom Research",
+    description: "Research capability",
+    category: "Research",
+    aliases: ["research.custom"],
+    keywords: ["research"],
+    examples: ["Find market references"],
+    related: ["ai.web.research"],
+  });
+  assert.equal(proposed.transaction.txType, "capability_propose");
+  assert.equal(TX_TYPE_WIRE_CODES.capability_propose, 67);
+
+  const approved = await client.buildApproveCapability(keypair, {
+    ...common,
+    nonce: 8n,
+    slug: "ai.custom.research",
+    displayName: "Custom Research",
+    category: "research",
+    parent: null,
+    aliases: ["research.custom"],
+  });
+  assert.equal(approved.transaction.txType, "capability_approve");
+  assert.equal(TX_TYPE_WIRE_CODES.capability_approve, 68);
+
+  const rejected = await client.buildRejectCapability(keypair, {
+    ...common,
+    nonce: 9n,
+    slug: "ai.custom.research",
+    reason: "duplicate",
+  });
+  assert.equal(rejected.transaction.txType, "capability_reject");
+  assert.equal(TX_TYPE_WIRE_CODES.capability_reject, 69);
+
+  const deprecated = await client.buildDeprecateCapability(keypair, {
+    ...common,
+    nonce: 10n,
+    slug: "ai.custom.research",
+    replacement: "research.web",
+    reason: "merged",
+  });
+  assert.equal(deprecated.transaction.txType, "capability_deprecate");
+  assert.equal(TX_TYPE_WIRE_CODES.capability_deprecate, 70);
+});
+
+test("capability payload encoders validate slugs", () => {
+  assert.ok(encodeCapabilityProposeData({
+    slug: "AI.Custom.Search",
+    displayName: "Custom Search",
+    description: "Search",
+    category: "AI",
+    aliases: ["search.custom"],
+  }).length > 0);
+  assert.ok(encodeCapabilityApproveData({ slug: "ai.custom.search" }).length > 0);
+  assert.ok(encodeCapabilityRejectData({ slug: "ai.custom.search" }).length > 0);
+  assert.ok(encodeCapabilityDeprecateData({
+    slug: "ai.custom.search",
+    replacement: "ai.web.search",
+  }).length > 0);
+  assert.throws(
+    () => encodeCapabilityProposeData({
+      slug: "not valid",
+      displayName: "Invalid",
+      description: "Invalid",
+      category: "AI",
+    }),
+    /invalid capability slug/,
   );
 });
 

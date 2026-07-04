@@ -17,6 +17,7 @@ pub const TX_SURFACE: &[SurfaceEntry] = &[
     SurfaceEntry { command: "transfer", category: SurfaceCategory::Public, rationale: "ordinary value transfer" },
     SurfaceEntry { command: "entity-link", category: SurfaceCategory::Public, rationale: "public identity graph transaction" },
     SurfaceEntry { command: "agent-*", category: SurfaceCategory::Public, rationale: "public agent lifecycle" },
+    SurfaceEntry { command: "capability-*", category: SurfaceCategory::Public, rationale: "public capability catalog proposal and curator lifecycle" },
     SurfaceEntry { command: "task-*", category: SurfaceCategory::Public, rationale: "public requester/agent task lifecycle" },
     SurfaceEntry { command: "tool-*", category: SurfaceCategory::Public, rationale: "public tool lifecycle, invocation, results, usage, subscriptions" },
     SurfaceEntry { command: "agreement-*", category: SurfaceCategory::Public, rationale: "public agreement lifecycle" },

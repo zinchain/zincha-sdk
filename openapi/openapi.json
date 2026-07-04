@@ -13,12 +13,21 @@
         }
       },
       "CapabilityParam": {
-        "description": "Free-form capability descriptor (e.g., `data.embedding.text-v1`).",
+        "description": "Catalog-backed canonical capability slug or alias. Use `/v1/capabilities/search` to discover valid values.",
         "in": "path",
         "name": "capability",
         "required": true,
         "schema": {
-          "type": "string"
+          "$ref": "#/components/schemas/CapabilitySlug"
+        }
+      },
+      "CapabilitySlugParam": {
+        "description": "Catalog-backed canonical capability slug or alias. Use `/v1/capabilities/search` to discover valid values.",
+        "in": "path",
+        "name": "slug",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/CapabilitySlug"
         }
       },
       "HashParam": {
@@ -702,6 +711,102 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/Block"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CapabilityCatalogEntry": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityCatalogEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CapabilityCatalogList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityCatalogList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CapabilityCategoryList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityCategoryList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CapabilitySuggestionList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CapabilitySuggestionList"
               },
               {
                 "type": "null"
@@ -2565,6 +2670,272 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "CapabilityCatalogEntry": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilitySlug"
+            },
+            "type": "array"
+          },
+          "category": {
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "type": "string"
+          },
+          "created_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CapabilitySlug"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposer": {
+            "anyOf": [
+              {
+                "description": "Zincha address in canonical `zn1` + 40 lowercase hex form.",
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilitySlug"
+            },
+            "type": "array"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/CapabilitySlug"
+          },
+          "source": {
+            "enum": [
+              "seed",
+              "user_proposed",
+              "curated"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "pending",
+              "rejected",
+              "deprecated"
+            ],
+            "type": "string"
+          },
+          "updated_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CapabilityUsageSummary"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name",
+          "description",
+          "category",
+          "status",
+          "aliases",
+          "keywords",
+          "examples",
+          "related",
+          "source",
+          "created_at_block",
+          "updated_at_block",
+          "usage"
+        ],
+        "type": "object"
+      },
+      "CapabilityCatalogList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityCatalogEntry"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "CapabilityCategoryList": {
+        "properties": {
+          "catalog_version": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "categories": {
+            "items": {
+              "properties": {
+                "active": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "deprecated": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "pending": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "total": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "category",
+                "total",
+                "active",
+                "pending",
+                "deprecated"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "parents": {
+            "items": {
+              "properties": {
+                "parent": {
+                  "$ref": "#/components/schemas/CapabilitySlug"
+                },
+                "total": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "parent",
+                "total"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalog_version",
+          "categories",
+          "parents"
+        ],
+        "type": "object"
+      },
+      "CapabilitySlug": {
+        "description": "Canonical or alias capability slug: lowercase dotted namespace, 2 to 8 segments, max 128 bytes.",
+        "examples": [
+          "ai.reasoning",
+          "code.rust.review",
+          "finance.fpna.reporting"
+        ],
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*){1,7}$",
+        "type": "string"
+      },
+      "CapabilitySuggestionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityCatalogEntry"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "query",
+          "limit"
+        ],
+        "type": "object"
+      },
+      "CapabilityUsageSummary": {
+        "properties": {
+          "agent_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "market_sample_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "open_task_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tool_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_count",
+          "tool_count",
+          "open_task_count",
+          "market_sample_count"
+        ],
         "type": "object"
       },
       "ChainInfo": {
@@ -10886,6 +11257,474 @@
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "description": "Returns canonical dotted capability slugs that agents, tools, and tasks can use. Capabilities are catalog-backed strings; callers should select entries from this endpoint or from capability search instead of inventing unregistered names. Supports active, pending, deprecated, or all visible statuses plus category and parent filters.",
+        "operationId": "list_capabilities",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          },
+          {
+            "description": "Catalog status filter. Defaults to active.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "enum": [
+                "active",
+                "pending",
+                "deprecated",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Top-level capability category such as `ai`, `code`, or `finance`.",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Parent canonical capability slug.",
+            "in": "query",
+            "name": "parent",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CapabilitySlug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CapabilityCatalogList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Cursor-paged canonical capability catalog.",
+        "tags": [
+          "Capabilities"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/capabilities/categories": {
+      "get": {
+        "description": "Returns top-level capability categories, status counts, and parent-skill counts. Use this to build category pickers before drilling into `/v1/capabilities` or `/v1/capabilities/search`.",
+        "operationId": "get_capability_categories",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CapabilityCategoryList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Capability category and parent summaries.",
+        "tags": [
+          "Capabilities"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/capabilities/search": {
+      "get": {
+        "description": "Searches canonical slugs, aliases, display names, descriptions, keywords, examples, and related skills. Exact slug and alias matches rank highest, followed by prefixes and token matches. Empty or one-character searches return the top catalog entries for browsing.",
+        "operationId": "search_capabilities",
+        "parameters": [
+          {
+            "description": "Search text. Exact slug/alias and prefixes rank highest.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "description": "Visible status filter. Defaults to active.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "enum": [
+                "active",
+                "pending",
+                "deprecated",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Top-level capability category such as `ai`, `code`, or `finance`.",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CapabilitySuggestionList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Search and autocomplete capability catalog entries.",
+        "tags": [
+          "Capabilities"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/capabilities/{slug}": {
+      "get": {
+        "description": "Returns the canonical catalog entry for a slug. The path may be either a canonical slug or an alias; aliases resolve to their canonical entry so matching and indexing do not fragment.",
+        "operationId": "get_capability",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CapabilitySlugParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CapabilityCatalogEntry"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Resolve one capability slug or alias.",
+        "tags": [
+          "Capabilities"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "public"
       }
     },
@@ -19480,6 +20319,10 @@
     {
       "description": "Block history queries.",
       "name": "Blocks"
+    },
+    {
+      "description": "Catalog-backed dotted skill names, search, aliases, and categories.",
+      "name": "Capabilities"
     },
     {
       "description": "Per-address balance, nonce, and transaction history.",

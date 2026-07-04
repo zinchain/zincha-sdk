@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 from .builders import (
+    CAPABILITY_PARENT_UNSET,
     MatchPreferences,
     create_signable_transaction,
     encode_agent_deregister_data,
     encode_agent_register_data,
     encode_agent_update_data,
+    encode_capability_approve_data,
+    encode_capability_deprecate_data,
+    encode_capability_propose_data,
+    encode_capability_reject_data,
     encode_task_accept_data,
     encode_task_cancel_data,
     encode_task_dispute_data,
@@ -72,6 +78,20 @@ from .transaction import (
     signed_transaction_hex,
     with_validity_window,
 )
+
+_CAPABILITY_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,7}$")
+
+
+def validate_capability_slug(slug: str) -> bool:
+    return len(slug) <= 128 and bool(_CAPABILITY_SLUG_RE.fullmatch(slug))
+
+
+def normalize_capability_slug(slug: str) -> str:
+    normalized = slug.strip().lower()
+    if not validate_capability_slug(normalized):
+        raise ValueError("invalid capability slug")
+    return normalized
+
 
 Transport = Callable[
     [str, str, Mapping[str, str], Optional[bytes], Optional[float]],
@@ -266,6 +286,53 @@ class ZinchaClient:
             "/v1/accounts/%s/transactions" % normalize_address(address),
             query={"limit": limit, "cursor": cursor},
         )
+
+    def capabilities(
+        self,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        status: Optional[str] = None,
+        category: Optional[str] = None,
+        parent: Optional[str] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/capabilities",
+            query={
+                "limit": limit,
+                "cursor": cursor,
+                "status": status,
+                "category": category,
+                "parent": parent,
+            },
+        )
+
+    def capability_search(
+        self,
+        q: str,
+        *,
+        limit: Optional[int] = None,
+        status: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/capabilities/search",
+            query={
+                "q": q,
+                "limit": limit,
+                "status": status,
+                "category": category,
+            },
+        )
+
+    def capability(self, slug: str) -> Any:
+        return self.get(
+            "/v1/capabilities/%s"
+            % urllib.parse.quote(normalize_capability_slug(slug), safe="")
+        )
+
+    def capability_categories(self) -> Any:
+        return self.get("/v1/capabilities/categories")
 
     def transaction(self, tx_hash: str) -> Dict[str, Any]:
         return self.get("/v1/tx/%s" % _normalize_hash(tx_hash))
@@ -481,6 +548,178 @@ class ZinchaClient:
 
     def deregister_agent_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
         return self.submit_signed_transaction(self.build_deregister_agent(keypair, **input))
+
+    def build_propose_capability(
+        self,
+        keypair: Keypair,
+        *,
+        slug: str,
+        display_name: str,
+        description: str,
+        category: str,
+        parent: Optional[str] = None,
+        aliases: Optional[Sequence[str]] = None,
+        keywords: Optional[Sequence[str]] = None,
+        examples: Optional[Sequence[str]] = None,
+        related: Optional[Sequence[str]] = None,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign a ``capability_propose`` transaction."""
+        data = encode_capability_propose_data(
+            slug=slug,
+            display_name=display_name,
+            description=description,
+            category=category,
+            parent=parent,
+            aliases=aliases,
+            keywords=keywords,
+            examples=examples,
+            related=related,
+        )
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="capability_propose",
+            data=data,
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def propose_capability_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_propose_capability(keypair, **input))
+
+    def build_approve_capability(
+        self,
+        keypair: Keypair,
+        *,
+        slug: str,
+        display_name: Optional[str] = None,
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+        parent: object = CAPABILITY_PARENT_UNSET,
+        aliases: Optional[Sequence[str]] = None,
+        keywords: Optional[Sequence[str]] = None,
+        examples: Optional[Sequence[str]] = None,
+        related: Optional[Sequence[str]] = None,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign a curator-only ``capability_approve`` transaction.
+
+        ``parent`` defaults to no edit. Pass ``None`` to clear the parent.
+        """
+        data = encode_capability_approve_data(
+            slug=slug,
+            display_name=display_name,
+            description=description,
+            category=category,
+            parent=parent,
+            aliases=aliases,
+            keywords=keywords,
+            examples=examples,
+            related=related,
+        )
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="capability_approve",
+            data=data,
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def approve_capability_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_approve_capability(keypair, **input))
+
+    def build_reject_capability(
+        self,
+        keypair: Keypair,
+        *,
+        slug: str,
+        reason: str = "",
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign a curator-only ``capability_reject`` transaction."""
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="capability_reject",
+            data=encode_capability_reject_data(slug=slug, reason=reason),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def reject_capability_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_reject_capability(keypair, **input))
+
+    def build_deprecate_capability(
+        self,
+        keypair: Keypair,
+        *,
+        slug: str,
+        replacement: str,
+        reason: str = "",
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign a curator-only ``capability_deprecate`` transaction."""
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="capability_deprecate",
+            data=encode_capability_deprecate_data(slug=slug, replacement=replacement, reason=reason),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def deprecate_capability_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_deprecate_capability(keypair, **input))
 
     def build_submit_task(
         self,

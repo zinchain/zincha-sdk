@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod agreement;
+pub mod capability;
 pub mod contract;
 pub mod entity;
 pub mod task;
@@ -18,6 +19,12 @@ pub use agreement::{
     AgreementExecuteData, AgreementPayoutShare, AgreementResolveData, AgreementStatus,
     ArbitratorProfile, ArbitratorRegisterData, DisputeResolution, Milestone, MilestoneDef,
     MilestoneStatus, MIN_ARBITRATOR_STAKE,
+};
+pub use capability::{
+    normalize_capability_slug, CapabilityApproveData, CapabilityCatalogEntry,
+    CapabilityDeprecateData, CapabilityProposeData, CapabilityRejectData, CapabilitySource,
+    CapabilityStatus, CapabilityUsageSummary, CAPABILITY_CATALOG_VERSION, MAX_CAPABILITY_ALIASES,
+    MAX_CAPABILITY_SLUG_BYTES, MAX_CAPABILITY_TEXT_BYTES,
 };
 pub use contract::{
     AbiParam, ContractAbi, ContractCallData, ContractDeployData, ContractEvent, ContractExecResult,

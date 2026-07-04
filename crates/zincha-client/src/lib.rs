@@ -167,6 +167,32 @@ impl ZinchaClient {
         .await
     }
 
+    pub async fn capabilities(&self, query: CapabilityListQuery) -> Result<Value> {
+        self.request(
+            Method::GET,
+            "/v1/capabilities",
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn capability_search(&self, q: &str, query: CapabilitySearchQuery) -> Result<Value> {
+        self.request(
+            Method::GET,
+            "/v1/capabilities/search",
+            query.into_request_options(q),
+        )
+        .await
+    }
+
+    pub async fn capability(&self, slug: &str) -> Result<Value> {
+        self.get(&format!("/v1/capabilities/{slug}")).await
+    }
+
+    pub async fn capability_categories(&self) -> Result<Value> {
+        self.get("/v1/capabilities/categories").await
+    }
+
     pub async fn task(&self, task_id: &str) -> Result<Value> {
         self.request(
             Method::GET,
@@ -570,6 +596,108 @@ impl TransactionHistoryQuery {
         }
         if let Some(cursor) = self.cursor {
             options = options.query_param("cursor", cursor);
+        }
+        options
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CapabilityListQuery {
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+    pub status: Option<String>,
+    pub category: Option<String>,
+    pub parent: Option<String>,
+}
+
+impl CapabilityListQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    pub fn status(mut self, status: impl Into<String>) -> Self {
+        self.status = Some(status.into());
+        self
+    }
+
+    pub fn category(mut self, category: impl Into<String>) -> Self {
+        self.category = Some(category.into());
+        self
+    }
+
+    pub fn parent(mut self, parent: impl Into<String>) -> Self {
+        self.parent = Some(parent.into());
+        self
+    }
+
+    fn into_request_options(self) -> RequestOptions {
+        let mut options = RequestOptions::default();
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
+        if let Some(status) = self.status {
+            options = options.query_param("status", status);
+        }
+        if let Some(category) = self.category {
+            options = options.query_param("category", category);
+        }
+        if let Some(parent) = self.parent {
+            options = options.query_param("parent", parent);
+        }
+        options
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CapabilitySearchQuery {
+    pub limit: Option<u64>,
+    pub status: Option<String>,
+    pub category: Option<String>,
+}
+
+impl CapabilitySearchQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn status(mut self, status: impl Into<String>) -> Self {
+        self.status = Some(status.into());
+        self
+    }
+
+    pub fn category(mut self, category: impl Into<String>) -> Self {
+        self.category = Some(category.into());
+        self
+    }
+
+    fn into_request_options(self, q: &str) -> RequestOptions {
+        let mut options = RequestOptions::default().query_param("q", q);
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(status) = self.status {
+            options = options.query_param("status", status);
+        }
+        if let Some(category) = self.category {
+            options = options.query_param("category", category);
         }
         options
     }

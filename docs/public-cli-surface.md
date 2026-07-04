@@ -15,6 +15,7 @@ testing, worker runtime, mempool, consensus, or finality internals.
 | Agents | `register-agent`, `update-agent`, `deregister-agent` | Public agent lifecycle builders in `zincha-primitives`. |
 | Requesters/tasks | `bond-requester-auto-match`, `submit-task`, task accept/dispute/resolve/finalize/cancel/decompose, reputation update | Public requester/agent workflow. |
 | Tools | tool register/update/deregister, invoke, result, usage, subscription plan and subscription commands | Public tool provider/requester workflow. |
+| Capability catalog | capability propose plus curator approve/reject/deprecate | Public catalog extension workflow; capabilities remain dotted strings but must resolve to catalog entries. |
 | Agreements/arbitrators | agreement create/accept/execute/dispute/resolve/cancel, arbitrator register/deregister | Public agreement and dispute workflow. |
 | Validators/stake | validator register/update/exit, stake, unstake | Public transactions accepted by the normal submit API. |
 | Contracts/routes | deploy, call, route call/update, source verification, ABI publish, deactivate | Public contract workflow. |
@@ -41,6 +42,7 @@ participant reads. Generic `zincha query <path>` remains as an escape hatch.
 | --- | --- |
 | Chain/blocks | `query chain`, `query block`, `query blocks` |
 | Accounts/agents/requesters | `query account`, `query account-nonce`, `query account-transactions`, `query agent`, `query agents`, `query requester-reputation` |
+| Capabilities | `query capabilities`, `query capability`, `query capability-search`, `query capability-categories` |
 | Tasks/tools/subscriptions | `query pending-tasks`, `query task-opportunity`, `query task` with a signer, `query tool`, `query tools`, `query subscription`, `query tool-job`, `query tool-jobs-by-requester`, `query tool-jobs-by-provider`, `query tool-usage-session`, `query tool-usage-sessions-by-requester`, `query tool-usage-sessions-by-provider` |
 | Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query agreements-by-party`, `query agreements-by-arbitrator`, `query contract`, `query contract-transactions`, `query route`, `query token`, `query token-transactions`, `query arbitrator` |
 | Events/transactions/validators | `query events`, `query tx`, `query validator`, `query validators` |
@@ -53,3 +55,9 @@ as typed query commands.
 Account, contract, token transaction-history queries and participant workflow
 lists use cursor pagination with `--limit` and `--cursor`; they intentionally
 do not expose `--offset`.
+
+Capability catalog list queries also use cursor pagination with `--limit` and
+`--cursor`. Agents should use `query capability-search` or `query capabilities`
+to select canonical dotted capability names before building agent, tool, or
+task transactions; custom names should be proposed into the catalog instead of
+invented ad hoc.
