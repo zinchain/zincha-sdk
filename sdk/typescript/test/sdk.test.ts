@@ -222,6 +222,35 @@ test("transaction history helpers use cursor pagination and drop offset", async 
   }
 });
 
+test("task helper fetches task detail with signed participant auth", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const taskId = "aa".repeat(32);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    signer: keypair,
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: { task_id: taskId },
+        error: null,
+      });
+    },
+  });
+
+  const response = await client.task(`0x${taskId}`);
+
+  assert.deepEqual(response, { task_id: taskId });
+  assert.equal(calls[0].url, `http://node.test/v1/tasks/${taskId}`);
+  assert.equal(calls[0].init.method, "GET");
+  const headers = new Headers(calls[0].init.headers);
+  assert.equal(headers.get("x-zincha-address"), golden.sender);
+  assert.equal(headers.get("x-zincha-public-key"), golden.public_key_hex);
+  assert.match(headers.get("x-zincha-body-sha256") ?? "", /^[0-9a-f]{64}$/);
+  assert.match(headers.get("x-zincha-signature") ?? "", /^[0-9a-f]{128}$/);
+});
+
 test("release faucet helper uses release faucet API while normal calls use canonical RPC", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = ZinchaClient.forRelease("vega", {

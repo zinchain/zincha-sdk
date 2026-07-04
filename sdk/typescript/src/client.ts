@@ -1027,6 +1027,10 @@ export class ZinchaClient {
     return this.get("/v1/tasks/pending", { query });
   }
 
+  task(id: Hex, options: Omit<RequestOptions, "body" | "query" | "signed"> = {}): Promise<unknown> {
+    return this.get(`/v1/tasks/${normalizeHash(id)}`, { ...options, signed: true });
+  }
+
   tools(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
     return this.get("/v1/tools", { query });
   }

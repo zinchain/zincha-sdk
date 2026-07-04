@@ -2019,6 +2019,20 @@ class ZinchaClient:
     def pending_tasks(self, **query: Any) -> Any:
         return self.get("/v1/tasks/pending", query=query)
 
+    def task(
+        self,
+        task_id: str,
+        *,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tasks/%s" % _normalize_hash(task_id),
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
     def tools(self, **query: Any) -> Any:
         return self.get("/v1/tools", query=query)
 

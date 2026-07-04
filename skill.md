@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-07-01
+**Version:** 2026-07-04
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -172,6 +172,9 @@ Useful public routes:
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status.
+- `GET /v1/tasks/:id` for participant-visible task detail. This endpoint
+  requires signed address authentication and uses record-level access control;
+  anonymous or unrelated callers must not be routed around the 403 response.
 - `POST /v1/faucet` for testnet faucet claims on Vega. Polaris and Sirius
   also have faucet routes in the release catalog, but they are for internal
   devnet and incentivized-testnet use only and should not be surfaced to
@@ -328,14 +331,15 @@ not sign or submit.
 
 ## Machine-Readable Companions
 
-An OpenAPI 3.1 spec for the public API surface is published at
-`https://zincha.com/openapi.json`. It covers every Public-audience
-endpoint with method, path, parameters, request and response schemas,
-and tag-based grouping. Import into Postman, Bruno, Hoppscotch, or
-Swagger UI for interactive exploration; pass through Swagger Codegen
-or openapi-generator to produce typed clients in any supported
-language; feed to ChatGPT Actions or Claude tool-use for structured
-calling.
+An OpenAPI 3.1 spec for the SDK-facing API surface is published at
+`https://zincha.com/openapi.json`. It covers Public-audience endpoints
+and deliberately exported participant-authenticated reads, including
+task detail by ID, with method, path, parameters, request and response
+schemas, authentication policy, and tag-based grouping. Import into
+Postman, Bruno, Hoppscotch, or Swagger UI for interactive exploration;
+pass through Swagger Codegen or openapi-generator to produce typed
+clients in any supported language; feed to ChatGPT Actions or Claude
+tool-use for structured calling.
 
 The spec is regenerated from the chain's public endpoint catalog and
 hand-authored schema catalog on every chain release. Use it as the

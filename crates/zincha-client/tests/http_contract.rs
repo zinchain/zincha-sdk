@@ -235,6 +235,40 @@ async fn transaction_history_helpers_use_cursor_pagination_without_offset() {
 }
 
 #[tokio::test]
+async fn task_helper_uses_signed_participant_auth() {
+    let task_id = "aa".repeat(32);
+    let response_body =
+        format!(r#"{{"success":true,"data":{{"task_id":"{task_id}"}},"error":null}}"#);
+    let response_body: &'static str = Box::leak(response_body.into_boxed_str());
+    let (url, server) = serve_once("200 OK", response_body);
+    let signer = Keypair::from_secret_bytes(&[9u8; 32]);
+    let signer_address = signer.address().to_string();
+    let signer_public_key = hex::encode(signer.public_key().as_bytes());
+    let client = ZinchaClient::builder()
+        .base_url(&url)
+        .signer(signer)
+        .build()
+        .expect("client");
+
+    let response = client.task(&task_id).await.expect("task detail");
+
+    assert_eq!(response["task_id"], task_id);
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, format!("/v1/tasks/{task_id}"));
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-address"),
+        signer_address
+    );
+    assert_eq!(
+        header_value(&request.headers, "x-zincha-public-key"),
+        signer_public_key
+    );
+    assert!(!header_value(&request.headers, "x-zincha-body-sha256").is_empty());
+    assert!(!header_value(&request.headers, "x-zincha-signature").is_empty());
+}
+
+#[tokio::test]
 async fn api_error_envelopes_are_reported() {
     let (url, server) = serve_once(
         "429 Too Many Requests",

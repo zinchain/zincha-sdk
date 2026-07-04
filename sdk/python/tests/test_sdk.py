@@ -224,6 +224,37 @@ class PythonSdkTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             client.account_transactions(GOLDEN["sender"], offset=0)
 
+    def test_task_helper_fetches_task_detail_with_signed_participant_auth(self):
+        calls = []
+        keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
+        task_id = "aa" * 32
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id},
+                    "error": None,
+                }
+            )
+
+        client = ZinchaClient(
+            base_url="http://node.test/",
+            signer=keypair,
+            transport=transport,
+        )
+        response = client.task("0x" + task_id)
+
+        self.assertEqual(response, {"task_id": task_id})
+        self.assertEqual(calls[0][0], "GET")
+        self.assertEqual(calls[0][1], "http://node.test/v1/tasks/%s" % task_id)
+        headers = calls[0][2]
+        self.assertEqual(headers["x-zincha-address"], GOLDEN["sender"])
+        self.assertEqual(headers["x-zincha-public-key"], GOLDEN["public_key_hex"])
+        self.assertRegex(headers["x-zincha-body-sha256"], r"^[0-9a-f]{64}$")
+        self.assertRegex(headers["x-zincha-signature"], r"^[0-9a-f]{128}$")
+
     def test_release_faucet_helper_uses_release_faucet_api_while_normal_calls_use_canonical_rpc(self):
         calls = []
 

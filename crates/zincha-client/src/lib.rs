@@ -167,6 +167,15 @@ impl ZinchaClient {
         .await
     }
 
+    pub async fn task(&self, task_id: &str) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tasks/{task_id}"),
+            RequestOptions::default().signed(),
+        )
+        .await
+    }
+
     pub async fn transaction_status(&self, hash: &str) -> Result<Value> {
         self.get(&format!("/v1/tx/{hash}")).await
     }

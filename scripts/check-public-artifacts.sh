@@ -32,9 +32,33 @@ description = ((spec.get("info") or {}).get("description") or "")
 for required in (
     "https://zincha.com/docs",
     "https://zincha.com/skill.md",
+    "SDK-facing endpoints",
+    "participant-authenticated reads",
 ):
     if required not in description:
         raise SystemExit(f"error: OpenAPI description missing {required!r}")
+
+task_operation = (((spec.get("paths") or {}).get("/v1/tasks/{id}") or {}).get("get") or {})
+if not task_operation:
+    raise SystemExit("error: OpenAPI missing GET /v1/tasks/{id}")
+if task_operation.get("operationId") != "get_task":
+    raise SystemExit("error: GET /v1/tasks/{id} must use operationId get_task")
+if task_operation.get("x-zincha-audience") != "participant":
+    raise SystemExit("error: GET /v1/tasks/{id} must be participant audience")
+if task_operation.get("x-zincha-auth") != "signed_address":
+    raise SystemExit("error: GET /v1/tasks/{id} must require signed_address auth")
+if not any((item or {}).get("signedAddress") == [] for item in task_operation.get("security") or []):
+    raise SystemExit("error: GET /v1/tasks/{id} must declare signedAddress security")
+task_parameter_refs = [parameter.get("$ref") for parameter in task_operation.get("parameters") or []]
+if "#/components/parameters/IdParam" not in task_parameter_refs:
+    raise SystemExit("error: GET /v1/tasks/{id} missing IdParam")
+task_response_schema = (
+    (((task_operation.get("responses") or {}).get("200") or {}).get("content") or {})
+    .get("application/json", {})
+    .get("schema", {})
+)
+if task_response_schema.get("$ref") != "#/components/schemas/ApiResponse_Task":
+    raise SystemExit("error: GET /v1/tasks/{id} must return ApiResponse_Task")
 
 history_paths = {
     "/v1/accounts/{address}/transactions": "TransactionList",
@@ -119,6 +143,7 @@ private_markers=(
     "query nonce"
     "\`--network\` is an alias"
     "contract/address/token transaction history) only to"
+    "covers every Public-audience"
 )
 
 for marker in "${private_markers[@]}"; do
@@ -137,6 +162,9 @@ required_skill_markers=(
     "zincha --release vega faucet --address zn1..."
     "zincha --release vega query account zn1..."
     "zincha --release vega query account-nonce zn1..."
+    "GET /v1/tasks/:id"
+    "requires signed address authentication"
+    "SDK-facing API surface"
     "index-backed"
     "pagination.next_cursor"
     "agents must not retry with \`offset\`"

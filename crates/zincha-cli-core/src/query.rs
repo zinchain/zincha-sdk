@@ -45,6 +45,8 @@ pub enum QueryCommands {
         address: String,
     },
     Task {
+        #[command(flatten)]
+        signer: KeySourceArgs,
         task_id: String,
     },
     Tasks,
@@ -151,10 +153,19 @@ pub async fn run_query(
                 .get(&format!("/v1/requesters/{address}/reputation"))
                 .await?,
         ),
-        Some(QueryCommands::Task { task_id }) => (
-            "query-task",
-            client.get(&format!("/v1/tasks/{task_id}")).await?,
-        ),
+        Some(QueryCommands::Task { signer, task_id }) => {
+            let keypair = load_keypair(&signer)?;
+            (
+                "query-task",
+                client
+                    .request(
+                        Method::GET,
+                        &format!("/v1/tasks/{task_id}"),
+                        RequestOptions::default().signed().signer(keypair),
+                    )
+                    .await?,
+            )
+        }
         Some(QueryCommands::Tasks) => ("query-tasks", client.get("/v1/tasks").await?),
         Some(QueryCommands::Tool { tool_id }) => (
             "query-tool",
@@ -417,5 +428,34 @@ mod tests {
             assert!(help.contains("--cursor"), "{help}");
             assert!(!help.contains("--offset"), "{help}");
         }
+    }
+
+    #[test]
+    fn task_query_requires_key_source_for_signed_participant_auth() {
+        let task_id = "aa".repeat(32);
+        let parsed =
+            QueryCommand::try_parse_from(["query", "task", "--secret-key", "11", task_id.as_str()])
+                .expect("parse signed task query");
+
+        match parsed.command.expect("typed query command") {
+            QueryCommands::Task {
+                signer,
+                task_id: id,
+            } => {
+                assert_eq!(id, task_id);
+                assert_eq!(signer.secret_key.as_deref(), Some("11"));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let mut command = QueryCommand::command();
+        let help = command
+            .find_subcommand_mut("task")
+            .expect("missing task subcommand")
+            .render_long_help()
+            .to_string();
+        assert!(help.contains("--secret-key"), "{help}");
+        assert!(help.contains("--key-file"), "{help}");
+        assert!(help.contains("--keystore"), "{help}");
     }
 }
