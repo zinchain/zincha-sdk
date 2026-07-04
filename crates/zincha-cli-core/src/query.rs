@@ -5,7 +5,9 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use reqwest::Method;
 use serde_json::Value;
-use zincha_client::{RequestOptions, TransactionHistoryQuery, ZinchaClient};
+use zincha_client::{
+    ParticipantWorkflowQuery, RequestOptions, TransactionHistoryQuery, ZinchaClient,
+};
 
 #[derive(Debug, Parser)]
 pub struct QueryCommand {
@@ -66,7 +68,73 @@ pub enum QueryCommands {
         subscription_id: String,
     },
     Agreement {
+        #[command(flatten)]
+        signer: KeySourceArgs,
         agreement_id: String,
+    },
+    AgreementsByParty {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    AgreementsByArbitrator {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    ToolJob {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        job_id: String,
+    },
+    ToolJobsByRequester {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    ToolJobsByProvider {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    ToolUsageSession {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        session_id: String,
+    },
+    ToolUsageSessionsByRequester {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    ToolUsageSessionsByProvider {
+        #[command(flatten)]
+        signer: KeySourceArgs,
+        address: String,
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
     },
     Contract {
         address: String,
@@ -193,11 +261,136 @@ pub async fn run_query(
                 .get(&format!("/v1/tool-subscriptions/{subscription_id}"))
                 .await?,
         ),
-        Some(QueryCommands::Agreement { agreement_id }) => (
-            "query-agreement",
-            client
-                .get(&format!("/v1/agreements/{agreement_id}"))
+        Some(QueryCommands::Agreement {
+            signer,
+            agreement_id,
+        }) => {
+            let keypair = load_keypair(&signer)?;
+            (
+                "query-agreement",
+                signed_get(&client, &format!("/v1/agreements/{agreement_id}"), keypair).await?,
+            )
+        }
+        Some(QueryCommands::AgreementsByParty {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-agreements-by-party",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/agreements/party/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
+        ),
+        Some(QueryCommands::AgreementsByArbitrator {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-agreements-by-arbitrator",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/agreements/arbitrator/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
+        ),
+        Some(QueryCommands::ToolJob { signer, job_id }) => {
+            let keypair = load_keypair(&signer)?;
+            (
+                "query-tool-job",
+                signed_get(&client, &format!("/v1/tool-jobs/{job_id}"), keypair).await?,
+            )
+        }
+        Some(QueryCommands::ToolJobsByRequester {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-tool-jobs-by-requester",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/tool-jobs/requester/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
+        ),
+        Some(QueryCommands::ToolJobsByProvider {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-tool-jobs-by-provider",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/tool-jobs/provider/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
+        ),
+        Some(QueryCommands::ToolUsageSession { signer, session_id }) => {
+            let keypair = load_keypair(&signer)?;
+            (
+                "query-tool-usage-session",
+                signed_get(
+                    &client,
+                    &format!("/v1/tool-usage-sessions/{session_id}"),
+                    keypair,
+                )
                 .await?,
+            )
+        }
+        Some(QueryCommands::ToolUsageSessionsByRequester {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-tool-usage-sessions-by-requester",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/tool-usage-sessions/requester/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
+        ),
+        Some(QueryCommands::ToolUsageSessionsByProvider {
+            signer,
+            address,
+            limit,
+            cursor,
+        }) => (
+            "query-tool-usage-sessions-by-provider",
+            signed_workflow_list(
+                &client,
+                signer,
+                &address,
+                &format!("/v1/tool-usage-sessions/provider/{address}"),
+                limit,
+                cursor,
+            )
+            .await?,
         ),
         Some(QueryCommands::Contract { address }) => (
             "query-contract",
@@ -287,6 +480,60 @@ fn transaction_history_query(
         query = query.cursor(cursor);
     }
     query
+}
+
+fn participant_workflow_query(
+    limit: Option<u64>,
+    cursor: Option<String>,
+) -> ParticipantWorkflowQuery {
+    let mut query = ParticipantWorkflowQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
+    }
+    query
+}
+
+async fn signed_get(
+    client: &ZinchaClient,
+    path: &str,
+    keypair: zincha_primitives::crypto::Keypair,
+) -> Result<Value> {
+    client
+        .request(
+            Method::GET,
+            path,
+            RequestOptions::default().signed().signer(keypair),
+        )
+        .await
+}
+
+async fn signed_workflow_list(
+    client: &ZinchaClient,
+    signer: KeySourceArgs,
+    address: &str,
+    path: &str,
+    limit: Option<u64>,
+    cursor: Option<String>,
+) -> Result<Value> {
+    let keypair = load_keypair(&signer)?;
+    let signer_address = keypair.address().to_string();
+    if signer_address != address {
+        bail!(
+            "signed participant query address mismatch: signer address {signer_address} does not match path address {address}"
+        );
+    }
+    let query = participant_workflow_query(limit, cursor);
+    let mut options = RequestOptions::default().signed().signer(keypair);
+    if let Some(limit) = query.limit {
+        options = options.query_param("limit", limit.to_string());
+    }
+    if let Some(cursor) = query.cursor {
+        options = options.query_param("cursor", cursor);
+    }
+    client.request(Method::GET, path, options).await
 }
 
 async fn get_with_limit(client: &ZinchaClient, path: &str, limit: Option<u64>) -> Result<Value> {

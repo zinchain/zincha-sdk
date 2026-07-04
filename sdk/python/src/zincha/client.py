@@ -2036,6 +2036,150 @@ class ZinchaClient:
             timeout=timeout,
         )
 
+    def agreement(
+        self,
+        agreement_id: str,
+        *,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/agreements/%s" % _normalize_hash(agreement_id),
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def agreements_by_party(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/agreements/party/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def agreements_by_arbitrator(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/agreements/arbitrator/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_job(
+        self,
+        job_id: str,
+        *,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-jobs/%s" % _normalize_hash(job_id),
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_jobs_by_requester(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-jobs/requester/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_jobs_by_provider(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-jobs/provider/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_usage_session(
+        self,
+        session_id: str,
+        *,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-usage-sessions/%s" % _normalize_hash(session_id),
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_usage_sessions_by_requester(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-usage-sessions/requester/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
+    def tool_usage_sessions_by_provider(
+        self,
+        address: str,
+        *,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        bearer_token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tool-usage-sessions/provider/%s" % normalize_address(address),
+            query={"limit": limit, "cursor": cursor},
+            bearer_token=bearer_token,
+            signed=True,
+            timeout=timeout,
+        )
+
     def tools(self, **query: Any) -> Any:
         return self.get("/v1/tools", query=query)
 

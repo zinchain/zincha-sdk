@@ -205,6 +205,92 @@ task_response_schema = (
 if task_response_schema.get("$ref") != "#/components/schemas/ApiResponse_Task":
     raise SystemExit("error: GET /v1/tasks/{id} must return ApiResponse_Task")
 
+workflow_detail_paths = {
+    "/v1/agreements/{id}": "ApiResponse_AgreementDetail",
+    "/v1/tool-jobs/{id}": "ApiResponse_ToolJobDetail",
+    "/v1/tool-usage-sessions/{id}": "ApiResponse_ToolUsageSessionDetail",
+}
+workflow_list_paths = {
+    "/v1/agreements/party/{address}": "ApiResponse_AgreementList",
+    "/v1/agreements/arbitrator/{address}": "ApiResponse_AgreementList",
+    "/v1/tool-jobs/requester/{address}": "ApiResponse_ToolJobList",
+    "/v1/tool-jobs/provider/{address}": "ApiResponse_ToolJobList",
+    "/v1/tool-usage-sessions/requester/{address}": "ApiResponse_ToolUsageSessionList",
+    "/v1/tool-usage-sessions/provider/{address}": "ApiResponse_ToolUsageSessionList",
+}
+
+for path, response_name in workflow_detail_paths.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    if not operation:
+        raise SystemExit(f"error: OpenAPI missing GET {path}")
+    if operation.get("x-zincha-audience") != "participant":
+        raise SystemExit(f"error: {path} must be participant audience")
+    if operation.get("x-zincha-auth") != "signed_address":
+        raise SystemExit(f"error: {path} must require signed_address auth")
+    if not any((item or {}).get("signedAddress") == [] for item in operation.get("security") or []):
+        raise SystemExit(f"error: {path} must declare signedAddress security")
+    response_schema = (
+        (((operation.get("responses") or {}).get("200") or {}).get("content") or {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if response_schema.get("$ref") != f"#/components/schemas/{response_name}":
+        raise SystemExit(f"error: {path} must return {response_name}")
+
+for schema_name in [
+    "AgreementTerminalSummary",
+    "ToolJobTerminalSummary",
+    "ToolUsageSessionTerminalSummary",
+]:
+    schema = (spec.get("components") or {}).get("schemas", {}).get(schema_name) or {}
+    if not schema:
+        raise SystemExit(f"error: OpenAPI missing {schema_name}")
+    required = set(schema.get("required") or [])
+    for field in ["terminal_summary", "final_action", "final_update_block", "final_update_timestamp_ms"]:
+        if field not in required:
+            raise SystemExit(f"error: {schema_name} missing required {field}")
+
+agreement_summary = (spec.get("components") or {}).get("schemas", {}).get("AgreementTerminalSummary") or {}
+agreement_required = set(agreement_summary.get("required") or [])
+for field in ["created_at_block", "service_provider", "prior_arbitrators"]:
+    if field not in agreement_required or field not in (agreement_summary.get("properties") or {}):
+        raise SystemExit(f"error: AgreementTerminalSummary missing {field}")
+
+for schema_name in ["ToolJobTerminalSummary", "ToolUsageSessionTerminalSummary"]:
+    schema = (spec.get("components") or {}).get("schemas", {}).get(schema_name) or {}
+    required = set(schema.get("required") or [])
+    for field in ["opened_at_block", "prior_arbitrators"]:
+        if field not in required or field not in (schema.get("properties") or {}):
+            raise SystemExit(f"error: {schema_name} missing {field}")
+
+for path, response_name in workflow_list_paths.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    if not operation:
+        raise SystemExit(f"error: OpenAPI missing GET {path}")
+    if operation.get("x-zincha-audience") != "participant":
+        raise SystemExit(f"error: {path} must be participant audience")
+    if operation.get("x-zincha-auth") != "signed_address":
+        raise SystemExit(f"error: {path} must require signed_address auth")
+    parameter_refs = [parameter.get("$ref") for parameter in operation.get("parameters") or []]
+    if "#/components/parameters/PaginationLimit" not in parameter_refs:
+        raise SystemExit(f"error: {path} missing PaginationLimit")
+    if "#/components/parameters/PaginationCursor" not in parameter_refs:
+        raise SystemExit(f"error: {path} missing PaginationCursor")
+    if "#/components/parameters/PaginationOffset" in parameter_refs:
+        raise SystemExit(f"error: {path} must not expose PaginationOffset")
+    response_schema = (
+        (((operation.get("responses") or {}).get("200") or {}).get("content") or {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if response_schema.get("$ref") != f"#/components/schemas/{response_name}":
+        raise SystemExit(f"error: {path} must return {response_name}")
+    list_schema_name = response_name.removeprefix("ApiResponse_")
+    list_schema = spec["components"]["schemas"].get(list_schema_name) or {}
+    pagination_ref = ((list_schema.get("properties") or {}).get("pagination") or {}).get("$ref")
+    if pagination_ref != "#/components/schemas/CursorPagination":
+        raise SystemExit(f"error: {path} must use CursorPagination")
+
 history_paths = {
     "/v1/accounts/{address}/transactions": "TransactionList",
     "/v1/contracts/{address}/transactions": "TransactionList",
@@ -312,6 +398,14 @@ required_skill_markers=(
     "unmatched tasks that are not past deadline"
     "GET /v1/tasks/:id"
     "requires signed address authentication"
+    "Signed participant workflow reads are available for agreements, tool jobs"
+    "GET /v1/tool-jobs/:id"
+    "terminally removed"
+    "created/opened block, final update block, final update timestamp"
+    "/v1/tool-jobs/provider/:address"
+    "/v1/tool-usage-sessions/requester/:address"
+    "/v1/agreements/arbitrator/:address"
+    "opaque \`cursor\` pagination only, never \`offset\`"
     "SDK-facing API surface"
     "open-task opportunity discovery and signed task detail by ID"
     "index-backed"

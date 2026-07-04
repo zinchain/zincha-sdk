@@ -3,7 +3,10 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-use zincha_client::{signed_request_parts, RequestOptions, TransactionHistoryQuery, ZinchaClient};
+use zincha_client::{
+    signed_request_parts, ParticipantWorkflowQuery, RequestOptions, TransactionHistoryQuery,
+    ZinchaClient,
+};
 use zincha_primitives::crypto::{hash_bytes, Keypair};
 
 #[derive(Debug)]
@@ -291,6 +294,96 @@ async fn task_helper_uses_signed_participant_auth() {
     );
     assert!(!header_value(&request.headers, "x-zincha-body-sha256").is_empty());
     assert!(!header_value(&request.headers, "x-zincha-signature").is_empty());
+}
+
+#[tokio::test]
+async fn participant_workflow_helpers_use_signed_cursor_routes_without_offset() {
+    async fn assert_signed_get<F, Fut>(expected_path: &str, call: F)
+    where
+        F: FnOnce(ZinchaClient) -> Fut,
+        Fut: std::future::Future<Output = anyhow::Result<Value>>,
+    {
+        let (url, server) = serve_once("200 OK", r#"{"success":true,"data":{},"error":null}"#);
+        let signer = Keypair::from_secret_bytes(&[0x33u8; 32]);
+        let signer_address = signer.address().to_string();
+        let client = ZinchaClient::builder()
+            .base_url(&url)
+            .signer(signer)
+            .build()
+            .expect("client");
+
+        call(client).await.expect("participant workflow request");
+
+        let request = server.join().expect("server thread");
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.path, expected_path);
+        assert!(!request.path.contains("offset"));
+        assert_eq!(
+            header_value(&request.headers, "x-zincha-address"),
+            signer_address
+        );
+        assert!(!header_value(&request.headers, "x-zincha-signature").is_empty());
+    }
+
+    let agreement_id = "11".repeat(32);
+    assert_signed_get(
+        &format!("/v1/agreements/{agreement_id}"),
+        |client| async move { client.agreement(&agreement_id).await },
+    )
+    .await;
+
+    let job_id = "22".repeat(32);
+    assert_signed_get(&format!("/v1/tool-jobs/{job_id}"), |client| async move {
+        client.tool_job(&job_id).await
+    })
+    .await;
+
+    let session_id = "33".repeat(32);
+    assert_signed_get(
+        &format!("/v1/tool-usage-sessions/{session_id}"),
+        |client| async move { client.tool_usage_session(&session_id).await },
+    )
+    .await;
+
+    let query = || ParticipantWorkflowQuery::new().limit(7).cursor("cafe");
+    assert_signed_get(
+        "/v1/agreements/party/zn1party?limit=7&cursor=cafe",
+        |client| async move { client.agreements_by_party("zn1party", query()).await },
+    )
+    .await;
+    assert_signed_get(
+        "/v1/agreements/arbitrator/zn1arb?limit=7&cursor=cafe",
+        |client| async move { client.agreements_by_arbitrator("zn1arb", query()).await },
+    )
+    .await;
+    assert_signed_get(
+        "/v1/tool-jobs/requester/zn1requester?limit=7&cursor=cafe",
+        |client| async move { client.tool_jobs_by_requester("zn1requester", query()).await },
+    )
+    .await;
+    assert_signed_get(
+        "/v1/tool-jobs/provider/zn1provider?limit=7&cursor=cafe",
+        |client| async move { client.tool_jobs_by_provider("zn1provider", query()).await },
+    )
+    .await;
+    assert_signed_get(
+        "/v1/tool-usage-sessions/requester/zn1requester?limit=7&cursor=cafe",
+        |client| async move {
+            client
+                .tool_usage_sessions_by_requester("zn1requester", query())
+                .await
+        },
+    )
+    .await;
+    assert_signed_get(
+        "/v1/tool-usage-sessions/provider/zn1provider?limit=7&cursor=cafe",
+        |client| async move {
+            client
+                .tool_usage_sessions_by_provider("zn1provider", query())
+                .await
+        },
+    )
+    .await;
 }
 
 #[tokio::test]

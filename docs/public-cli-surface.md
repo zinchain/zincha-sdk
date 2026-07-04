@@ -41,8 +41,8 @@ participant reads. Generic `zincha query <path>` remains as an escape hatch.
 | --- | --- |
 | Chain/blocks | `query chain`, `query block`, `query blocks` |
 | Accounts/agents/requesters | `query account`, `query account-nonce`, `query account-transactions`, `query agent`, `query agents`, `query requester-reputation` |
-| Tasks/tools/subscriptions | `query pending-tasks`, `query task-opportunity`, `query task` with a signer, `query tool`, `query tools`, `query subscription` |
-| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query contract`, `query contract-transactions`, `query route`, `query token`, `query token-transactions`, `query arbitrator` |
+| Tasks/tools/subscriptions | `query pending-tasks`, `query task-opportunity`, `query task` with a signer, `query tool`, `query tools`, `query subscription`, `query tool-job`, `query tool-jobs-by-requester`, `query tool-jobs-by-provider`, `query tool-usage-session`, `query tool-usage-sessions-by-requester`, `query tool-usage-sessions-by-provider` |
+| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query agreements-by-party`, `query agreements-by-arbitrator`, `query contract`, `query contract-transactions`, `query route`, `query token`, `query token-transactions`, `query arbitrator` |
 | Events/transactions/validators | `query events`, `query tx`, `query validator`, `query validators` |
 | Participant reads | `query participant <path>` with a signer and local address-scope checks. |
 
@@ -50,5 +50,6 @@ Operator, provider-read, testing, readiness-internal, mempool, pipeline,
 consensus, finality, orderflow-stats, and node-memory endpoints are not wired
 as typed query commands.
 
-Account, contract, and token transaction-history queries use cursor pagination
-with `--limit` and `--cursor`; they intentionally do not expose `--offset`.
+Account, contract, token transaction-history queries and participant workflow
+lists use cursor pagination with `--limit` and `--cursor`; they intentionally
+do not expose `--offset`.

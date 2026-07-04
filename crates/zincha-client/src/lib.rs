@@ -180,6 +180,111 @@ impl ZinchaClient {
         self.get(&format!("/v1/tasks/{task_id}/opportunity")).await
     }
 
+    pub async fn agreement(&self, agreement_id: &str) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/agreements/{agreement_id}"),
+            RequestOptions::default().signed(),
+        )
+        .await
+    }
+
+    pub async fn agreements_by_party(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/agreements/party/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn agreements_by_arbitrator(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/agreements/arbitrator/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn tool_job(&self, job_id: &str) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-jobs/{job_id}"),
+            RequestOptions::default().signed(),
+        )
+        .await
+    }
+
+    pub async fn tool_jobs_by_requester(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-jobs/requester/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn tool_jobs_by_provider(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-jobs/provider/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn tool_usage_session(&self, session_id: &str) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-usage-sessions/{session_id}"),
+            RequestOptions::default().signed(),
+        )
+        .await
+    }
+
+    pub async fn tool_usage_sessions_by_requester(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-usage-sessions/requester/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn tool_usage_sessions_by_provider(
+        &self,
+        address: &str,
+        query: ParticipantWorkflowQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/tool-usage-sessions/provider/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
     pub async fn transaction_status(&self, hash: &str) -> Result<Value> {
         self.get(&format!("/v1/tx/{hash}")).await
     }
@@ -460,6 +565,39 @@ impl TransactionHistoryQuery {
 
     fn into_request_options(self) -> RequestOptions {
         let mut options = RequestOptions::default();
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
+        options
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ParticipantWorkflowQuery {
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+}
+
+impl ParticipantWorkflowQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    fn into_request_options(self) -> RequestOptions {
+        let mut options = RequestOptions::default().signed();
         if let Some(limit) = self.limit {
             options = options.query_param("limit", limit.to_string());
         }

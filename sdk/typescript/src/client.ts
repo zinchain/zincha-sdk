@@ -119,6 +119,7 @@ import type {
   FaucetResponse,
   Hex,
   NonceResponse,
+  ParticipantWorkflowQuery,
   ReleaseName,
   RequestOptions,
   SignedTransaction,
@@ -1035,6 +1036,93 @@ export class ZinchaClient {
     return this.get(`/v1/tasks/${normalizeHash(id)}`, { ...options, signed: true });
   }
 
+  agreement(id: Hex, options: Omit<RequestOptions, "body" | "query" | "signed"> = {}): Promise<unknown> {
+    return this.get(`/v1/agreements/${normalizeHash(id)}`, { ...options, signed: true });
+  }
+
+  agreementsByParty(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/agreements/party/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
+  agreementsByArbitrator(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/agreements/arbitrator/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
+  toolJob(id: Hex, options: Omit<RequestOptions, "body" | "query" | "signed"> = {}): Promise<unknown> {
+    return this.get(`/v1/tool-jobs/${normalizeHash(id)}`, { ...options, signed: true });
+  }
+
+  toolJobsByRequester(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/tool-jobs/requester/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
+  toolJobsByProvider(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/tool-jobs/provider/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
+  toolUsageSession(
+    id: Hex,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/tool-usage-sessions/${normalizeHash(id)}`, { ...options, signed: true });
+  }
+
+  toolUsageSessionsByRequester(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/tool-usage-sessions/requester/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
+  toolUsageSessionsByProvider(
+    address: string,
+    query?: ParticipantWorkflowQuery,
+    options: Omit<RequestOptions, "body" | "query" | "signed"> = {},
+  ): Promise<unknown> {
+    return this.get(`/v1/tool-usage-sessions/provider/${normalizeAddress(address)}`, {
+      ...options,
+      signed: true,
+      query: participantWorkflowQuery(query),
+    });
+  }
+
   tools(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
     return this.get("/v1/tools", { query });
   }
@@ -1130,6 +1218,13 @@ function buildRequestTarget(path: string, query?: RequestOptions["query"]): stri
 }
 
 function transactionHistoryQuery(query?: TransactionHistoryQuery): RequestOptions["query"] {
+  return {
+    limit: query?.limit,
+    cursor: query?.cursor,
+  };
+}
+
+function participantWorkflowQuery(query?: ParticipantWorkflowQuery): RequestOptions["query"] {
   return {
     limit: query?.limit,
     cursor: query?.cursor,

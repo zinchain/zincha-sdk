@@ -68,6 +68,11 @@ export interface TransactionHistoryQuery {
   cursor?: string;
 }
 
+export interface ParticipantWorkflowQuery {
+  limit?: number;
+  cursor?: string;
+}
+
 export interface SubmitTransactionResponse {
   tx_hash: Hex;
   status: string;

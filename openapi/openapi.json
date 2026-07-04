@@ -200,6 +200,310 @@
         },
         "type": "object"
       },
+      "Agreement": {
+        "additionalProperties": true,
+        "description": "Signed participant agreement workflow record. The `terms` field may contain private execution or settlement payloads and is not exposed on public routes.",
+        "properties": {
+          "accepted_by": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "agreement_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "arbitration_deadline_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dispute_reason": {
+            "type": "string"
+          },
+          "escrow_amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "escrow_released": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parties": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proposer": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "result_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "settlement_approver": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "terms": {
+            "description": "Hex-encoded private agreement terms visible only to authorized participants.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreement_id",
+          "parties",
+          "proposer",
+          "service_provider",
+          "escrow_amount",
+          "status",
+          "created_at_block"
+        ],
+        "type": "object"
+      },
+      "AgreementDetail": {
+        "description": "Agreement detail. Active workflows return the full Agreement record; terminally removed workflows return AgreementTerminalSummary.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Agreement"
+          },
+          {
+            "$ref": "#/components/schemas/AgreementTerminalSummary"
+          }
+        ]
+      },
+      "AgreementList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Agreement"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "AgreementTerminalSummary": {
+        "additionalProperties": false,
+        "description": "Compact participant-readable summary returned by the agreement detail endpoint after the active workflow record has been terminally removed.",
+        "properties": {
+          "accepted_by": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "agreement_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "escrow": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "escrow_released": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_action": {
+            "type": "string"
+          },
+          "final_actor": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "final_update_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_seq": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "milestone_index": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "parties": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "payouts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proposer": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_type": {
+            "enum": [
+              "agreement"
+            ],
+            "type": "string"
+          },
+          "reputation_effects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "resolved_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "result_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "terminal_summary": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "terminal_summary",
+          "record_type",
+          "agreement_id",
+          "status",
+          "created_at_block",
+          "proposer",
+          "service_provider",
+          "parties",
+          "prior_arbitrators",
+          "final_action",
+          "final_actor",
+          "final_update_block",
+          "final_update_seq",
+          "final_update_timestamp_ms"
+        ],
+        "type": "object"
+      },
       "ApiResponse_Agent": {
         "properties": {
           "data": {
@@ -230,6 +534,78 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/AgentList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_Agreement": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Agreement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_AgreementDetail": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgreementDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_AgreementList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgreementList"
               },
               {
                 "type": "null"
@@ -1188,6 +1564,78 @@
         ],
         "type": "object"
       },
+      "ApiResponse_ToolJob": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolJob"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolJobDetail": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolJobDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolJobList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolJobList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_ToolList": {
         "properties": {
           "data": {
@@ -1242,6 +1690,78 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ToolSubscriptionPlanList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolUsageSession": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolUsageSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolUsageSessionDetail": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolUsageSessionDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolUsageSessionList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolUsageSessionList"
               },
               {
                 "type": "null"
@@ -6988,6 +7508,301 @@
         ],
         "type": "object"
       },
+      "ToolJob": {
+        "additionalProperties": true,
+        "description": "Signed participant escrowed tool-job workflow record. Private invocation and result payload fields are visible only through participant routes.",
+        "properties": {
+          "amount_escrowed": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "arbitration_deadline_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "challenge_deadline": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "dispute_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "input_data_hex": {
+            "description": "Hex-encoded private invocation input visible only to authorized participants.",
+            "type": "string"
+          },
+          "input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "job_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "opened_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "result_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result_metadata_hex": {
+            "description": "Hex-encoded private provider result metadata visible only to authorized participants.",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "submit_deadline": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "submitted_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "subscription_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "tool_id",
+          "requester",
+          "provider",
+          "amount_escrowed",
+          "input_hash",
+          "status",
+          "opened_at",
+          "opened_at_block",
+          "submit_deadline"
+        ],
+        "type": "object"
+      },
+      "ToolJobDetail": {
+        "description": "Tool-job detail. Active workflows return the full ToolJob record; terminally removed workflows return ToolJobTerminalSummary.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ToolJob"
+          },
+          {
+            "$ref": "#/components/schemas/ToolJobTerminalSummary"
+          }
+        ]
+      },
+      "ToolJobList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ToolJob"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ToolJobTerminalSummary": {
+        "additionalProperties": false,
+        "description": "Compact participant-readable summary returned by the tool-job detail endpoint after the active workflow record has been terminally removed.",
+        "properties": {
+          "amount_escrowed": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "final_action": {
+            "type": "string"
+          },
+          "final_actor": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "final_update_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_seq": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "job_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "milestone_index": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "opened_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_type": {
+            "enum": [
+              "tool_job"
+            ],
+            "type": "string"
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminal_summary": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "terminal_summary",
+          "record_type",
+          "job_id",
+          "opened_at_block",
+          "prior_arbitrators",
+          "final_action",
+          "final_actor",
+          "final_update_block",
+          "final_update_seq",
+          "final_update_timestamp_ms"
+        ],
+        "type": "object"
+      },
       "ToolList": {
         "properties": {
           "items": {
@@ -7081,6 +7896,323 @@
         "required": [
           "items",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ToolUsageSession": {
+        "additionalProperties": true,
+        "description": "Signed participant metered tool-usage workflow record. Private invocation, usage, and result payload fields are visible only through participant routes.",
+        "properties": {
+          "amount_reserved": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "arbitration_deadline_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "billed_amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "challenge_deadline": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "dispute_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "input_data_hex": {
+            "description": "Hex-encoded private invocation input visible only to authorized participants.",
+            "type": "string"
+          },
+          "input_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "max_units": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "opened_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "opened_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "price_per_unit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "reported_units": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "result_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result_metadata_hex": {
+            "description": "Hex-encoded private provider result metadata visible only to authorized participants.",
+            "type": "string"
+          },
+          "session_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "submit_deadline": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "submitted_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "tool_id",
+          "requester",
+          "provider",
+          "amount_reserved",
+          "price_per_unit",
+          "max_units",
+          "input_hash",
+          "status",
+          "opened_at",
+          "opened_at_block",
+          "submit_deadline"
+        ],
+        "type": "object"
+      },
+      "ToolUsageSessionDetail": {
+        "description": "Tool-usage-session detail. Active workflows return the full ToolUsageSession record; terminally removed workflows return ToolUsageSessionTerminalSummary.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ToolUsageSession"
+          },
+          {
+            "$ref": "#/components/schemas/ToolUsageSessionTerminalSummary"
+          }
+        ]
+      },
+      "ToolUsageSessionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ToolUsageSession"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ToolUsageSessionTerminalSummary": {
+        "additionalProperties": false,
+        "description": "Compact participant-readable summary returned by the tool-usage-session detail endpoint after the active workflow record has been terminally removed.",
+        "properties": {
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "billed_amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "final_action": {
+            "type": "string"
+          },
+          "final_actor": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "final_update_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_seq": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "final_update_timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "opened_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prior_arbitrators": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_type": {
+            "enum": [
+              "tool_usage_session"
+            ],
+            "type": "string"
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "terminal_summary": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "units_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "terminal_summary",
+          "record_type",
+          "session_id",
+          "opened_at_block",
+          "prior_arbitrators",
+          "final_action",
+          "final_actor",
+          "final_update_block",
+          "final_update_seq",
+          "final_update_timestamp_ms"
         ],
         "type": "object"
       },
@@ -8618,6 +9750,735 @@
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/agreements/arbitrator/{address}": {
+      "get": {
+        "description": "Returns active agreement workflow records where the path address is the current or prior arbitrator. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "agreements_by_arbitrator",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AgreementList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged agreements for a signed arbitrator address.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/agreements/arbitrator/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events across agreements where the path address is the current or prior arbitrator. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "get_agreement_lifecycle_events_by_arbitrator",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced agreement lifecycle events for a signed arbitrator address.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/agreements/party/{address}": {
+      "get": {
+        "description": "Returns active agreement workflow records involving the path address as proposer, service provider, party, or settlement approver. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "agreements_by_party",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AgreementList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged agreements for a signed party address.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/agreements/party/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events across agreements involving the path address. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "get_agreement_lifecycle_events_by_party",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced agreement lifecycle events for a signed party address.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/agreements/{id}": {
+      "get": {
+        "description": "Returns the full agreement record to a signed participant: proposer, service provider, party, active arbitrator, prior arbitrator, settlement approver, or privileged operator principal.",
+        "operationId": "get_agreement",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AgreementDetail"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Participant agreement detail by ID.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/agreements/{id}/lifecycle-events": {
+      "get": {
+        "description": "Returns the participant-visible audit log for an agreement. Lifecycle events complement the detail/list endpoints and are not required for discovering active agreement workflow records.",
+        "operationId": "get_agreement_lifecycle_events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced lifecycle events for one agreement.",
+        "tags": [
+          "Agreements"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
       }
     },
     "/v1/arbitrators": {
@@ -13624,6 +15485,735 @@
         "x-zincha-response-view": "public"
       }
     },
+    "/v1/tool-jobs/provider/{address}": {
+      "get": {
+        "description": "Returns active tool jobs assigned to the path address. The signed address must match the path address unless the caller is privileged. Results are ordered oldest actionable first so urgent pending work appears first.",
+        "operationId": "tool_jobs_by_provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolJobList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged tool jobs for a signed provider address.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-jobs/provider/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events for tool jobs assigned to the path address. The signed address must match unless privileged.",
+        "operationId": "get_tool_job_lifecycle_events_by_provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced tool-job lifecycle events for a signed provider address.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-jobs/requester/{address}": {
+      "get": {
+        "description": "Returns active tool jobs opened by the path address. The signed address must match the path address unless the caller is privileged. Results are ordered oldest actionable first.",
+        "operationId": "tool_jobs_by_requester",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolJobList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged tool jobs for a signed requester address.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-jobs/requester/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events for tool jobs opened by the path address. The signed address must match unless privileged.",
+        "operationId": "get_tool_job_lifecycle_events_by_requester",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced tool-job lifecycle events for a signed requester address.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-jobs/{id}": {
+      "get": {
+        "description": "Returns the full escrowed tool-job workflow record to a signed requester, provider, active/prior arbitrator, or privileged operator principal.",
+        "operationId": "get_tool_job",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolJobDetail"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Participant tool job detail by ID.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-jobs/{id}/lifecycle-events": {
+      "get": {
+        "description": "Returns the participant-visible audit log for a tool job. Lifecycle events complement the detail/list endpoints and are not required for discovering active jobs.",
+        "operationId": "get_tool_job_lifecycle_events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced lifecycle events for one tool job.",
+        "tags": [
+          "Tool Jobs"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
     "/v1/tool-subscription-plans": {
       "get": {
         "description": "Returns subscription plans across all tools, ordered most-recently-published first.",
@@ -14476,6 +17066,735 @@
         "x-zincha-rate-limit-class": "expensive_read",
         "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/tool-usage-sessions/provider/{address}": {
+      "get": {
+        "description": "Returns active metered tool usage sessions assigned to the path address. The signed address must match unless privileged. Results are ordered oldest actionable first.",
+        "operationId": "tool_usage_sessions_by_provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolUsageSessionList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged tool usage sessions for a signed provider address.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-usage-sessions/provider/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events for metered usage sessions assigned to the path address. The signed address must match unless privileged.",
+        "operationId": "get_tool_usage_lifecycle_events_by_provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced usage-session lifecycle events for a signed provider address.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-usage-sessions/requester/{address}": {
+      "get": {
+        "description": "Returns active metered tool usage sessions opened by the path address. The signed address must match unless privileged. Results are ordered oldest actionable first.",
+        "operationId": "tool_usage_sessions_by_requester",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolUsageSessionList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged tool usage sessions for a signed requester address.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-usage-sessions/requester/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible lifecycle events for metered usage sessions opened by the path address. The signed address must match unless privileged.",
+        "operationId": "get_tool_usage_lifecycle_events_by_requester",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced usage-session lifecycle events for a signed requester address.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-usage-sessions/{id}": {
+      "get": {
+        "description": "Returns the full metered tool-usage workflow record to a signed requester, provider, active/prior arbitrator, or privileged operator principal.",
+        "operationId": "get_tool_usage_session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ToolUsageSessionDetail"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Participant tool usage session detail by ID.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tool-usage-sessions/{id}/lifecycle-events": {
+      "get": {
+        "description": "Returns the participant-visible audit log for a metered tool usage session.",
+        "operationId": "get_tool_usage_lifecycle_events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced lifecycle events for one tool usage session.",
+        "tags": [
+          "Tool Usage Sessions"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
       }
     },
     "/v1/tools": {

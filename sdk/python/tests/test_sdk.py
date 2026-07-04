@@ -279,6 +279,61 @@ class PythonSdkTests(unittest.TestCase):
         self.assertRegex(headers["x-zincha-body-sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(headers["x-zincha-signature"], r"^[0-9a-f]{128}$")
 
+    def test_participant_workflow_helpers_use_signed_cursor_routes(self):
+        calls = []
+        keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
+        agreement_id = "11" * 32
+        job_id = "22" * 32
+        session_id = "33" * 32
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps({"success": True, "data": {}, "error": None})
+
+        client = ZinchaClient(
+            base_url="http://node.test/",
+            signer=keypair,
+            transport=transport,
+        )
+        client.agreement("0x" + agreement_id)
+        client.tool_job("0x" + job_id)
+        client.tool_usage_session("0x" + session_id)
+        client.agreements_by_party(GOLDEN["sender"], limit=7, cursor="cafe")
+        client.agreements_by_arbitrator(GOLDEN["sender"], limit=7, cursor="cafe")
+        client.tool_jobs_by_requester(GOLDEN["sender"], limit=7, cursor="cafe")
+        client.tool_jobs_by_provider(GOLDEN["sender"], limit=7, cursor="cafe")
+        client.tool_usage_sessions_by_requester(GOLDEN["sender"], limit=7, cursor="cafe")
+        client.tool_usage_sessions_by_provider(GOLDEN["sender"], limit=7, cursor="cafe")
+
+        self.assertEqual(
+            [call[1] for call in calls],
+            [
+                "http://node.test/v1/agreements/%s" % agreement_id,
+                "http://node.test/v1/tool-jobs/%s" % job_id,
+                "http://node.test/v1/tool-usage-sessions/%s" % session_id,
+                "http://node.test/v1/agreements/party/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+                "http://node.test/v1/agreements/arbitrator/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+                "http://node.test/v1/tool-jobs/requester/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+                "http://node.test/v1/tool-jobs/provider/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+                "http://node.test/v1/tool-usage-sessions/requester/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+                "http://node.test/v1/tool-usage-sessions/provider/%s?limit=7&cursor=cafe"
+                % GOLDEN["sender"],
+            ],
+        )
+        for method, url, headers, _body, _timeout in calls:
+            self.assertEqual(method, "GET")
+            self.assertNotIn("offset", url)
+            self.assertEqual(headers["x-zincha-address"], GOLDEN["sender"])
+            self.assertRegex(headers["x-zincha-signature"], r"^[0-9a-f]{128}$")
+
+        with self.assertRaises(TypeError):
+            client.tool_jobs_by_provider(GOLDEN["sender"], offset=0)
+
     def test_release_faucet_helper_uses_release_faucet_api_while_normal_calls_use_canonical_rpc(self):
         calls = []
 

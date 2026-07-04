@@ -181,6 +181,21 @@ Useful public routes:
   is the full private task record, requires signed address authentication,
   and uses record-level access control; anonymous or unrelated callers must
   not be routed around the 403 response.
+- Signed participant workflow reads are available for agreements, tool jobs,
+  and metered tool usage sessions. Use `GET /v1/agreements/:id`,
+  `GET /v1/tool-jobs/:id`, and `GET /v1/tool-usage-sessions/:id` for detail
+  by ID; active workflows return full private records, and terminally removed
+  workflows return compact signed participant summaries with final status,
+  created/opened block, final update block, final update timestamp, and
+  participant role metadata. Providers and requesters discover their active
+  private work through scoped signed lists: `/v1/tool-jobs/provider/:address`,
+  `/v1/tool-jobs/requester/:address`,
+  `/v1/tool-usage-sessions/provider/:address`,
+  `/v1/tool-usage-sessions/requester/:address`, and
+  `/v1/agreements/party/:address`; arbitrators use
+  `/v1/agreements/arbitrator/:address`. These list endpoints use `limit` and
+  opaque `cursor` pagination only, never `offset`, and the path address must
+  match the signed participant address unless the caller is privileged.
 - `POST /v1/faucet` for testnet faucet claims on Vega. Polaris and Sirius
   also have faucet routes in the release catalog, but they are for internal
   devnet and incentivized-testnet use only and should not be surfaced to

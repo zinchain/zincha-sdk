@@ -276,6 +276,54 @@ test("task helper fetches task detail with signed participant auth", async () =>
   assert.match(headers.get("x-zincha-signature") ?? "", /^[0-9a-f]{128}$/);
 });
 
+test("participant workflow helpers use signed cursor routes and drop offset", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const agreementId = "11".repeat(32);
+  const jobId = "22".repeat(32);
+  const sessionId = "33".repeat(32);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    signer: keypair,
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { success: true, data: {}, error: null });
+    },
+  });
+
+  await client.agreement(`0x${agreementId}`);
+  await client.toolJob(`0x${jobId}`);
+  await client.toolUsageSession(`0x${sessionId}`);
+  await client.agreementsByParty(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+  await client.agreementsByArbitrator(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+  await client.toolJobsByRequester(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+  await client.toolJobsByProvider(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+  await client.toolUsageSessionsByRequester(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+  await client.toolUsageSessionsByProvider(golden.sender, { limit: 7, cursor: "cafe", offset: 0 } as any);
+
+  assert.deepEqual(
+    calls.map((call) => call.url),
+    [
+      `http://node.test/v1/agreements/${agreementId}`,
+      `http://node.test/v1/tool-jobs/${jobId}`,
+      `http://node.test/v1/tool-usage-sessions/${sessionId}`,
+      `http://node.test/v1/agreements/party/${golden.sender}?limit=7&cursor=cafe`,
+      `http://node.test/v1/agreements/arbitrator/${golden.sender}?limit=7&cursor=cafe`,
+      `http://node.test/v1/tool-jobs/requester/${golden.sender}?limit=7&cursor=cafe`,
+      `http://node.test/v1/tool-jobs/provider/${golden.sender}?limit=7&cursor=cafe`,
+      `http://node.test/v1/tool-usage-sessions/requester/${golden.sender}?limit=7&cursor=cafe`,
+      `http://node.test/v1/tool-usage-sessions/provider/${golden.sender}?limit=7&cursor=cafe`,
+    ],
+  );
+  for (const call of calls) {
+    assert.equal(call.init.method, "GET");
+    assert.equal(call.url.includes("offset"), false);
+    const headers = new Headers(call.init.headers);
+    assert.equal(headers.get("x-zincha-address"), golden.sender);
+    assert.match(headers.get("x-zincha-signature") ?? "", /^[0-9a-f]{128}$/);
+  }
+});
+
 test("release faucet helper uses release faucet API while normal calls use canonical RPC", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = ZinchaClient.forRelease("vega", {
