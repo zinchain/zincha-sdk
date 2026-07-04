@@ -224,6 +224,30 @@ class PythonSdkTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             client.account_transactions(GOLDEN["sender"], offset=0)
 
+    def test_task_opportunity_helper_fetches_public_open_task_view_unsigned(self):
+        calls = []
+        task_id = "aa" * 32
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps(
+                {
+                    "success": True,
+                    "data": {"task_id": task_id, "description": "public brief"},
+                    "error": None,
+                }
+            )
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        response = client.task_opportunity("0x" + task_id)
+
+        self.assertEqual(response, {"task_id": task_id, "description": "public brief"})
+        self.assertEqual(calls[0][0], "GET")
+        self.assertEqual(calls[0][1], "http://node.test/v1/tasks/%s/opportunity" % task_id)
+        headers = calls[0][2]
+        self.assertNotIn("x-zincha-address", headers)
+        self.assertNotIn("x-zincha-signature", headers)
+
     def test_task_helper_fetches_task_detail_with_signed_participant_auth(self):
         calls = []
         keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])

@@ -38,6 +38,151 @@ for required in (
     if required not in description:
         raise SystemExit(f"error: OpenAPI description missing {required!r}")
 
+task_opportunity = (((spec.get("paths") or {}).get("/v1/tasks/{id}/opportunity") or {}).get("get") or {})
+if not task_opportunity:
+    raise SystemExit("error: OpenAPI missing GET /v1/tasks/{id}/opportunity")
+if task_opportunity.get("operationId") != "get_task_opportunity":
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must use operationId get_task_opportunity")
+if task_opportunity.get("x-zincha-audience") != "public":
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must be public audience")
+if task_opportunity.get("x-zincha-auth") != "bearer":
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must use optional bearer/global auth")
+if "elapsed deadline" not in (task_opportunity.get("description") or ""):
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must document deadline filtering")
+opportunity_security = task_opportunity.get("security") or []
+if not any(item == {} for item in opportunity_security):
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must permit anonymous calls when deployment auth is disabled")
+if not any((item or {}).get("bearerAuth") == [] for item in opportunity_security):
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must document optional bearerAuth")
+if any((item or {}).get("signedAddress") == [] for item in opportunity_security):
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must not declare signedAddress security")
+opportunity_response_schema = (
+    (((task_opportunity.get("responses") or {}).get("200") or {}).get("content") or {})
+    .get("application/json", {})
+    .get("schema", {})
+)
+if opportunity_response_schema.get("$ref") != "#/components/schemas/ApiResponse_TaskOpportunity":
+    raise SystemExit("error: GET /v1/tasks/{id}/opportunity must return ApiResponse_TaskOpportunity")
+opportunity_schema = spec["components"]["schemas"].get("TaskOpportunity")
+if not opportunity_schema:
+    raise SystemExit("error: OpenAPI missing TaskOpportunity schema")
+opportunity_properties = opportunity_schema.get("properties") or {}
+for required in (
+    "task_id",
+    "requester",
+    "description",
+    "description_len",
+    "required_capabilities",
+    "max_fee",
+    "priority",
+    "deadline",
+    "submitted_at_block",
+    "status",
+    "matched_agent",
+    "match_preferences",
+    "requester_trust",
+):
+    if required not in opportunity_properties:
+        raise SystemExit(f"error: TaskOpportunity missing {required}")
+for private_field in (
+    "parameters",
+    "input_refs",
+    "result_hash",
+    "dispute_reason",
+    "disputed_at",
+    "arbitrator",
+    "arbitrator_fee_bps",
+    "arbitration_deadline_at",
+    "arbitration_reassignments",
+    "prior_arbitrators",
+    "resolved_by",
+    "resolution_agent_wins",
+    "resolution_reason",
+    "resolved_at",
+    "tools_used",
+    "verified_tools",
+    "description_embedding",
+    "neural_embedding",
+    "submitted_at",
+    "challenge_deadline",
+    "challenge_window_ms",
+    "agreed_fee",
+    "subtask_ids",
+    "parent_task",
+    "dependencies",
+    "rated",
+    "requester_submission_neutralized",
+    "storage_deposit",
+):
+    if private_field in opportunity_properties:
+        raise SystemExit(f"error: TaskOpportunity must not expose {private_field}")
+if (opportunity_properties.get("requester_trust") or {}).get("$ref") != "#/components/schemas/RequesterTrustSummary":
+    raise SystemExit("error: TaskOpportunity requester_trust must reference RequesterTrustSummary")
+trust_summary_schema = spec["components"]["schemas"].get("RequesterTrustSummary")
+if not trust_summary_schema:
+    raise SystemExit("error: OpenAPI missing RequesterTrustSummary schema")
+trust_summary_properties = trust_summary_schema.get("properties") or {}
+for required in (
+    "trust_score",
+    "fulfillment_rate",
+    "cancellation_rate",
+    "matched_agent_timeouts",
+    "rating_fairness",
+    "failed_reports_given",
+    "reviewed_outcomes",
+    "failed_report_rate",
+    "dispute_rate",
+    "economic_backing",
+    "auto_match_bonded_amount",
+    "tasks_submitted",
+    "third_party_tasks_submitted",
+    "same_entity_submission_units_neutralized",
+    "ratings_given",
+    "auto_match_policy",
+):
+    if required not in trust_summary_properties:
+        raise SystemExit(f"error: RequesterTrustSummary missing {required}")
+for full_reputation_field in (
+    "address",
+    "total_spent",
+    "total_spent_zin",
+    "total_escrowed",
+    "total_escrowed_zin",
+):
+    if full_reputation_field in trust_summary_properties:
+        raise SystemExit(
+            f"error: RequesterTrustSummary must not document full reputation field {full_reputation_field}"
+        )
+if (trust_summary_properties.get("auto_match_policy") or {}).get("$ref") != "#/components/schemas/RequesterAutoMatchPolicy":
+    raise SystemExit("error: RequesterTrustSummary auto_match_policy must reference RequesterAutoMatchPolicy")
+policy_schema = spec["components"]["schemas"].get("RequesterAutoMatchPolicy")
+if not policy_schema:
+    raise SystemExit("error: OpenAPI missing RequesterAutoMatchPolicy schema")
+policy_properties = policy_schema.get("properties") or {}
+for required in (
+    "eligible",
+    "blocked_by_trust",
+    "min_trust_score",
+    "required_additional_backing",
+    "max_dispute_rate",
+):
+    if required not in policy_properties:
+        raise SystemExit(f"error: RequesterAutoMatchPolicy missing {required}")
+pending_operation = (((spec.get("paths") or {}).get("/v1/tasks/pending") or {}).get("get") or {})
+if "not past deadline" not in (pending_operation.get("description") or ""):
+    raise SystemExit("error: GET /v1/tasks/pending must document deadline filtering")
+pending_response_schema = (
+    (((pending_operation.get("responses") or {}).get("200") or {}).get("content") or {})
+    .get("application/json", {})
+    .get("schema", {})
+)
+if pending_response_schema.get("$ref") != "#/components/schemas/ApiResponse_TaskOpportunityList":
+    raise SystemExit("error: GET /v1/tasks/pending must return ApiResponse_TaskOpportunityList")
+opportunity_list = spec["components"]["schemas"].get("TaskOpportunityList") or {}
+item_ref = (((opportunity_list.get("properties") or {}).get("items") or {}).get("items") or {}).get("$ref")
+if item_ref != "#/components/schemas/TaskOpportunity":
+    raise SystemExit("error: TaskOpportunityList items must reference TaskOpportunity")
+
 task_operation = (((spec.get("paths") or {}).get("/v1/tasks/{id}") or {}).get("get") or {})
 if not task_operation:
     raise SystemExit("error: OpenAPI missing GET /v1/tasks/{id}")
@@ -162,9 +307,13 @@ required_skill_markers=(
     "zincha --release vega faucet --address zn1..."
     "zincha --release vega query account zn1..."
     "zincha --release vega query account-nonce zn1..."
+    "GET /v1/tasks/pending\` and \`GET /v1/tasks/:id/opportunity"
+    "open-task marketplace discovery"
+    "unmatched tasks that are not past deadline"
     "GET /v1/tasks/:id"
     "requires signed address authentication"
     "SDK-facing API surface"
+    "open-task opportunity discovery and signed task detail by ID"
     "index-backed"
     "pagination.next_cursor"
     "agents must not retry with \`offset\`"

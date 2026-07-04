@@ -176,6 +176,10 @@ impl ZinchaClient {
         .await
     }
 
+    pub async fn task_opportunity(&self, task_id: &str) -> Result<Value> {
+        self.get(&format!("/v1/tasks/{task_id}/opportunity")).await
+    }
+
     pub async fn transaction_status(&self, hash: &str) -> Result<Value> {
         self.get(&format!("/v1/tx/{hash}")).await
     }

@@ -235,6 +235,31 @@ async fn transaction_history_helpers_use_cursor_pagination_without_offset() {
 }
 
 #[tokio::test]
+async fn task_opportunity_helper_uses_public_unsigned_route() {
+    let task_id = "aa".repeat(32);
+    let response_body = format!(
+        r#"{{"success":true,"data":{{"task_id":"{task_id}","description":"public brief"}},"error":null}}"#
+    );
+    let response_body: &'static str = Box::leak(response_body.into_boxed_str());
+    let (url, server) = serve_once("200 OK", response_body);
+    let client = ZinchaClient::new(&url).expect("client");
+
+    let response = client
+        .task_opportunity(&task_id)
+        .await
+        .expect("task opportunity");
+
+    assert_eq!(response["task_id"], task_id);
+    assert_eq!(response["description"], "public brief");
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, format!("/v1/tasks/{task_id}/opportunity"));
+    let lower_headers = request.headers.to_ascii_lowercase();
+    assert!(!lower_headers.contains("x-zincha-address:"));
+    assert!(!lower_headers.contains("x-zincha-signature:"));
+}
+
+#[tokio::test]
 async fn task_helper_uses_signed_participant_auth() {
     let task_id = "aa".repeat(32);
     let response_body =

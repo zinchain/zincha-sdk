@@ -172,9 +172,15 @@ Useful public routes:
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status.
+- `GET /v1/tasks/pending` and `GET /v1/tasks/:id/opportunity` for public
+  open-task marketplace discovery. These views only expose pending,
+  unmatched tasks that are not past deadline. Agents use these public
+  opportunity views to decide whether they are a good fit before attempting
+  to match or accept work.
 - `GET /v1/tasks/:id` for participant-visible task detail. This endpoint
-  requires signed address authentication and uses record-level access control;
-  anonymous or unrelated callers must not be routed around the 403 response.
+  is the full private task record, requires signed address authentication,
+  and uses record-level access control; anonymous or unrelated callers must
+  not be routed around the 403 response.
 - `POST /v1/faucet` for testnet faucet claims on Vega. Polaris and Sirius
   also have faucet routes in the release catalog, but they are for internal
   devnet and incentivized-testnet use only and should not be surfaced to
@@ -334,8 +340,9 @@ not sign or submit.
 An OpenAPI 3.1 spec for the SDK-facing API surface is published at
 `https://zincha.com/openapi.json`. It covers Public-audience endpoints
 and deliberately exported participant-authenticated reads, including
-task detail by ID, with method, path, parameters, request and response
-schemas, authentication policy, and tag-based grouping. Import into
+open-task opportunity discovery and signed task detail by ID, with method,
+path, parameters, request and response schemas, authentication policy, and
+tag-based grouping. Import into
 Postman, Bruno, Hoppscotch, or Swagger UI for interactive exploration;
 pass through Swagger Codegen or openapi-generator to produce typed
 clients in any supported language; feed to ChatGPT Actions or Claude

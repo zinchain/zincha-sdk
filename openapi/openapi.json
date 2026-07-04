@@ -804,30 +804,6 @@
         ],
         "type": "object"
       },
-      "ApiResponse_PendingTaskList": {
-        "properties": {
-          "data": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/PendingTaskList"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "type": "string"
-          },
-          "success": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "type": "object"
-      },
       "ApiResponse_PipelineStatus": {
         "properties": {
           "data": {
@@ -954,6 +930,54 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/Task"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_TaskOpportunity": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskOpportunity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_TaskOpportunityList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskOpportunityList"
               },
               {
                 "type": "null"
@@ -3871,78 +3895,6 @@
         ],
         "type": "object"
       },
-      "PendingTask": {
-        "additionalProperties": true,
-        "description": "One pending task. Field set mirrors the public read view of Task in src/primitives/task.rs.",
-        "properties": {
-          "capability": {
-            "type": "string"
-          },
-          "deadline_block": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "description": {
-            "type": "string"
-          },
-          "match_preferences": {
-            "additionalProperties": true,
-            "description": "Requester-controlled matching weight preferences.",
-            "type": "object"
-          },
-          "neural_embedding": {
-            "description": "Optional pre-computed embedding for semantic matching.",
-            "items": {
-              "format": "float",
-              "type": "number"
-            },
-            "type": "array"
-          },
-          "requester": {
-            "type": "string"
-          },
-          "reward_micro_zin": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "submitted_at_block": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "task_id": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "task_id",
-          "requester",
-          "capability",
-          "reward_micro_zin",
-          "submitted_at_block"
-        ],
-        "type": "object"
-      },
-      "PendingTaskList": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PendingTask"
-            },
-            "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
-          }
-        },
-        "required": [
-          "items",
-          "pagination"
-        ],
-        "type": "object"
-      },
       "PipelineStatus": {
         "additionalProperties": true,
         "description": "Per-pipeline lag and progress markers.",
@@ -5171,6 +5123,144 @@
         },
         "type": "object"
       },
+      "RequesterAutoMatchPolicy": {
+        "additionalProperties": false,
+        "description": "Public auto-match eligibility policy and threshold evaluation for a requester.",
+        "properties": {
+          "blocked_by_cancellation_rate": {
+            "type": "boolean"
+          },
+          "blocked_by_dispute_rate": {
+            "type": "boolean"
+          },
+          "blocked_by_economic_backing": {
+            "type": "boolean"
+          },
+          "blocked_by_failed_report_rate": {
+            "type": "boolean"
+          },
+          "blocked_by_rating_fairness": {
+            "type": "boolean"
+          },
+          "blocked_by_trust": {
+            "type": "boolean"
+          },
+          "cancellation_policy_active": {
+            "type": "boolean"
+          },
+          "dispute_policy_active": {
+            "type": "boolean"
+          },
+          "economic_backing_policy_active": {
+            "type": "boolean"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "failed_report_policy_active": {
+            "type": "boolean"
+          },
+          "fairness_policy_active": {
+            "type": "boolean"
+          },
+          "max_cancellation_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "max_dispute_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "max_failed_report_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "min_auto_match_backing": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_rating_fairness": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "min_ratings_for_fairness": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_reviewed_outcomes_for_failed_report_rate": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_tasks_for_cancellation_rate": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_tasks_for_dispute_rate": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_tasks_for_trust": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "min_trust_score": {
+            "format": "double",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "required_additional_backing": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "trust_policy_active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "eligible",
+          "economic_backing_policy_active",
+          "trust_policy_active",
+          "fairness_policy_active",
+          "cancellation_policy_active",
+          "dispute_policy_active",
+          "failed_report_policy_active",
+          "blocked_by_economic_backing",
+          "blocked_by_trust",
+          "blocked_by_rating_fairness",
+          "blocked_by_cancellation_rate",
+          "blocked_by_dispute_rate",
+          "blocked_by_failed_report_rate",
+          "min_auto_match_backing",
+          "required_additional_backing",
+          "min_trust_score",
+          "min_tasks_for_trust",
+          "min_rating_fairness",
+          "min_ratings_for_fairness",
+          "max_cancellation_rate",
+          "min_tasks_for_cancellation_rate",
+          "max_dispute_rate",
+          "min_tasks_for_dispute_rate",
+          "max_failed_report_rate",
+          "min_reviewed_outcomes_for_failed_report_rate"
+        ],
+        "type": "object"
+      },
       "RequesterReputation": {
         "additionalProperties": true,
         "description": "Requester reputation view. Mirrors RequesterReputation::read_view in src/primitives/agent.rs.",
@@ -5275,6 +5365,114 @@
             "type": "number"
           }
         },
+        "type": "object"
+      },
+      "RequesterTrustSummary": {
+        "additionalProperties": false,
+        "description": "Compact public requester trust summary attached to task opportunities.",
+        "properties": {
+          "auto_match_bonded_amount": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_match_policy": {
+            "$ref": "#/components/schemas/RequesterAutoMatchPolicy"
+          },
+          "cancellation_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "dispute_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "economic_backing": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failed_report_rate": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "failed_reports_given": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fulfillment_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "matched_agent_timeouts": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rating_fairness": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "ratings_given": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reviewed_outcomes": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "same_entity_submission_units_neutralized": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tasks_submitted": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "third_party_tasks_submitted": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "trust_score": {
+            "format": "double",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "trust_score",
+          "fulfillment_rate",
+          "cancellation_rate",
+          "matched_agent_timeouts",
+          "rating_fairness",
+          "failed_reports_given",
+          "reviewed_outcomes",
+          "failed_report_rate",
+          "dispute_rate",
+          "economic_backing",
+          "auto_match_bonded_amount",
+          "tasks_submitted",
+          "third_party_tasks_submitted",
+          "same_entity_submission_units_neutralized",
+          "ratings_given",
+          "auto_match_policy"
+        ],
         "type": "object"
       },
       "ResourcePressureHealthStatus": {
@@ -6359,6 +6557,102 @@
           "rated",
           "requester_submission_neutralized",
           "storage_deposit"
+        ],
+        "type": "object"
+      },
+      "TaskOpportunity": {
+        "additionalProperties": false,
+        "description": "Public marketplace view of an open, unmatched task. Private execution payloads and lifecycle internals are intentionally excluded.",
+        "properties": {
+          "deadline": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_len": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "match_preferences": {
+            "$ref": "#/components/schemas/MatchPreferences"
+          },
+          "matched_agent": {
+            "type": "null"
+          },
+          "max_fee": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "priority": {
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "requester_trust": {
+            "$ref": "#/components/schemas/RequesterTrustSummary"
+          },
+          "required_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pending"
+            ],
+            "type": "string"
+          },
+          "submitted_at_block": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "requester",
+          "description",
+          "description_len",
+          "required_capabilities",
+          "max_fee",
+          "priority",
+          "deadline",
+          "submitted_at_block",
+          "status",
+          "matched_agent",
+          "match_preferences",
+          "requester_trust"
+        ],
+        "type": "object"
+      },
+      "TaskOpportunityList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskOpportunity"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
         ],
         "type": "object"
       },
@@ -11638,7 +11932,7 @@
     },
     "/v1/tasks/pending": {
       "get": {
-        "description": "Returns tasks currently in the pending pool: still unmatched, accepting agent bids. Each item includes task_id, requester, capability requirement, reward, deadline, neural embedding, and submission block. Use this as the primary work queue for agents that want to discover open opportunities.",
+        "description": "Returns tasks currently in the pending pool: still unmatched, accepting agent bids, and not past deadline. Each item is a public task opportunity with the marketplace description, capability requirements, reward, deadline, matching preferences, and requester trust summary. Use this as the primary work queue for agents that want to discover open opportunities.",
         "operationId": "list_pending_tasks",
         "parameters": [
           {
@@ -11653,7 +11947,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_PendingTaskList"
+                  "$ref": "#/components/schemas/ApiResponse_TaskOpportunityList"
                 }
               }
             },
@@ -11836,6 +12130,106 @@
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tasks/{id}/opportunity": {
+      "get": {
+        "description": "Returns the public marketplace view for an open, unmatched task. The route is intentionally limited to pending tasks with no matched agent and no elapsed deadline; missing and non-open tasks both return 404 so public callers cannot inspect private lifecycle state through this endpoint.",
+        "operationId": "get_task_opportunity",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TaskOpportunity"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Public open-task opportunity by ID.",
+        "tags": [
+          "Tasks"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
       }
     },
     "/v1/tasks/{id}/reputation-events": {

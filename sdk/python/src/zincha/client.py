@@ -2019,6 +2019,9 @@ class ZinchaClient:
     def pending_tasks(self, **query: Any) -> Any:
         return self.get("/v1/tasks/pending", query=query)
 
+    def task_opportunity(self, task_id: str) -> Any:
+        return self.get("/v1/tasks/%s/opportunity" % _normalize_hash(task_id))
+
     def task(
         self,
         task_id: str,

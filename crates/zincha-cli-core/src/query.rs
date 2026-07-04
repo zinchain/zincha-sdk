@@ -49,7 +49,15 @@ pub enum QueryCommands {
         signer: KeySourceArgs,
         task_id: String,
     },
-    Tasks,
+    TaskOpportunity {
+        task_id: String,
+    },
+    PendingTasks {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        offset: Option<u64>,
+    },
     Tool {
         tool_id: String,
     },
@@ -166,7 +174,14 @@ pub async fn run_query(
                     .await?,
             )
         }
-        Some(QueryCommands::Tasks) => ("query-tasks", client.get("/v1/tasks").await?),
+        Some(QueryCommands::TaskOpportunity { task_id }) => (
+            "query-task-opportunity",
+            client.task_opportunity(&task_id).await?,
+        ),
+        Some(QueryCommands::PendingTasks { limit, offset }) => (
+            "query-pending-tasks",
+            get_with_pagination(&client, "/v1/tasks/pending", limit, offset).await?,
+        ),
         Some(QueryCommands::Tool { tool_id }) => (
             "query-tool",
             client.get(&format!("/v1/tools/{tool_id}")).await?,
@@ -283,6 +298,26 @@ async fn get_with_limit(client: &ZinchaClient, path: &str, limit: Option<u64>) -
                 RequestOptions::default().query_param("limit", limit.to_string()),
             )
             .await
+    } else {
+        client.get(path).await
+    }
+}
+
+async fn get_with_pagination(
+    client: &ZinchaClient,
+    path: &str,
+    limit: Option<u64>,
+    offset: Option<u64>,
+) -> Result<Value> {
+    let mut opts = RequestOptions::default();
+    if let Some(limit) = limit {
+        opts = opts.query_param("limit", limit.to_string());
+    }
+    if let Some(offset) = offset {
+        opts = opts.query_param("offset", offset.to_string());
+    }
+    if limit.is_some() || offset.is_some() {
+        client.request(Method::GET, path, opts).await
     } else {
         client.get(path).await
     }
@@ -457,5 +492,58 @@ mod tests {
         assert!(help.contains("--secret-key"), "{help}");
         assert!(help.contains("--key-file"), "{help}");
         assert!(help.contains("--keystore"), "{help}");
+    }
+
+    #[test]
+    fn task_opportunity_query_is_public_and_does_not_expose_key_source_args() {
+        let task_id = "aa".repeat(32);
+        let parsed = QueryCommand::try_parse_from(["query", "task-opportunity", task_id.as_str()])
+            .expect("parse task opportunity query");
+
+        match parsed.command.expect("typed query command") {
+            QueryCommands::TaskOpportunity { task_id: id } => assert_eq!(id, task_id),
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let mut command = QueryCommand::command();
+        let help = command
+            .find_subcommand_mut("task-opportunity")
+            .expect("missing task-opportunity subcommand")
+            .render_long_help()
+            .to_string();
+        assert!(!help.contains("--secret-key"), "{help}");
+        assert!(!help.contains("--key-file"), "{help}");
+        assert!(!help.contains("--keystore"), "{help}");
+    }
+
+    #[test]
+    fn pending_tasks_query_uses_public_pending_task_surface() {
+        let parsed = QueryCommand::try_parse_from([
+            "query",
+            "pending-tasks",
+            "--limit",
+            "25",
+            "--offset",
+            "50",
+        ])
+        .expect("parse pending tasks query");
+
+        match parsed.command.expect("typed query command") {
+            QueryCommands::PendingTasks { limit, offset } => {
+                assert_eq!(limit, Some(25));
+                assert_eq!(offset, Some(50));
+            }
+            other => panic!("unexpected query command {other:?}"),
+        }
+
+        let mut command = QueryCommand::command();
+        let help = command
+            .find_subcommand_mut("pending-tasks")
+            .expect("missing pending-tasks subcommand")
+            .render_long_help()
+            .to_string();
+        assert!(help.contains("--limit"), "{help}");
+        assert!(help.contains("--offset"), "{help}");
+        assert!(!help.contains("--secret-key"), "{help}");
     }
 }

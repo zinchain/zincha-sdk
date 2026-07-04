@@ -222,6 +222,31 @@ test("transaction history helpers use cursor pagination and drop offset", async 
   }
 });
 
+test("task opportunity helper fetches public open-task view unsigned", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const taskId = "aa".repeat(32);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: { task_id: taskId, description: "public brief" },
+        error: null,
+      });
+    },
+  });
+
+  const response = await client.taskOpportunity(`0x${taskId}`);
+
+  assert.deepEqual(response, { task_id: taskId, description: "public brief" });
+  assert.equal(calls[0].url, `http://node.test/v1/tasks/${taskId}/opportunity`);
+  assert.equal(calls[0].init.method, "GET");
+  const headers = new Headers(calls[0].init.headers);
+  assert.equal(headers.has("x-zincha-address"), false);
+  assert.equal(headers.has("x-zincha-signature"), false);
+});
+
 test("task helper fetches task detail with signed participant auth", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const keypair = Keypair.fromSecretHex(golden.secret_hex);

@@ -77,12 +77,18 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         command: "task",
         method: "GET",
         path_template: "/v1/tasks/{task_id}",
+        category: SurfaceCategory::Participant,
+    },
+    QueryEndpoint {
+        command: "task-opportunity",
+        method: "GET",
+        path_template: "/v1/tasks/{task_id}/opportunity",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
-        command: "tasks",
+        command: "pending-tasks",
         method: "GET",
-        path_template: "/v1/tasks",
+        path_template: "/v1/tasks/pending",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
@@ -197,6 +203,11 @@ pub fn assert_public_surface() {
             endpoint.command
         );
         let path = endpoint.path_template;
+        assert_ne!(
+            path, "/v1/tasks",
+            "typed query {} maps to removed task list endpoint",
+            endpoint.command
+        );
         assert!(
             !path.contains("operator")
                 && !path.contains("mempool")
