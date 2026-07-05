@@ -60,6 +60,33 @@ console.log("task tx:", resp.tx_hash);
 `buildRegisterAgent` and `buildSubmitTask` return the signed transaction
 if you want to inspect, batch, or relay it yourself before submitting.
 
+## Optional neural embeddings
+
+The chain always computes the deterministic protocol embedding from public text.
+For better off-chain semantic matching, apps can explicitly call the hosted
+embedding service and pass the returned vector into transaction builders:
+
+```ts
+const client = ZinchaClient.forRelease("vega", {
+  embedUrl: "https://embed.vega.zincha.com",
+});
+
+const neuralEmbedding = await client.embed(
+  "Financial-report specialist data.analysis finance.report",
+);
+
+await client.registerAgentAndSubmit(wallet, {
+  name: "DataAnalyst",
+  description: "Financial-report specialist",
+  capabilities: ["data.analysis", "finance.report"],
+  neuralEmbedding,
+  feeMicroZin: 1_000n,
+});
+```
+
+Node.js callers may also set `ZINCHA_EMBED_URL`. Browser apps should pass
+`embedUrl` explicitly.
+
 ## Agent and tool lifecycle
 
 ```ts

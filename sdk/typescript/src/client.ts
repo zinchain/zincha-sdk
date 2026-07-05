@@ -125,6 +125,7 @@ import type {
   CapabilityListQuery,
   CapabilitySearchQuery,
   ChainInfo,
+  EmbedOptions,
   FaucetRequest,
   FaucetResponse,
   Hex,
@@ -159,6 +160,7 @@ export class ZinchaClient {
   readonly faucetUrl: string;
   readonly websocketUrl?: string;
   readonly release?: ReleaseName;
+  readonly embedUrl?: string;
   private readonly bearerToken?: string;
   private readonly signer?: ZinchaClientOptions["signer"];
   private readonly fetchImpl: typeof fetch;
@@ -170,6 +172,7 @@ export class ZinchaClient {
     this.baseUrl = trimTrailingSlash(options.baseUrl ?? spec?.canonicalRpcUrl ?? "http://127.0.0.1:9944");
     this.faucetUrl = trimTrailingSlash(options.faucetUrl ?? (options.baseUrl ? this.baseUrl : spec?.faucetUrl) ?? this.baseUrl);
     this.websocketUrl = options.websocketUrl ?? spec?.canonicalWebsocketUrl;
+    this.embedUrl = optionalTrimTrailingSlash(options.embedUrl ?? embedUrlFromEnv());
     this.bearerToken = options.bearerToken;
     this.signer = options.signer;
     this.fetchImpl = options.fetch ?? globalThis.fetch;
@@ -296,6 +299,43 @@ export class ZinchaClient {
 
   capabilityCategories(): Promise<unknown> {
     return this.get("/v1/capabilities/categories");
+  }
+
+  async embed(text: string, options: EmbedOptions = {}): Promise<number[]> {
+    const embedUrl = optionalTrimTrailingSlash(options.embedUrl ?? this.embedUrl);
+    if (!embedUrl) {
+      throw new Error("embed service URL required; pass embedUrl or set ZINCHA_EMBED_URL");
+    }
+    const response = await this.fetchImpl(`${embedUrl}/embed`, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+      signal: options.signal,
+    });
+    const bodyText = await response.text();
+    let parsed: unknown;
+    try {
+      parsed = bodyText.length === 0 ? null : JSON.parse(bodyText);
+    } catch (error) {
+      throw new ZinchaApiError(response.status, `invalid JSON response: ${String(error)}`, bodyText);
+    }
+    if (!response.ok) {
+      const body = parsed as { error?: unknown; message?: unknown } | null;
+      const message = typeof body?.error === "string"
+        ? body.error
+        : typeof body?.message === "string"
+          ? body.message
+          : response.statusText;
+      throw new ZinchaApiError(response.status, message, parsed);
+    }
+    try {
+      return parseEmbedResponse(parsed);
+    } catch (error) {
+      throw new ZinchaApiError(response.status, String(error instanceof Error ? error.message : error), parsed);
+    }
   }
 
   transaction(hash: Hex): Promise<TransactionStatus> {
@@ -1273,6 +1313,34 @@ export class ZinchaClient {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function optionalTrimTrailingSlash(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimTrailingSlash(trimmed) : undefined;
+}
+
+function embedUrlFromEnv(): string | undefined {
+  const env = (globalThis as unknown as {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env;
+  return env?.ZINCHA_EMBED_URL;
+}
+
+function parseEmbedResponse(value: unknown): number[] {
+  if (typeof value !== "object" || value === null || !Array.isArray((value as { embedding?: unknown }).embedding)) {
+    throw new Error("embed service response must include an embedding array");
+  }
+  const embedding = (value as { embedding: unknown[] }).embedding;
+  if (embedding.length === 0) {
+    throw new Error("embed service returned an empty embedding");
+  }
+  return embedding.map((item, index) => {
+    if (typeof item !== "number" || !Number.isFinite(item)) {
+      throw new Error(`embed service returned a non-finite embedding value at index ${index}`);
+    }
+    return item;
+  });
 }
 
 function buildRequestTarget(path: string, query?: RequestOptions["query"]): string {

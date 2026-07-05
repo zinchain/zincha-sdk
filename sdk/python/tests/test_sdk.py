@@ -181,6 +181,54 @@ class PythonSdkTests(unittest.TestCase):
         self.assertEqual(caught.exception.status, 429)
         self.assertEqual(caught.exception.data, {"retry_after_secs": 10})
 
+    def test_embed_helper_uses_configured_embed_service_and_validates_vector(self):
+        calls = []
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps({"embedding": [0.125, -0.5, 1]})
+
+        client = ZinchaClient(
+            base_url="http://node.test/",
+            embed_url="https://embed.vega.zincha.com/",
+            transport=transport,
+        )
+        embedding = client.embed("AI research agent ai.web.search")
+
+        self.assertEqual(embedding, [0.125, -0.5, 1.0])
+        self.assertEqual(calls[0][0], "POST")
+        self.assertEqual(calls[0][1], "https://embed.vega.zincha.com/embed")
+        self.assertEqual(calls[0][2]["content-type"], "application/json")
+        self.assertEqual(
+            json.loads(calls[0][3].decode("utf-8")),
+            {"text": "AI research agent ai.web.search"},
+        )
+
+    def test_embed_helper_supports_per_call_url_override_and_fails_closed(self):
+        calls = []
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps({"embedding": [False]})
+
+        missing_url = ZinchaClient(
+            base_url="http://node.test/",
+            transport=lambda *_args: (200, json.dumps({"embedding": [1]})),
+        )
+        with self.assertRaisesRegex(ValueError, "embed service URL required"):
+            missing_url.embed("missing url")
+
+        client = ZinchaClient(
+            base_url="http://node.test/",
+            embed_url="https://ignored.embed/",
+            transport=transport,
+        )
+        with self.assertRaises(ZinchaApiError) as caught:
+            client.embed("bad vector", embed_url="https://custom.embed/")
+        self.assertEqual(caught.exception.status, 200)
+        self.assertRegex(str(caught.exception), "non-finite embedding value")
+        self.assertEqual(calls[0][1], "https://custom.embed/embed")
+
     def test_transaction_history_helpers_use_cursor_pagination(self):
         calls = []
 

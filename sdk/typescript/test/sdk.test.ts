@@ -182,6 +182,62 @@ test("client unwraps API responses and surfaces API errors", async () => {
   );
 });
 
+test("embed helper calls configured embed service and validates returned vector", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    embedUrl: "https://embed.vega.zincha.com/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        embedding: [0.125, -0.5, 1],
+      });
+    },
+  });
+
+  const embedding = await client.embed("AI research agent ai.web.search");
+
+  assert.deepEqual(embedding, [0.125, -0.5, 1]);
+  assert.equal(calls[0].url, "https://embed.vega.zincha.com/embed");
+  assert.equal(calls[0].init.method, "POST");
+  const headers = new Headers(calls[0].init.headers);
+  assert.equal(headers.get("content-type"), "application/json");
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)), {
+    text: "AI research agent ai.web.search",
+  });
+});
+
+test("embed helper supports per-call URL override and fails closed on bad responses", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    embedUrl: "https://ignored.embed/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { embedding: [false] });
+    },
+  });
+
+  await assert.rejects(
+    () => new ZinchaClient({
+      baseUrl: "http://node.test/",
+      fetch: async () => jsonResponse(200, { embedding: [1] }),
+    }).embed("missing url"),
+    /embed service URL required/,
+  );
+
+  await assert.rejects(
+    () => client.embed("bad vector", { embedUrl: "https://custom.embed/" }),
+    (error: unknown) => {
+      assert.ok(error instanceof ZinchaApiError);
+      assert.equal(error.status, 200);
+      assert.match(error.message, /non-finite embedding value/);
+      return true;
+    },
+  );
+  assert.equal(calls[0].url, "https://custom.embed/embed");
+});
+
 test("transaction history helpers use cursor pagination and drop offset", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = new ZinchaClient({

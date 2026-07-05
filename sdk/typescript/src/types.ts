@@ -112,6 +112,13 @@ export interface CapabilityCatalogEntry {
   usage: CapabilityUsageSummary;
 }
 
+export type EmbeddingVector = number[];
+
+export interface EmbedOptions {
+  embedUrl?: string;
+  signal?: AbortSignal;
+}
+
 export interface SubmitTransactionResponse {
   tx_hash: Hex;
   status: string;
@@ -183,6 +190,7 @@ export interface ZinchaClientOptions {
   release?: ReleaseName | string;
   bearerToken?: string;
   signer?: SignedRequestSigner;
+  embedUrl?: string;
   fetch?: typeof fetch;
 }
 

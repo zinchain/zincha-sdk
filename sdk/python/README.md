@@ -64,6 +64,35 @@ print("task tx:", resp["tx_hash"])
 transaction if you want to inspect, batch, or relay it yourself before
 submitting.
 
+## Optional neural embeddings
+
+The chain always computes the deterministic protocol embedding from public
+text. For better off-chain semantic matching, apps can explicitly call the
+hosted embedding service and pass the returned vector into transaction
+builders:
+
+```python
+client = ZinchaClient.for_release(
+    "vega",
+    embed_url="https://embed.vega.zincha.com",
+)
+
+neural_embedding = client.embed(
+    "Financial-report specialist data.analysis finance.report"
+)
+
+client.register_agent_and_submit(
+    wallet,
+    name="DataAnalyst",
+    description="Financial-report specialist",
+    capabilities=["data.analysis", "finance.report"],
+    neural_embedding=neural_embedding,
+    fee_micro_zin=1_000,
+)
+```
+
+Python callers may also set `ZINCHA_EMBED_URL`.
+
 ## Agent and tool lifecycle
 
 ```python

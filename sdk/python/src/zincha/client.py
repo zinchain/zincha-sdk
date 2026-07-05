@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .builders import (
     CAPABILITY_PARENT_UNSET,
@@ -116,6 +118,7 @@ class ZinchaClient:
         release: Optional[str] = None,
         bearer_token: Optional[str] = None,
         signer: Optional[Keypair] = None,
+        embed_url: Optional[str] = None,
         timeout: Optional[float] = 30.0,
         transport: Optional[Transport] = None,
     ) -> None:
@@ -132,6 +135,9 @@ class ZinchaClient:
         )
         self.websocket_url = websocket_url or (
             spec.canonical_websocket_url if spec is not None else None
+        )
+        self.embed_url = _optional_trim_trailing_slash(
+            embed_url or os.environ.get("ZINCHA_EMBED_URL")
         )
         self.bearer_token = bearer_token
         self.signer = signer
@@ -333,6 +339,45 @@ class ZinchaClient:
 
     def capability_categories(self) -> Any:
         return self.get("/v1/capabilities/categories")
+
+    def embed(
+        self,
+        text: str,
+        *,
+        embed_url: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> List[float]:
+        resolved_embed_url = _optional_trim_trailing_slash(embed_url) or self.embed_url
+        if resolved_embed_url is None:
+            raise ValueError("embed service URL required; pass embed_url or set ZINCHA_EMBED_URL")
+
+        body = json.dumps({"text": text}, separators=(",", ":")).encode("utf-8")
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+        }
+        status, response_text = self._transport(
+            "POST",
+            resolved_embed_url + "/embed",
+            headers,
+            body,
+            self.timeout if timeout is None else timeout,
+        )
+        try:
+            parsed = json.loads(response_text) if response_text else None
+        except ValueError as error:
+            raise ZinchaApiError(status, "invalid JSON response: %s" % error, response_text)
+
+        if status < 200 or status >= 300:
+            message = None
+            if isinstance(parsed, dict):
+                message = parsed.get("error") or parsed.get("message")
+            raise ZinchaApiError(status, message or "HTTP %d" % status, parsed)
+
+        try:
+            return _parse_embed_response(parsed)
+        except ValueError as error:
+            raise ZinchaApiError(status, str(error), parsed)
 
     def transaction(self, tx_hash: str) -> Dict[str, Any]:
         return self.get("/v1/tx/%s" % _normalize_hash(tx_hash))
@@ -2504,6 +2549,29 @@ def _urllib_transport(
 
 def _trim_trailing_slash(value: str) -> str:
     return value.rstrip("/")
+
+
+def _optional_trim_trailing_slash(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed.rstrip("/") if trimmed else None
+
+
+def _parse_embed_response(value: Any) -> List[float]:
+    if not isinstance(value, dict) or not isinstance(value.get("embedding"), list):
+        raise ValueError("embed service response must include an embedding array")
+    embedding = value["embedding"]
+    if not embedding:
+        raise ValueError("embed service returned an empty embedding")
+    parsed = []
+    for index, item in enumerate(embedding):
+        if isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item):
+            raise ValueError(
+                "embed service returned a non-finite embedding value at index %d" % index
+            )
+        parsed.append(float(item))
+    return parsed
 
 
 def _build_request_target(path: str, query: Optional[Mapping[str, Any]]) -> str:
