@@ -119,6 +119,32 @@ for required in (
     if required not in capability_entry_properties:
         raise SystemExit(f"error: CapabilityCatalogEntry missing {required}")
 
+event_log_operation = (((spec.get("paths") or {}).get("/v1/events") or {}).get("get") or {})
+if not event_log_operation:
+    raise SystemExit("error: OpenAPI missing GET /v1/events")
+event_log_params = {
+    parameter.get("name"): parameter
+    for parameter in event_log_operation.get("parameters") or []
+    if parameter.get("name")
+}
+for required in (
+    "type",
+    "capability_proposer",
+    "capability_category",
+    "capability_status",
+    "after_seq",
+    "backfill",
+    "limit",
+):
+    if required not in event_log_params:
+        raise SystemExit(f"error: GET /v1/events missing {required} query parameter")
+for stale in ("event_type", "since_ms", "until_ms", "offset"):
+    if stale in event_log_params:
+        raise SystemExit(f"error: GET /v1/events must not expose stale {stale} parameter")
+status_enum = ((event_log_params.get("capability_status") or {}).get("schema") or {}).get("enum")
+if status_enum != ["active", "pending", "rejected", "deprecated"]:
+    raise SystemExit("error: GET /v1/events capability_status must document catalog status enum")
+
 task_opportunity = (((spec.get("paths") or {}).get("/v1/tasks/{id}/opportunity") or {}).get("get") or {})
 if not task_opportunity:
     raise SystemExit("error: OpenAPI missing GET /v1/tasks/{id}/opportunity")

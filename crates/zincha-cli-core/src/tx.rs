@@ -57,6 +57,9 @@ pub struct TxBuildArgs {
     pub reference_block_hash: Option<String>,
     #[arg(long)]
     pub ttl_blocks: Option<u64>,
+    /// External neural-embedding service URL. Falls back to ZINCHA_EMBED_URL when omitted.
+    #[arg(long)]
+    pub embed_url: Option<String>,
     #[arg(long)]
     pub offline: bool,
     #[arg(long)]
@@ -2404,12 +2407,23 @@ async fn resolve_wallet(build: &TxBuildArgs, client: &ZinchaClient) -> Result<Ag
     };
 
     let mut wallet = AgentWallet::new(keypair, &chain_id, client.base_url().as_str());
+    if let Some(embed_url) = resolve_wallet_embed_url(build) {
+        wallet.set_embed_url(&embed_url);
+    }
     wallet.set_nonce(nonce);
     if let Some(timestamp) = build.timestamp_ms {
         wallet.set_timestamp_ms(timestamp);
     }
     apply_validity_window(&mut wallet, build, chain_info.as_ref())?;
     Ok(wallet)
+}
+
+fn resolve_wallet_embed_url(build: &TxBuildArgs) -> Option<String> {
+    resolve_wallet_embed_url_from(build, std::env::var("ZINCHA_EMBED_URL").ok())
+}
+
+fn resolve_wallet_embed_url_from(build: &TxBuildArgs, env_value: Option<String>) -> Option<String> {
+    build.embed_url.clone().or(env_value)
 }
 
 fn apply_validity_window(
@@ -2614,6 +2628,8 @@ mod tests {
         let propose = parse_tx_command(vec![
             "tx",
             "capability-propose",
+            "--embed-url",
+            "https://embed.vega.zincha.com",
             "--slug",
             "ai.custom.search",
             "--display-name",
@@ -2642,6 +2658,7 @@ mod tests {
                 keywords,
                 examples,
                 related,
+                build,
                 ..
             } => {
                 assert_eq!(slug, "ai.custom.search");
@@ -2651,6 +2668,10 @@ mod tests {
                 assert_eq!(keywords, ["search"]);
                 assert_eq!(examples, ["Find custom sources"]);
                 assert_eq!(related, ["ai.web.research"]);
+                assert_eq!(
+                    build.embed_url.as_deref(),
+                    Some("https://embed.vega.zincha.com")
+                );
             }
             other => panic!("unexpected command: {other:?}"),
         }
@@ -2729,5 +2750,28 @@ mod tests {
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn wallet_embed_url_prefers_cli_arg_over_environment_fallback() {
+        let mut build = TxBuildArgs {
+            embed_url: Some("https://embed.vega.zincha.com".to_string()),
+            ..TxBuildArgs::default()
+        };
+        assert_eq!(
+            resolve_wallet_embed_url_from(&build, Some("https://ignored.example".to_string()))
+                .as_deref(),
+            Some("https://embed.vega.zincha.com")
+        );
+
+        build.embed_url = None;
+        assert_eq!(
+            resolve_wallet_embed_url_from(
+                &build,
+                Some("https://embed.vega.zincha.com".to_string())
+            )
+            .as_deref(),
+            Some("https://embed.vega.zincha.com")
+        );
     }
 }

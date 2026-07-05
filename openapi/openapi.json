@@ -13461,22 +13461,253 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Returns events from the unified event log: agent registrations, task state transitions, tool invocations, agreement changes, contract events, token operations. Filterable by event_type and time window. Use for general activity feeds and analytics; per-resource endpoints (e.g. `get_agent_lifecycle_events`) provide narrower filtered views.",
+        "description": "Returns events from the unified event log: agent registrations, task state transitions, tool invocations, agreement changes, contract events, token operations, and capability catalog lifecycle events. Filter with `type`, domain-specific filter fields, and either `after_seq` or `backfill`. Use for general activity feeds and analytics; per-resource endpoints (e.g. `get_agent_lifecycle_events`) provide narrower filtered views.",
         "operationId": "get_event_log",
         "parameters": [
           {
-            "description": "Filter by event_type string. See /v1/events without filter to discover available types.",
+            "description": "Repeatable event type filter. Values are normalized by the server and may be supplied multiple times.",
             "in": "query",
-            "name": "event_type",
+            "name": "type",
             "required": false,
             "schema": {
               "type": "string"
             }
           },
           {
-            "description": "Lower-bound unix timestamp in ms.",
+            "description": "Filter agent lifecycle events by agent address.",
             "in": "query",
-            "name": "since_ms",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter agent-role lifecycle events by role address.",
+            "in": "query",
+            "name": "agent_role",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter task lifecycle events by requester address.",
+            "in": "query",
+            "name": "requester",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter task lifecycle events by task id.",
+            "in": "query",
+            "name": "task_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool, tool-job, and usage-session events by provider address.",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool lifecycle events by tool id.",
+            "in": "query",
+            "name": "tool_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool subscription plan events by plan id.",
+            "in": "query",
+            "name": "plan_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool-job lifecycle events by job id.",
+            "in": "query",
+            "name": "job_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool-usage-session lifecycle events by session id.",
+            "in": "query",
+            "name": "session_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool subscription lifecycle events by subscription id.",
+            "in": "query",
+            "name": "subscription_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter tool subscription lifecycle events by subscriber address.",
+            "in": "query",
+            "name": "subscriber",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter agreement lifecycle events by agreement id.",
+            "in": "query",
+            "name": "agreement_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter agreement lifecycle events by participating party address.",
+            "in": "query",
+            "name": "agreement_party",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter agreement lifecycle events by arbitrator address.",
+            "in": "query",
+            "name": "agreement_arbitrator",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter validator lifecycle or evidence events by validator address.",
+            "in": "query",
+            "name": "validator",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter contract events by contract address.",
+            "in": "query",
+            "name": "contract_address",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter contract events by topic string.",
+            "in": "query",
+            "name": "contract_topic",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter contract lifecycle events by deployer address.",
+            "in": "query",
+            "name": "contract_deployer",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter market-rate lifecycle events by canonical capability slug.",
+            "in": "query",
+            "name": "market_capability",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter capability catalog lifecycle events by proposer address.",
+            "in": "query",
+            "name": "capability_proposer",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter capability catalog lifecycle events by normalized category.",
+            "in": "query",
+            "name": "capability_category",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter capability catalog lifecycle events by catalog status.",
+            "in": "query",
+            "name": "capability_status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "pending",
+                "rejected",
+                "deprecated"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter token lifecycle events by token id.",
+            "in": "query",
+            "name": "token_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter token lifecycle events by actor address.",
+            "in": "query",
+            "name": "token_actor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Repeatable task-discovery capability filter.",
+            "in": "query",
+            "name": "discover_capability",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Minimum task-discovery fee filter.",
+            "in": "query",
+            "name": "discover_min_fee",
             "required": false,
             "schema": {
               "format": "int64",
@@ -13485,9 +13716,18 @@
             }
           },
           {
-            "description": "Upper-bound unix timestamp in ms.",
+            "description": "Repeatable task-discovery capability fee entry in `capability:fee` form. Each capability must also appear in `discover_capability`.",
             "in": "query",
-            "name": "until_ms",
+            "name": "discover_fee",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return retained matching events with sequence greater than this value. Cannot be combined with `backfill`.",
+            "in": "query",
+            "name": "after_seq",
             "required": false,
             "schema": {
               "format": "int64",
@@ -13496,10 +13736,26 @@
             }
           },
           {
-            "$ref": "#/components/parameters/PaginationLimit"
+            "description": "Return the most recent retained matching events. Cannot be combined with `after_seq` or `limit`.",
+            "in": "query",
+            "name": "backfill",
+            "required": false,
+            "schema": {
+              "maximum": 1024,
+              "minimum": 1,
+              "type": "integer"
+            }
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "description": "Maximum event count. Defaults to 100 with `after_seq` and 20 for recent backfill. Cannot be combined with explicit `backfill`.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 1024,
+              "minimum": 1,
+              "type": "integer"
+            }
           }
         ],
         "responses": {

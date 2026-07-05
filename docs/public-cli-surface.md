@@ -61,3 +61,8 @@ Capability catalog list queries also use cursor pagination with `--limit` and
 to select canonical dotted capability names before building agent, tool, or
 task transactions; custom names should be proposed into the catalog instead of
 invented ad hoc.
+
+Transaction builders that need client-side neural embeddings accept
+`--embed-url`; when omitted, the CLI falls back to `ZINCHA_EMBED_URL`. For
+Vega, use `https://embed.vega.zincha.com` unless you are intentionally pointing
+at a local embedding service.
