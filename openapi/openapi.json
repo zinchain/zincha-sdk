@@ -13,16 +13,16 @@
         }
       },
       "CapabilityParam": {
-        "description": "Catalog-backed canonical capability slug or alias. Use `/v1/capabilities/search` to discover valid values.",
+        "description": "Capability string. Use `/v1/capabilities/search` to discover common curated values; custom strings are also valid where accepted by the protocol.",
         "in": "path",
         "name": "capability",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/CapabilitySlug"
+          "$ref": "#/components/schemas/CapabilityString"
         }
       },
       "CapabilitySlugParam": {
-        "description": "Catalog-backed canonical capability slug or alias. Use `/v1/capabilities/search` to discover valid values.",
+        "description": "Catalog slug or alias for discovery metadata. Capability strings used by agents, tools, and tasks are not limited to catalog entries.",
         "in": "path",
         "name": "slug",
         "required": true,
@@ -2881,6 +2881,17 @@
         ],
         "maxLength": 128,
         "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*){1,7}$",
+        "type": "string"
+      },
+      "CapabilityString": {
+        "description": "Open protocol capability string used by agent, tool, task, market-rate, and tool-search surfaces. It does not need to be present in the curated catalog.",
+        "examples": [
+          "ai.reasoning",
+          "custom.private-research",
+          "vendor-specific-analysis"
+        ],
+        "maxLength": 256,
+        "minLength": 1,
         "type": "string"
       },
       "CapabilitySuggestionList": {
@@ -11262,7 +11273,7 @@
     },
     "/v1/capabilities": {
       "get": {
-        "description": "Returns canonical dotted capability slugs that agents, tools, and tasks can use. Capabilities are catalog-backed strings; callers should select entries from this endpoint or from capability search instead of inventing unregistered names. Supports active, pending, deprecated, or all visible statuses plus category and parent filters.",
+        "description": "Returns curated capability metadata for discovery and UI assistance. Agents, tools, and tasks may also use custom capability strings that are not present in this catalog. Supports active, pending, deprecated, or all visible statuses plus category and parent filters.",
         "operationId": "list_capabilities",
         "parameters": [
           {
@@ -11385,7 +11396,7 @@
           },
           {}
         ],
-        "summary": "Cursor-paged canonical capability catalog.",
+        "summary": "Cursor-paged capability metadata catalog.",
         "tags": [
           "Capabilities"
         ],
@@ -11630,7 +11641,7 @@
     },
     "/v1/capabilities/{slug}": {
       "get": {
-        "description": "Returns the canonical catalog entry for a slug. The path may be either a canonical slug or an alias; aliases resolve to their canonical entry so matching and indexing do not fragment.",
+        "description": "Returns the curated catalog entry for a slug. The path may be either a catalog slug or an alias; aliases resolve to their canonical metadata entry. Missing entries do not imply the capability string is invalid for protocol use.",
         "operationId": "get_capability",
         "parameters": [
           {

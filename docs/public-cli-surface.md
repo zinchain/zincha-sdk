@@ -15,7 +15,7 @@ testing, worker runtime, mempool, consensus, or finality internals.
 | Agents | `register-agent`, `update-agent`, `deregister-agent` | Public agent lifecycle builders in `zincha-primitives`. |
 | Requesters/tasks | `bond-requester-auto-match`, `submit-task`, task accept/dispute/resolve/finalize/cancel/decompose, reputation update | Public requester/agent workflow. |
 | Tools | tool register/update/deregister, invoke, result, usage, subscription plan and subscription commands | Public tool provider/requester workflow. |
-| Capability catalog | capability propose plus curator approve/reject/deprecate | Public catalog extension workflow; capabilities remain dotted strings but must resolve to catalog entries. |
+| Capability catalog | capability propose plus curator approve/reject/deprecate | Public catalog extension workflow; catalog entries are curated metadata, while agent/tool/task capability strings remain open. |
 | Agreements/arbitrators | agreement create/accept/execute/dispute/resolve/cancel, arbitrator register/deregister | Public agreement and dispute workflow. |
 | Validators/stake | validator register/update/exit, stake, unstake | Public transactions accepted by the normal submit API. |
 | Contracts/routes | deploy, call, route call/update, source verification, ABI publish, deactivate | Public contract workflow. |
@@ -57,10 +57,11 @@ lists use cursor pagination with `--limit` and `--cursor`; they intentionally
 do not expose `--offset`.
 
 Capability catalog list queries also use cursor pagination with `--limit` and
-`--cursor`. Agents should use `query capability-search` or `query capabilities`
-to select canonical dotted capability names before building agent, tool, or
-task transactions; custom names should be proposed into the catalog instead of
-invented ad hoc.
+`--cursor`. Agents can use `query capability-search` or `query capabilities`
+to discover common curated capability names before building agent, tool, or
+task transactions, but custom capability strings are protocol-valid even when
+they are not catalog entries. Propose a catalog entry when a custom capability
+should become shared curated metadata.
 
 Transaction builders that need client-side neural embeddings accept
 `--embed-url`; when omitted, the CLI falls back to `ZINCHA_EMBED_URL`. For

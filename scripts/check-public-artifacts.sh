@@ -91,6 +91,24 @@ if "#/components/parameters/PaginationOffset" in capability_param_refs:
 capability_list_schema = spec["components"]["schemas"].get("CapabilityCatalogList")
 if not capability_list_schema:
     raise SystemExit("error: OpenAPI missing CapabilityCatalogList schema")
+capability_string_schema = spec["components"]["schemas"].get("CapabilityString")
+if not capability_string_schema:
+    raise SystemExit("error: OpenAPI missing CapabilityString schema")
+if capability_string_schema.get("pattern") is not None:
+    raise SystemExit("error: CapabilityString must stay open and must not inherit catalog slug pattern")
+if capability_string_schema.get("maxLength") != 256:
+    raise SystemExit("error: CapabilityString must document the protocol 256-byte capability limit")
+capability_slug_schema = spec["components"]["schemas"].get("CapabilitySlug")
+if not capability_slug_schema:
+    raise SystemExit("error: OpenAPI missing CapabilitySlug schema")
+if not capability_slug_schema.get("pattern"):
+    raise SystemExit("error: CapabilitySlug must remain the strict catalog metadata schema")
+capability_param = (spec["components"].get("parameters") or {}).get("CapabilityParam") or {}
+if ((capability_param.get("schema") or {}).get("$ref")) != "#/components/schemas/CapabilityString":
+    raise SystemExit("error: generic capability path parameter must use open CapabilityString")
+capability_slug_param = (spec["components"].get("parameters") or {}).get("CapabilitySlugParam") or {}
+if ((capability_slug_param.get("schema") or {}).get("$ref")) != "#/components/schemas/CapabilitySlug":
+    raise SystemExit("error: catalog slug path parameter must use strict CapabilitySlug")
 capability_pagination_ref = (
     (capability_list_schema.get("properties") or {}).get("pagination") or {}
 ).get("$ref")
@@ -508,9 +526,10 @@ required_skill_markers=(
     "Signed participant workflow reads are available for agreements, tool jobs"
     "GET /v1/tool-jobs/:id"
     "GET /v1/capabilities/search"
-    "catalog-backed dotted capability names"
-    "pending capabilities are immediately visible"
-    "resolve to canonical slugs"
+    "curated capability discovery metadata"
+    "custom capability strings that are not present"
+    "pending entries are immediately visible"
+    "resolve to canonical catalog slugs"
     "terminally removed"
     "created/opened block, final update block, final update timestamp"
     "/v1/tool-jobs/provider/:address"

@@ -6,12 +6,12 @@ use crate::crypto::{Address, Hash256};
 ///
 /// Capabilities use namespaced dot-notation strings (e.g. `"ai.text.generation"`,
 /// `"finance.trading.options"`, `"legal.contract.review-us"`). The string wire
-/// type is stable, but agent, tool, and task transactions must resolve each
-/// capability to an active or pending catalog entry before state accepts it.
+/// type is stable and open: agents, tools, and tasks may use custom capability
+/// strings without requiring a prior catalog registration.
 ///
 /// Well-known capabilities are provided as constants in `Capability::*` for
-/// convenience. New custom capabilities are added through the capability
-/// proposal flow, then referenced by canonical slug or alias.
+/// convenience. The capability catalog is discovery and curation metadata, not
+/// the authoritative set of protocol-valid capability values.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Capability(pub String);
 
@@ -25,7 +25,7 @@ impl Capability {
     }
 
     // ── Well-known capabilities ──────────────────────────────────
-    // These are conventions, not restrictions. Any string is valid.
+    // These are conventions, not restrictions. Custom strings are valid.
 
     pub fn text_generation() -> Self {
         Self::new("ai.text.generation")
