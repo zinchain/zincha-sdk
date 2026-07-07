@@ -491,6 +491,37 @@ export function encodeTaskCancelData(input: TaskCancelInput): Uint8Array {
   return hexToBytes(input.taskId, 32);
 }
 
+export interface ReputationUpdateInput extends BaseTxOptions {
+  taskId: Hex;
+  qualityScore: number;
+  requesterAccepted: boolean;
+  feedback?: string;
+}
+
+function normalizeReputationFeedback(feedback: string | undefined): string {
+  return Array.from(feedback ?? "").slice(0, 500).join("");
+}
+
+function validateReputationQualityScore(value: number): void {
+  if (!Number.isFinite(value)) {
+    throw new Error("qualityScore must be finite");
+  }
+  if (value < 0 || value > 10) {
+    throw new Error("qualityScore must be between 0 and 10");
+  }
+}
+
+/** bincode-encode the `ReputationUpdateData` payload. */
+export function encodeReputationUpdateData(input: ReputationUpdateInput): Uint8Array {
+  validateReputationQualityScore(input.qualityScore);
+  const w = new BincodeWriter();
+  writeHash256(w, input.taskId);
+  w.writeF64(input.qualityScore);
+  w.writeU8(input.requesterAccepted ? 1 : 0);
+  w.writeString(normalizeReputationFeedback(input.feedback));
+  return w.finish();
+}
+
 /* ─── token_create ───────────────────────────────────────────────── */
 
 export interface TokenCreateInput extends BaseTxOptions {

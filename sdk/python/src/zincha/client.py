@@ -27,6 +27,7 @@ from .builders import (
     encode_task_dispute_data,
     encode_task_finalize_data,
     encode_task_fulfill_data,
+    encode_reputation_update_data,
     encode_task_resolve_data,
     encode_task_submit_data,
     encode_tool_deregister_data,
@@ -1032,6 +1033,47 @@ class ZinchaClient:
 
     def cancel_task_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
         return self.submit_signed_transaction(self.build_cancel_task(keypair, **input))
+
+    def build_update_reputation(
+        self,
+        keypair: Keypair,
+        *,
+        task_id: str,
+        quality_score: float,
+        requester_accepted: bool,
+        feedback: str = "",
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign a ``reputation_update`` transaction."""
+        data = encode_reputation_update_data(
+            task_id=task_id,
+            quality_score=quality_score,
+            requester_accepted=requester_accepted,
+            feedback=feedback,
+        )
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="reputation_update",
+            data=data,
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def update_reputation_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_update_reputation(keypair, **input))
 
     def build_create_token(
         self,
@@ -2300,11 +2342,50 @@ class ZinchaClient:
     def agent(self, address: str) -> Any:
         return self.get("/v1/agents/%s" % normalize_address(address))
 
+    def agent_lifecycle_events(self, address: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/agents/%s/lifecycle-events" % normalize_address(address),
+            query=query,
+        )
+
+    def agent_reputation_events(self, address: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/agents/%s/reputation-events" % normalize_address(address),
+            query=query,
+        )
+
+    def agent_reputation_history(self, address: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/agents/%s/reputation-history" % normalize_address(address),
+            query=query,
+        )
+
+    def requester_reputation(self, address: str) -> Any:
+        return self.get("/v1/requesters/%s" % normalize_address(address))
+
+    def requester_reputation_events(self, address: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/requesters/%s/reputation-events" % normalize_address(address),
+            query=query,
+        )
+
+    def requester_reputation_history(self, address: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/requesters/%s/reputation-history" % normalize_address(address),
+            query=query,
+        )
+
     def pending_tasks(self, **query: Any) -> Any:
         return self.get("/v1/tasks/pending", query=query)
 
     def task_opportunity(self, task_id: str) -> Any:
         return self.get("/v1/tasks/%s/opportunity" % _normalize_hash(task_id))
+
+    def task_reputation_events(self, task_id: str, **query: Any) -> Any:
+        return self.get(
+            "/v1/tasks/%s/reputation-events" % _normalize_hash(task_id),
+            query=query,
+        )
 
     def task(
         self,

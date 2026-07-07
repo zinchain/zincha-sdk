@@ -21,6 +21,7 @@ import {
   encodeTaskDisputeData,
   encodeTaskFinalizeData,
   encodeTaskFulfillData,
+  encodeReputationUpdateData,
   encodeTaskResolveData,
   encodeTaskSubmitData,
   encodeToolDeregisterData,
@@ -385,6 +386,45 @@ test("task helper fetches task detail with signed participant auth", async () =>
   assert.equal(headers.get("x-zincha-public-key"), golden.public_key_hex);
   assert.match(headers.get("x-zincha-body-sha256") ?? "", /^[0-9a-f]{64}$/);
   assert.match(headers.get("x-zincha-signature") ?? "", /^[0-9a-f]{128}$/);
+});
+
+test("reputation read helpers map public audit URLs unsigned", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const taskId = "dd".repeat(32);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, { success: true, data: {}, error: null });
+    },
+  });
+
+  await client.agentLifecycleEvents(golden.sender, { limit: 5, cursor: "a1" });
+  await client.agentReputationEvents(golden.sender, { limit: 6, cursor: "b2" });
+  await client.agentReputationHistory(golden.sender, { limit: 7, cursor: "c3" });
+  await client.requesterReputation(golden.sender);
+  await client.requesterReputationEvents(golden.sender, { limit: 8, cursor: "d4" });
+  await client.requesterReputationHistory(golden.sender, { limit: 9, cursor: "e5" });
+  await client.taskReputationEvents(`0x${taskId}`, { limit: 10, cursor: "f6" });
+
+  assert.deepEqual(
+    calls.map((call) => call.url),
+    [
+      `http://node.test/v1/agents/${golden.sender}/lifecycle-events?limit=5&cursor=a1`,
+      `http://node.test/v1/agents/${golden.sender}/reputation-events?limit=6&cursor=b2`,
+      `http://node.test/v1/agents/${golden.sender}/reputation-history?limit=7&cursor=c3`,
+      `http://node.test/v1/requesters/${golden.sender}`,
+      `http://node.test/v1/requesters/${golden.sender}/reputation-events?limit=8&cursor=d4`,
+      `http://node.test/v1/requesters/${golden.sender}/reputation-history?limit=9&cursor=e5`,
+      `http://node.test/v1/tasks/${taskId}/reputation-events?limit=10&cursor=f6`,
+    ],
+  );
+  for (const call of calls) {
+    assert.equal(call.init.method, "GET");
+    const headers = new Headers(call.init.headers);
+    assert.equal(headers.has("x-zincha-address"), false);
+    assert.equal(headers.has("x-zincha-signature"), false);
+  }
 });
 
 test("participant workflow helpers use signed cursor routes and drop offset", async () => {
@@ -906,6 +946,65 @@ test("task lifecycle encoders match Rust golden vector", () => {
 
   const cancel = encodeTaskCancelData({ taskId: golden.cancel.input.task_id });
   assert.equal(bytesToHex(cancel), golden.cancel.data_hex);
+});
+
+test("reputation update encoder matches Rust wire layout", () => {
+  const taskId = "12".repeat(32);
+  const encoded = encodeReputationUpdateData({
+    taskId,
+    qualityScore: 9.25,
+    requesterAccepted: true,
+    feedback: "great",
+  });
+  assert.equal(
+    bytesToHex(encoded),
+    "4000000000000000" + "3132".repeat(32) + "0000000000802240" + "01" + "0500000000000000" + "6772656174",
+  );
+
+  assert.throws(
+    () => encodeReputationUpdateData({ taskId, qualityScore: Number.NaN, requesterAccepted: true }),
+    /finite/,
+  );
+  assert.throws(
+    () => encodeReputationUpdateData({ taskId, qualityScore: 10.1, requesterAccepted: true }),
+    /between 0 and 10/,
+  );
+});
+
+test("reputation update builder signs typed transaction and caps feedback", async () => {
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async () => {
+      throw new Error("network should not be used when signing inputs are explicit");
+    },
+  });
+  const taskId = "34".repeat(32);
+  const signed = await client.buildUpdateReputation(keypair, {
+    taskId,
+    qualityScore: 8.5,
+    requesterAccepted: false,
+    feedback: "x".repeat(501),
+    feeMicroZin: 100n,
+    nonce: 12n,
+    chainId: "zincha-vega-1",
+    timestampMs: 1_700_000_000_789n,
+    referenceBlockHeight: 42n,
+    referenceBlockHash: "11".repeat(32),
+    maxValidBlockHeight: 142n,
+  });
+
+  assert.equal(signed.transaction.txType, "reputation_update");
+  assert.equal(TX_TYPE_WIRE_CODES.reputation_update, 7);
+  assert.equal(
+    bytesToHex(signed.transaction.data),
+    bytesToHex(encodeReputationUpdateData({
+      taskId,
+      qualityScore: 8.5,
+      requesterAccepted: false,
+      feedback: "x".repeat(500),
+    })),
+  );
 });
 
 test("task lifecycle builders produce Rust-compatible signed transactions", async () => {

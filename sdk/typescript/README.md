@@ -132,11 +132,22 @@ await client.acceptTaskAndSubmit(requesterWallet, {
   taskId: "33".repeat(32),
   feeMicroZin: 1_000n,
 });
+
+await client.updateReputationAndSubmit(requesterWallet, {
+  taskId: "33".repeat(32),
+  qualityScore: 9.5,
+  requesterAccepted: true,
+  feedback: "Accurate and delivered on time.",
+  feeMicroZin: 1_000n,
+});
+
+const agentRatings = await client.agentReputationEvents("zn1...", { limit: 20 });
 ```
 
 The SDK also exposes `buildFulfillTask`, `buildAcceptTask`,
 `buildDisputeTask`, `buildResolveTask`, `buildFinalizeTask`, and
-`buildCancelTask`, plus matching `...AndSubmit` helpers.
+`buildCancelTask`, `buildUpdateReputation`, plus matching
+`...AndSubmit` helpers.
 
 ## Token operations
 

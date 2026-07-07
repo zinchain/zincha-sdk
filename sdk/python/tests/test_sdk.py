@@ -23,6 +23,7 @@ from zincha import (
     encode_task_dispute_data,
     encode_task_finalize_data,
     encode_task_fulfill_data,
+    encode_reputation_update_data,
     encode_task_resolve_data,
     encode_task_submit_data,
     encode_tool_deregister_data,
@@ -371,6 +372,45 @@ class PythonSdkTests(unittest.TestCase):
         self.assertEqual(headers["x-zincha-public-key"], GOLDEN["public_key_hex"])
         self.assertRegex(headers["x-zincha-body-sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(headers["x-zincha-signature"], r"^[0-9a-f]{128}$")
+
+    def test_reputation_read_helpers_map_public_audit_urls_unsigned(self):
+        calls = []
+        task_id = "dd" * 32
+
+        def transport(method, url, headers, body, timeout):
+            calls.append((method, url, headers, body, timeout))
+            return 200, json.dumps({"success": True, "data": {}, "error": None})
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        client.agent_lifecycle_events(GOLDEN["sender"], limit=5, cursor="a1")
+        client.agent_reputation_events(GOLDEN["sender"], limit=6, cursor="b2")
+        client.agent_reputation_history(GOLDEN["sender"], limit=7, cursor="c3")
+        client.requester_reputation(GOLDEN["sender"])
+        client.requester_reputation_events(GOLDEN["sender"], limit=8, cursor="d4")
+        client.requester_reputation_history(GOLDEN["sender"], limit=9, cursor="e5")
+        client.task_reputation_events("0x" + task_id, limit=10, cursor="f6")
+
+        self.assertEqual(
+            [call[1] for call in calls],
+            [
+                "http://node.test/v1/agents/%s/lifecycle-events?limit=5&cursor=a1"
+                % GOLDEN["sender"],
+                "http://node.test/v1/agents/%s/reputation-events?limit=6&cursor=b2"
+                % GOLDEN["sender"],
+                "http://node.test/v1/agents/%s/reputation-history?limit=7&cursor=c3"
+                % GOLDEN["sender"],
+                "http://node.test/v1/requesters/%s" % GOLDEN["sender"],
+                "http://node.test/v1/requesters/%s/reputation-events?limit=8&cursor=d4"
+                % GOLDEN["sender"],
+                "http://node.test/v1/requesters/%s/reputation-history?limit=9&cursor=e5"
+                % GOLDEN["sender"],
+                "http://node.test/v1/tasks/%s/reputation-events?limit=10&cursor=f6" % task_id,
+            ],
+        )
+        for method, _url, headers, _body, _timeout in calls:
+            self.assertEqual(method, "GET")
+            self.assertNotIn("x-zincha-address", headers)
+            self.assertNotIn("x-zincha-signature", headers)
 
     def test_participant_workflow_helpers_use_signed_cursor_routes(self):
         calls = []
@@ -948,6 +988,72 @@ class GoldenVectorTests(unittest.TestCase):
 
         cancel = encode_task_cancel_data(task_id=golden["cancel"]["input"]["task_id"])
         self.assertEqual(cancel.hex(), golden["cancel"]["data_hex"])
+
+    def test_reputation_update_encoder_matches_rust_wire_layout(self):
+        task_id = "12" * 32
+        encoded = encode_reputation_update_data(
+            task_id=task_id,
+            quality_score=9.25,
+            requester_accepted=True,
+            feedback="great",
+        )
+        self.assertEqual(
+            encoded.hex(),
+            "4000000000000000"
+            + "3132" * 32
+            + "0000000000802240"
+            + "01"
+            + "0500000000000000"
+            + "6772656174",
+        )
+
+        with self.assertRaisesRegex(ValueError, "finite"):
+            encode_reputation_update_data(
+                task_id=task_id,
+                quality_score=float("nan"),
+                requester_accepted=True,
+            )
+        with self.assertRaisesRegex(ValueError, "between 0 and 10"):
+            encode_reputation_update_data(
+                task_id=task_id,
+                quality_score=10.1,
+                requester_accepted=True,
+            )
+
+    def test_reputation_update_builder_signs_typed_transaction_and_caps_feedback(self):
+        keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
+
+        def transport(method, url, headers, body, timeout):
+            raise AssertionError("network should not be used when signing inputs are explicit")
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        task_id = "34" * 32
+        signed = client.build_update_reputation(
+            keypair,
+            task_id=task_id,
+            quality_score=8.5,
+            requester_accepted=False,
+            feedback="x" * 501,
+            fee_micro_zin=100,
+            nonce=12,
+            chain_id="zincha-vega-1",
+            timestamp_ms=1_700_000_000_789,
+            reference_block_height=42,
+            reference_block_hash="11" * 32,
+            max_valid_block_height=142,
+        )
+
+        self.assertEqual(signed.transaction.tx_type, "reputation_update")
+        self.assertEqual(TX_TYPE_WIRE_CODES["reputation_update"], 7)
+        self.assertEqual(
+            signed.transaction.data.hex(),
+            encode_reputation_update_data(
+                task_id=task_id,
+                quality_score=8.5,
+                requester_accepted=False,
+                feedback="x" * 500,
+            ).hex(),
+        )
 
     def test_task_lifecycle_builders_produce_rust_compatible_signed_transactions(self):
         path = _python_fixture_path("golden-task-lifecycle.json")

@@ -15,6 +15,7 @@ import {
   encodeTaskDisputeData,
   encodeTaskFinalizeData,
   encodeTaskFulfillData,
+  encodeReputationUpdateData,
   encodeTaskResolveData,
   encodeAgentRegisterData,
   encodeAgentUpdateData,
@@ -81,6 +82,7 @@ import {
   type TaskDisputeInput,
   type TaskFinalizeInput,
   type TaskFulfillInput,
+  type ReputationUpdateInput,
   type TaskResolveInput,
   type ToolDeregisterInput,
   type ToolInvokeInput,
@@ -556,6 +558,16 @@ export class ZinchaClient {
   /** Convenience: build + submit a `task_cancel` transaction. */
   async cancelTaskAndSubmit(keypair: Keypair, input: TaskCancelInput): Promise<SubmitTransactionResponse> {
     return this.submitSignedTransaction(await this.buildCancelTask(keypair, input));
+  }
+
+  /** Build, sign, and return a `reputation_update` transaction. */
+  async buildUpdateReputation(keypair: Keypair, input: ReputationUpdateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "reputation_update", input, encodeReputationUpdateData(input));
+  }
+
+  /** Convenience: build + submit a `reputation_update` transaction. */
+  async updateReputationAndSubmit(keypair: Keypair, input: ReputationUpdateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildUpdateReputation(keypair, input));
   }
 
   /** Build, sign, and return a `token_create` transaction. */
@@ -1134,12 +1146,58 @@ export class ZinchaClient {
     return this.get(`/v1/agents/${normalizeAddress(address)}`);
   }
 
+  agentLifecycleEvents(
+    address: string,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/agents/${normalizeAddress(address)}/lifecycle-events`, { query });
+  }
+
+  agentReputationEvents(
+    address: string,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/agents/${normalizeAddress(address)}/reputation-events`, { query });
+  }
+
+  agentReputationHistory(
+    address: string,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/agents/${normalizeAddress(address)}/reputation-history`, { query });
+  }
+
+  requesterReputation(address: string): Promise<unknown> {
+    return this.get(`/v1/requesters/${normalizeAddress(address)}`);
+  }
+
+  requesterReputationEvents(
+    address: string,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/requesters/${normalizeAddress(address)}/reputation-events`, { query });
+  }
+
+  requesterReputationHistory(
+    address: string,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/requesters/${normalizeAddress(address)}/reputation-history`, { query });
+  }
+
   pendingTasks(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
     return this.get("/v1/tasks/pending", { query });
   }
 
   taskOpportunity(id: Hex): Promise<unknown> {
     return this.get(`/v1/tasks/${normalizeHash(id)}/opportunity`);
+  }
+
+  taskReputationEvents(
+    id: Hex,
+    query?: Record<string, string | number | boolean | undefined>,
+  ): Promise<unknown> {
+    return this.get(`/v1/tasks/${normalizeHash(id)}/reputation-events`, { query });
   }
 
   task(id: Hex, options: Omit<RequestOptions, "body" | "query" | "signed"> = {}): Promise<unknown> {

@@ -143,11 +143,23 @@ client.accept_task_and_submit(
     task_id="33" * 32,
     fee_micro_zin=1_000,
 )
+
+client.update_reputation_and_submit(
+    requester_wallet,
+    task_id="33" * 32,
+    quality_score=9.5,
+    requester_accepted=True,
+    feedback="Accurate and delivered on time.",
+    fee_micro_zin=1_000,
+)
+
+agent_ratings = client.agent_reputation_events("zn1...", limit=20)
 ```
 
 The SDK also exposes `build_fulfill_task`, `build_accept_task`,
 `build_dispute_task`, `build_resolve_task`, `build_finalize_task`, and
-`build_cancel_task`, plus matching `_and_submit` helpers.
+`build_cancel_task`, `build_update_reputation`, plus matching
+`_and_submit` helpers.
 
 ## Token operations
 

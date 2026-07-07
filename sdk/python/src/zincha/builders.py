@@ -12,6 +12,7 @@ builder is covered by a golden vector test (see
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -397,6 +398,26 @@ def encode_task_finalize_data(*, task_id: Hex) -> bytes:
 def encode_task_cancel_data(*, task_id: Hex) -> bytes:
     """Encode the ``TaskCancel`` payload: raw 32-byte task id, matching the Rust handler."""
     return hex_to_bytes(task_id, 32)
+
+
+def encode_reputation_update_data(
+    *,
+    task_id: Hex,
+    quality_score: float,
+    requester_accepted: bool,
+    feedback: str = "",
+) -> bytes:
+    """bincode-encode the ``ReputationUpdateData`` payload."""
+    if not math.isfinite(quality_score):
+        raise ValueError("quality_score must be finite")
+    if quality_score < 0 or quality_score > 10:
+        raise ValueError("quality_score must be between 0 and 10")
+    w = BincodeWriter()
+    _write_hash256(w, task_id)
+    w.write_f64(quality_score)
+    w.write_u8(1 if requester_accepted else 0)
+    w.write_string(feedback[:500])
+    return w.finish()
 
 
 # ─── token_create ───────────────────────────────────────────────────
