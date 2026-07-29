@@ -82,18 +82,6 @@
           "minimum": 1,
           "type": "integer"
         }
-      },
-      "PaginationOffset": {
-        "description": "Zero-based offset into the result set.",
-        "in": "query",
-        "name": "offset",
-        "required": false,
-        "schema": {
-          "default": 0,
-          "format": "int64",
-          "minimum": 0,
-          "type": "integer"
-        }
       }
     },
     "schemas": {
@@ -151,7 +139,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -1047,6 +1035,78 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ContractSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CursorContractList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CursorContractList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CursorTokenList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CursorTokenList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CursorToolList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CursorToolList"
               },
               {
                 "type": "null"
@@ -2069,7 +2129,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -2276,6 +2336,97 @@
             "description": "True when the node is configured to retain and serve archive history.",
             "type": "boolean"
           },
+          "archive_obligation_cold_projection_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_deferred_index_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_event_outbox_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_history_coverage_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_ledger_repair_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_already_applied_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_applied_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_busy_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_conflict_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_failure_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_last_duration_us": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_lock_wait_max_us": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_max_duration_us": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_mutation_stale_hash_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_reconciliation_entry_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_reconciliation_failure_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_reconciliation_last_outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "archive_obligation_reconciliation_repaired_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_reconciliation_run_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_obligation_summary_generation": {
+            "description": "Monotonic generation of the transactional archive obligation summary.",
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_projection_ledger_error_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "archive_projection_ledger_first_incomplete": {
             "description": "First canonical height with an incomplete durable archive projection ledger obligation.",
             "format": "int64",
@@ -2285,12 +2436,53 @@
               "null"
             ]
           },
+          "archive_projection_ledger_first_incomplete_bits": {
+            "description": "Bitset of outstanding obligations at the first incomplete required-window height.",
+            "format": "uint8",
+            "maximum": 15,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archive_projection_ledger_first_incomplete_error": {
+            "description": "Error attached to the first incomplete required-window obligation, if any.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "archive_projection_ledger_first_incomplete_hash": {
+            "description": "Canonical hash owning the first incomplete archive obligation in the required read window.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "archive_projection_ledger_first_incomplete_obligations": {
+            "items": {
+              "enum": [
+                "cold_projection",
+                "deferred_indexes",
+                "event_outbox",
+                "history_coverage"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
           "archive_projection_ledger_last_error": {
             "description": "Most recent archive projection ledger error observed while scanning the ready window.",
             "type": [
               "string",
               "null"
             ]
+          },
+          "archive_projection_ledger_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "archive_projection_ledger_status_scan_mode": {
+            "type": "string"
           },
           "archive_projection_local_repair_in_progress": {
             "description": "True when the cold projection worker is repairing archive projection ledger obligations from local canonical rows.",
@@ -2333,93 +2525,68 @@
             "minimum": 0,
             "type": "integer"
           },
-          "archive_state_log_first_pending_height": {
-            "description": "Lowest pending state-log materialization height, or null when none are pending.",
-            "format": "int64",
-            "minimum": 0,
+          "cold_projection_queryable_height": {
+            "format": "uint64",
             "type": [
               "integer",
               "null"
             ]
           },
-          "archive_state_log_materialization_decision": {
-            "description": "Current state-log materialization scheduler decision reason.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "archive_state_log_materialization_target_height": {
-            "description": "Current selected state-log materialization target height, or null when coalescing/skipping.",
-            "format": "int64",
-            "minimum": 0,
+          "committed_query_overlay_oldest_height": {
+            "format": "uint64",
             "type": [
               "integer",
               "null"
             ]
           },
-          "archive_state_log_pending_count": {
-            "description": "Number of canonical state-log materialization records still pending.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "archive_state_log_promotion_bytes": {
-            "description": "Bytes promoted by the last state-log materialization worker.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "archive_state_log_promotion_chunk_count": {
-            "description": "Chunk files promoted by the last state-log materialization worker.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "archive_state_log_worker_active": {
-            "description": "True while an archive state-log materialization worker is active.",
+          "committed_query_overlay_ready": {
             "type": "boolean"
           },
-          "archive_state_log_worker_duration_ms": {
-            "description": "Duration in milliseconds for the last state-log materialization worker.",
-            "format": "int64",
-            "minimum": 0,
+          "committed_query_overlay_rows": {
+            "format": "uint64",
             "type": "integer"
           },
-          "archive_state_log_worker_last_range": {
-            "description": "Last state-log materialization worker height range, or null if none has completed.",
-            "oneOf": [
-              {
-                "items": false,
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "format": "int64",
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  {
-                    "format": "int64",
-                    "minimum": 0,
-                    "type": "integer"
-                  }
-                ],
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
+          "committed_query_overlay_tip_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
             ]
           },
-          "checkpoint_artifact_consensus_block_reason": {
+          "contract_event_archive_verified_event_count": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "contract_event_archive_verified_hash": {
             "type": [
               "string",
               "null"
             ]
           },
-          "checkpoint_artifact_consensus_safe": {
+          "contract_event_archive_verified_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "heavy_archive_serving_available": {
             "type": "boolean"
+          },
+          "heavy_archive_serving_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historical_readiness_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "historical_reads_available": {
             "description": "True when historical API reads can be served from this node.",
@@ -2449,6 +2616,16 @@
             ],
             "type": "boolean"
           },
+          "local_import_priority_active": {
+            "type": "boolean"
+          },
+          "queryable_state_lag_blocks": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "readiness_reason": {
             "description": "Machine-readable operator reason when archive readiness is false.",
             "type": [
@@ -2460,11 +2637,23 @@
             "description": "True when this node can serve complete historical archive reads.",
             "type": "boolean"
           },
-          "required_checkpoint_artifact_gate": {
-            "type": "string"
-          },
-          "restart_export_ready": {
+          "snapshot_generation_healthy": {
             "type": "boolean"
+          },
+          "snapshot_generation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "snapshot_serving_ready": {
+            "type": "boolean"
+          },
+          "snapshot_serving_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "enum": [
@@ -2486,12 +2675,26 @@
           "status",
           "live",
           "ready",
-          "required_checkpoint_artifact_gate",
-          "restart_export_ready",
-          "checkpoint_artifact_consensus_safe",
+          "snapshot_serving_ready",
+          "snapshot_serving_reason",
+          "snapshot_generation_healthy",
+          "snapshot_generation_reason",
           "storage_mode",
           "archive_mode",
           "historical_reads_available",
+          "historical_readiness_reason",
+          "heavy_archive_serving_available",
+          "heavy_archive_serving_reason",
+          "local_import_priority_active",
+          "committed_query_overlay_ready",
+          "committed_query_overlay_tip_height",
+          "committed_query_overlay_oldest_height",
+          "committed_query_overlay_rows",
+          "cold_projection_queryable_height",
+          "queryable_state_lag_blocks",
+          "contract_event_archive_verified_height",
+          "contract_event_archive_verified_hash",
+          "contract_event_archive_verified_event_count",
           "history_available_from",
           "history_available_to",
           "archive_backfill_complete",
@@ -2513,19 +2716,38 @@
           "archive_projection_ready",
           "archive_event_outbox_ready",
           "archive_auxiliary_ready",
+          "archive_obligation_summary_generation",
           "archive_projection_ledger_first_incomplete",
+          "archive_projection_ledger_first_incomplete_hash",
+          "archive_projection_ledger_first_incomplete_bits",
+          "archive_projection_ledger_first_incomplete_obligations",
+          "archive_projection_ledger_first_incomplete_error",
+          "archive_projection_ledger_pending_count",
+          "archive_obligation_cold_projection_pending_count",
+          "archive_obligation_deferred_index_pending_count",
+          "archive_obligation_event_outbox_pending_count",
+          "archive_obligation_history_coverage_pending_count",
+          "archive_obligation_ledger_repair_count",
+          "archive_obligation_mutation_count",
+          "archive_obligation_mutation_applied_count",
+          "archive_obligation_mutation_already_applied_count",
+          "archive_obligation_mutation_busy_count",
+          "archive_obligation_mutation_stale_hash_count",
+          "archive_obligation_mutation_conflict_count",
+          "archive_obligation_mutation_failure_count",
+          "archive_obligation_mutation_last_duration_us",
+          "archive_obligation_mutation_max_duration_us",
+          "archive_obligation_mutation_lock_wait_max_us",
+          "archive_obligation_reconciliation_run_count",
+          "archive_obligation_reconciliation_entry_count",
+          "archive_obligation_reconciliation_repaired_count",
+          "archive_obligation_reconciliation_failure_count",
+          "archive_obligation_reconciliation_last_outcome",
+          "archive_projection_ledger_error_count",
+          "archive_projection_ledger_status_scan_mode",
           "archive_projection_ledger_last_error",
           "archive_projection_local_repair_in_progress",
-          "archive_projection_local_repair_last_height",
-          "archive_state_log_pending_count",
-          "archive_state_log_first_pending_height",
-          "archive_state_log_materialization_target_height",
-          "archive_state_log_materialization_decision",
-          "archive_state_log_worker_active",
-          "archive_state_log_worker_last_range",
-          "archive_state_log_worker_duration_ms",
-          "archive_state_log_promotion_bytes",
-          "archive_state_log_promotion_chunk_count"
+          "archive_projection_local_repair_last_height"
         ],
         "type": "object"
       },
@@ -2545,12 +2767,39 @@
             "description": "Derived convenience value. Floating-point; do not use for fee calculations.",
             "format": "double",
             "type": "number"
+          },
+          "consistency": {
+            "description": "Read consistency level.",
+            "enum": [
+              "committed"
+            ],
+            "type": "string"
+          },
+          "state_hash": {
+            "description": "Committed block hash used for this read.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "state_height": {
+            "description": "Committed block height used for this read.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state_root": {
+            "description": "Committed state root used for this read.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
           }
         },
         "required": [
           "address",
           "balance_micro_zin",
-          "balance_zin"
+          "balance_zin",
+          "state_height",
+          "state_hash",
+          "state_root",
+          "consistency"
         ],
         "type": "object"
       },
@@ -2902,10 +3151,8 @@
             },
             "type": "array"
           },
-          "limit": {
-            "maximum": 100,
-            "minimum": 1,
-            "type": "integer"
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
           },
           "query": {
             "type": "string"
@@ -2914,7 +3161,7 @@
         "required": [
           "items",
           "query",
-          "limit"
+          "pagination"
         ],
         "type": "object"
       },
@@ -2946,6 +3193,86 @@
           "tool_count",
           "open_task_count",
           "market_sample_count"
+        ],
+        "type": "object"
+      },
+      "CertificationWaitStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "age_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "block_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_number": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "last_resolution_latency_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "last_updated_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "request_attempts": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "requested_peer_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "resolved_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "started_at_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "view": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "warning_emitted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active",
+          "block_number",
+          "block_hash",
+          "view",
+          "started_at_ms",
+          "age_ms",
+          "request_attempts",
+          "requested_peer_count",
+          "warning_emitted",
+          "resolved_count",
+          "last_resolution_latency_ms",
+          "last_updated_ms"
         ],
         "type": "object"
       },
@@ -3319,7 +3646,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -3337,7 +3664,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -3459,7 +3786,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -3602,8 +3929,37 @@
         },
         "type": "object"
       },
+      "CursorContractList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Contract"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
       "CursorPagination": {
         "properties": {
+          "canonical_hash": {
+            "description": "Canonical block hash pinned by this page.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "canonical_height": {
+            "description": "Canonical height pinned by this page.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "cursor": {
             "description": "Cursor supplied on the request, or null for the first page.",
             "pattern": "^[0-9a-f]+$",
@@ -3629,20 +3985,51 @@
               "string",
               "null"
             ]
-          },
-          "total": {
-            "description": "Exact number of indexed transaction-history rows for the entity.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
           }
         },
         "required": [
-          "total",
           "limit",
           "has_more",
           "next_cursor",
-          "cursor"
+          "cursor",
+          "canonical_height",
+          "canonical_hash"
+        ],
+        "type": "object"
+      },
+      "CursorTokenList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Token"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "CursorToolList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Tool"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
         ],
         "type": "object"
       },
@@ -3656,11 +4043,83 @@
             "format": "uint64",
             "type": "integer"
           },
+          "current_parent_artifact_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_artifact_cache_cap_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_artifact_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_artifact_misses": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "current_parent_in_memory_workspace_count": {
             "format": "uint64",
             "type": "integer"
           },
+          "current_parent_overlay_checkpoint_rollback_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_overlay_delta_estimated_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_overlay_validation_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_estimated_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_manager_workspace_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_cap_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_evictions": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_lock_wait_ns": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_misses": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_oversized_rejections": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "current_parent_temp_node_workspace_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "historical_replay_materialization_count": {
             "format": "uint64",
             "type": "integer"
           },
@@ -3687,6 +4146,9 @@
               "null"
             ]
           },
+          "last_historical_replay_fallback": {
+            "type": "boolean"
+          },
           "last_latency_ms": {
             "format": "uint64",
             "type": [
@@ -3699,6 +4161,13 @@
               "string",
               "null"
             ]
+          },
+          "last_phase_latency_ms": {
+            "additionalProperties": {
+              "format": "uint64",
+              "type": "integer"
+            },
+            "type": "object"
           },
           "last_reject_reason": {
             "enum": [
@@ -3713,6 +4182,7 @@
               "local_production_in_progress",
               "canonical_parent_unavailable",
               "validation_timeout",
+              "validation_capacity",
               "not_active_validator",
               "not_validator",
               "no_validator_key",
@@ -3721,6 +4191,19 @@
             ],
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "last_slowest_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_slowest_phase_latency_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
               "null"
             ]
           },
@@ -3739,11 +4222,47 @@
             "format": "uint64",
             "type": "integer"
           },
+          "live_edge_material_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "live_edge_material_cap_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "live_edge_material_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "not_active_parent_push_ignored": {
             "format": "uint64",
             "type": "integer"
           },
           "not_active_vote_requests_ignored": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "parent_pre_sync_imported": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "parent_pre_sync_sent": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "parent_push_inline_import_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "parent_sync_pending_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "proposal_validation_artifact_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "proposal_validation_artifact_misses": {
             "format": "uint64",
             "type": "integer"
           },
@@ -3761,6 +4280,10 @@
               "type": "integer"
             },
             "type": "object"
+          },
+          "replay_node_validation_count": {
+            "format": "uint64",
+            "type": "integer"
           },
           "replay_validation_avoided": {
             "format": "uint64",
@@ -3797,6 +4320,10 @@
           "vote_count": {
             "format": "uint64",
             "type": "integer"
+          },
+          "vote_path_inline_parent_import_count": {
+            "format": "uint64",
+            "type": "integer"
           }
         },
         "required": [
@@ -3811,15 +4338,48 @@
           "validation_cache_hits",
           "validation_cache_misses",
           "validation_singleflight_deduped",
+          "proposal_validation_artifact_hits",
+          "proposal_validation_artifact_misses",
           "replay_validation_avoided",
+          "current_parent_artifact_hits",
+          "current_parent_artifact_misses",
+          "replay_node_validation_count",
+          "historical_replay_materialization_count",
           "current_parent_in_memory_workspace_count",
           "current_parent_temp_node_workspace_count",
+          "current_parent_overlay_validation_count",
+          "current_parent_overlay_checkpoint_rollback_count",
+          "current_parent_overlay_delta_estimated_bytes",
+          "current_parent_scratch_pool_estimated_bytes",
+          "current_parent_artifact_cache_bytes",
+          "current_parent_state_read_cache_bytes",
+          "current_parent_state_read_cache_entries",
+          "current_parent_state_read_cache_hits",
+          "current_parent_state_read_cache_misses",
+          "current_parent_state_read_cache_evictions",
+          "current_parent_state_read_cache_oversized_rejections",
+          "current_parent_state_read_cache_lock_wait_ns",
+          "current_parent_artifact_cache_cap_bytes",
+          "current_parent_state_read_cache_cap_bytes",
+          "current_parent_state_manager_workspace_count",
+          "live_edge_material_entries",
+          "live_edge_material_bytes",
+          "live_edge_material_cap_bytes",
           "buffered_sync_current_parent_replay_count",
           "live_edge_import_owner_result_reuse_count",
+          "parent_push_inline_import_count",
+          "parent_pre_sync_sent",
+          "parent_pre_sync_imported",
+          "parent_sync_pending_count",
+          "vote_path_inline_parent_import_count",
           "not_active_vote_requests_ignored",
           "not_active_parent_push_ignored",
           "active_participant",
           "last_latency_ms",
+          "last_phase_latency_ms",
+          "last_slowest_phase",
+          "last_slowest_phase_latency_ms",
+          "last_historical_replay_fallback",
           "last_peer",
           "last_block_number",
           "last_block_hash",
@@ -3828,6 +4388,141 @@
           "last_error",
           "reject_reasons",
           "last_updated_ms"
+        ],
+        "type": "object"
+      },
+      "DurableProposalTransitionStats": {
+        "additionalProperties": false,
+        "properties": {
+          "already_pending": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "already_terminal": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "applied": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conflict_warnings_emitted": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conflict_warnings_rate_limited": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "conflicts": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applied",
+          "already_pending",
+          "already_terminal",
+          "conflicts",
+          "conflict_warnings_emitted",
+          "conflict_warnings_rate_limited"
+        ],
+        "type": "object"
+      },
+      "DurableRecoveryHeadHealthStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finalized_floor": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startup_loader": {
+            "$ref": "#/components/schemas/DurableRecoveryStartupLoaderHealthStatus"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available",
+          "valid",
+          "height",
+          "hash",
+          "finalized_floor",
+          "startup_loader",
+          "error"
+        ],
+        "type": "object"
+      },
+      "DurableRecoveryStartupLoaderHealthStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "account_rows": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "contract_rows": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "duration_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "source": {
+            "enum": [
+              "fresh_genesis",
+              "durable_rows",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state_rows": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "completed",
+          "source",
+          "duration_ms",
+          "account_rows",
+          "state_rows",
+          "contract_rows"
         ],
         "type": "object"
       },
@@ -4069,13 +4764,65 @@
             },
             "type": "array"
           },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+          "page": {
+            "properties": {
+              "has_more": {
+                "type": "boolean"
+              },
+              "limit": {
+                "maximum": 1024,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "mode": {
+                "enum": [
+                  "after_seq",
+                  "backfill"
+                ],
+                "type": "string"
+              },
+              "next_after_seq": {
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "requested_after_seq": {
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "requested_backfill": {
+                "maximum": 1024,
+                "minimum": 1,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "mode",
+              "limit",
+              "next_after_seq",
+              "has_more"
+            ],
+            "type": "object"
+          },
+          "retention": {
+            "additionalProperties": true,
+            "type": "object"
           }
         },
         "required": [
           "items",
-          "pagination"
+          "page",
+          "retention"
         ],
         "type": "object"
       },
@@ -4181,6 +4928,19 @@
               "null"
             ]
           },
+          "live_suffix_pending_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "oldest_pending_age_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "pending_deferred_index_work_count": {
             "type": "integer"
           },
@@ -4198,6 +4958,47 @@
           "publication_not_owned_count": {
             "format": "uint64",
             "type": "integer"
+          },
+          "publisher_healthy": {
+            "type": "boolean"
+          },
+          "publisher_lag_blocks": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "publisher_last_pass_processed_count": {
+            "type": "integer"
+          },
+          "publisher_pass_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "publisher_processed_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "publisher_retry_not_before_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ready_window_first_pending_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "ready_window_pending_count": {
+            "type": "integer"
+          },
+          "ready_window_pending_count_saturated": {
+            "type": "boolean"
           },
           "repair_required_count": {
             "type": "integer"
@@ -4226,6 +5027,17 @@
           "pending_publication_count",
           "repair_required_count",
           "stale_pending_count",
+          "ready_window_pending_count",
+          "ready_window_pending_count_saturated",
+          "ready_window_first_pending_height",
+          "live_suffix_pending_count",
+          "oldest_pending_age_ms",
+          "publisher_lag_blocks",
+          "publisher_healthy",
+          "publisher_pass_count",
+          "publisher_processed_count",
+          "publisher_last_pass_processed_count",
+          "publisher_retry_not_before_ms",
           "commit_outbox_ready",
           "immediate_publication_invariant_failures",
           "immediate_publication_success_count",
@@ -4295,6 +5107,82 @@
         },
         "type": "object"
       },
+      "HistoricalValidationHealthStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_attempt_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "failure_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "in_progress": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rejected_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "success_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "worker_attempt_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "worker_last_duration_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "worker_last_peak_rss_bytes": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "worker_max_duration_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "worker_max_peak_rss_bytes": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "worker_rss_limit_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "in_progress",
+          "evidence_attempt_count",
+          "success_count",
+          "failure_count",
+          "rejected_count",
+          "worker_attempt_count",
+          "worker_last_duration_ms",
+          "worker_max_duration_ms",
+          "worker_last_peak_rss_bytes",
+          "worker_max_peak_rss_bytes",
+          "worker_rss_limit_bytes",
+          "last_error"
+        ],
+        "type": "object"
+      },
       "HolderBalance": {
         "properties": {
           "balance": {
@@ -4324,7 +5212,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -4575,35 +5463,40 @@
       },
       "MarketRate": {
         "properties": {
+          "avg_fee": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "avg_fee_zin": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
           "capability": {
             "type": "string"
           },
-          "last_updated_block": {
+          "max_fee": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "mean_micro_zin": {
+          "median_fee": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "median_micro_zin": {
+          "median_fee_zin": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "min_fee": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "p10_micro_zin": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "p90_micro_zin": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "samples": {
+          "total_fulfilled": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -4611,25 +5504,28 @@
         },
         "required": [
           "capability",
-          "samples",
-          "last_updated_block"
+          "total_fulfilled",
+          "avg_fee",
+          "median_fee",
+          "min_fee",
+          "max_fee"
         ],
         "type": "object"
       },
       "MarketRateList": {
         "properties": {
-          "items": {
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          },
+          "rates": {
             "items": {
               "$ref": "#/components/schemas/MarketRate"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
           }
         },
         "required": [
-          "items",
+          "rates",
           "pagination"
         ],
         "type": "object"
@@ -4744,6 +5640,19 @@
           "address": {
             "type": "string"
           },
+          "committed_nonce": {
+            "description": "Committed transaction count for this address. Same value as `nonce`; included to make the consistency boundary explicit.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "consistency": {
+            "description": "Read consistency level for `nonce`.",
+            "enum": [
+              "committed"
+            ],
+            "type": "string"
+          },
           "next_nonce": {
             "description": "The nonce the next signed transaction from this address must carry. Accounts for in-flight mempool and prepare-buffer transactions.",
             "format": "int64",
@@ -4751,49 +5660,37 @@
             "type": "integer"
           },
           "nonce": {
-            "description": "Confirmed transaction count for this address.",
+            "description": "Committed transaction count for this address.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "state_hash": {
+            "description": "Committed block hash used for this read.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "state_height": {
+            "description": "Committed block height used for this read.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state_root": {
+            "description": "Committed state root used for this read.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
           }
         },
         "required": [
           "address",
+          "committed_nonce",
           "nonce",
-          "next_nonce"
-        ],
-        "type": "object"
-      },
-      "Pagination": {
-        "properties": {
-          "has_more": {
-            "description": "Whether more records exist beyond this page.",
-            "type": "boolean"
-          },
-          "limit": {
-            "description": "Page size used for this response.",
-            "maximum": 100,
-            "minimum": 1,
-            "type": "integer"
-          },
-          "offset": {
-            "description": "Zero-based offset into the result set.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "total": {
-            "description": "Total number of matching records.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total",
-          "limit",
-          "offset",
-          "has_more"
+          "next_nonce",
+          "state_height",
+          "state_hash",
+          "state_root",
+          "consistency"
         ],
         "type": "object"
       },
@@ -5119,6 +6016,9 @@
               }
             ]
           },
+          "durable_proposal_transitions": {
+            "$ref": "#/components/schemas/DurableProposalTransitionStats"
+          },
           "event_wake_coalesced_count": {
             "format": "uint64",
             "type": "integer"
@@ -5351,6 +6251,38 @@
             "format": "uint64",
             "type": "integer"
           },
+          "late_vote_qc_latency_last_emitted_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "late_vote_qc_latency_max_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "late_vote_qc_latency_p50_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "late_vote_qc_latency_p95_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "late_vote_qc_latency_window_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "late_vote_self_vote_failed_reason": {
             "type": [
               "string",
@@ -5443,12 +6375,40 @@
           "soft_wait_active": {
             "type": "boolean"
           },
+          "soft_wait_buffered_live_edge_import_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "soft_wait_buffered_sync_import_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "soft_wait_certified_live_edge_import_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "soft_wait_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "soft_wait_direct_finality_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "soft_wait_elapsed_ms": {
             "format": "uint64",
             "type": [
               "integer",
               "null"
             ]
+          },
+          "soft_wait_local_certified_commit_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "soft_wait_missing_required_tc_count": {
+            "format": "uint64",
+            "type": "integer"
           },
           "soft_wait_reason": {
             "type": [
@@ -5500,9 +6460,15 @@
           "wait_stale_clear_reason",
           "wait_highest_tc_view",
           "late_vote_qc_formed_count",
+          "late_vote_qc_latency_window_count",
+          "late_vote_qc_latency_p50_ms",
+          "late_vote_qc_latency_p95_ms",
+          "late_vote_qc_latency_max_ms",
+          "late_vote_qc_latency_last_emitted_ms",
           "late_vote_self_vote_failed_reason",
           "timeout_vote_suppressed_for_active_proposal_count",
           "durable_proposal",
+          "durable_proposal_transitions",
           "pending_certified_commit_height",
           "pending_certified_commit_hash",
           "pending_certified_commit_view",
@@ -5525,6 +6491,13 @@
           "soft_wait_active",
           "soft_wait_reason",
           "soft_wait_elapsed_ms",
+          "soft_wait_count",
+          "soft_wait_direct_finality_count",
+          "soft_wait_buffered_sync_import_count",
+          "soft_wait_local_certified_commit_count",
+          "soft_wait_certified_live_edge_import_count",
+          "soft_wait_buffered_live_edge_import_count",
+          "soft_wait_missing_required_tc_count",
           "current_attempt",
           "last_cancelled_attempt",
           "last_vrf_tx_rebuild_reason",
@@ -5543,36 +6516,81 @@
           "archive_ready": {
             "type": "boolean"
           },
-          "bootstrap_disallowed_control_traffic_count": {
-            "format": "uint64",
-            "type": "integer"
+          "certification_wait": {
+            "$ref": "#/components/schemas/CertificationWaitStatus"
           },
-          "bootstrap_disallowed_finality_traffic_count": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "checkpoint_artifact_consensus_block_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "checkpoint_artifact_consensus_safe": {
+          "checkpoint_artifact_generation_enabled": {
             "type": "boolean"
           },
-          "checkpoint_artifact_heavy_generation_enabled": {
-            "type": "boolean"
-          },
-          "checkpoint_artifact_producer_should_run": {
-            "type": "boolean"
-          },
-          "checkpoint_artifact_role_policy": {
+          "checkpoint_artifact_generation_mode": {
             "enum": [
               "auto",
               "disabled",
               "enabled"
             ],
             "type": "string"
+          },
+          "checkpoint_artifact_producer_should_run": {
+            "type": "boolean"
+          },
+          "checkpoint_artifact_worker_enforcement_mode": {
+            "enum": [
+              "parent_rss_watchdog_pending_worker_report",
+              "parent_rss_watchdog",
+              "cgroup_v2_and_parent_rss_watchdog",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkpoint_artifact_worker_enforcement_outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkpoint_artifact_worker_peak_rss_bytes": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "checkpoint_artifact_worker_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cold_projection_queryable_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "committed_query_overlay_oldest_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "committed_query_overlay_ready": {
+            "type": "boolean"
+          },
+          "committed_query_overlay_rows": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "committed_query_overlay_tip_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "conduit_inbound_queue_full_rejected_count": {
             "format": "uint64",
@@ -5595,12 +6613,39 @@
             "format": "uint64",
             "type": "integer"
           },
+          "conduit_relay_observation_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "conduit_response_unknown_count": {
             "format": "uint64",
             "type": "integer"
           },
+          "contract_event_archive_verified_event_count": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "contract_event_archive_verified_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contract_event_archive_verified_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "contract_runtime": {
             "$ref": "#/components/schemas/ContractRuntimeProfileStatus"
+          },
+          "durable_recovery_head": {
+            "$ref": "#/components/schemas/DurableRecoveryHeadHealthStatus"
           },
           "epoch_transition": {
             "$ref": "#/components/schemas/EpochTransitionHealthStatus"
@@ -5611,14 +6656,65 @@
           "event_outbox_repair": {
             "$ref": "#/components/schemas/EventOutboxRepairHealthStatus"
           },
+          "fresh_bootstrap_requires_snapshot": {
+            "type": "boolean"
+          },
+          "heavy_archive_serving_available": {
+            "type": "boolean"
+          },
+          "heavy_archive_serving_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historical_readiness_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historical_reads_available": {
+            "type": "boolean"
+          },
+          "historical_validation": {
+            "$ref": "#/components/schemas/HistoricalValidationHealthStatus"
+          },
           "hotstuff": {
             "$ref": "#/components/schemas/HotStuffViewStatus"
+          },
+          "last_peer_identity_mismatch": {
+            "properties": {
+              "actual_peer_id": {
+                "type": "string"
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "expected_peer_id": {
+                "type": "string"
+              },
+              "observed_at_ms": {
+                "format": "uint64",
+                "type": "integer"
+              }
+            },
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "live": {
             "enum": [
               true
             ],
             "type": "boolean"
+          },
+          "local_import_priority_active": {
+            "type": "boolean"
+          },
+          "network_handler": {
+            "type": "object"
           },
           "pending_snapshot_cancel_reason": {
             "type": [
@@ -5632,23 +6728,27 @@
           "producer_ready": {
             "type": "boolean"
           },
+          "queryable_state_lag_blocks": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "ready": {
             "type": "boolean"
           },
-          "required_checkpoint_artifact_gate": {
-            "type": "string"
+          "relayed_archive_hint_count": {
+            "type": "integer"
+          },
+          "relayed_sync_serving_hint_count": {
+            "type": "integer"
+          },
+          "replay": {
+            "$ref": "#/components/schemas/ReplayContinuityDiagnosticsSnapshot"
           },
           "resource_pressure": {
             "$ref": "#/components/schemas/ResourcePressureHealthStatus"
-          },
-          "restart_export_ready": {
-            "type": "boolean"
-          },
-          "restart_maintenance": {
-            "$ref": "#/components/schemas/RestartMaintenanceHealthStatus"
-          },
-          "restart_safety": {
-            "$ref": "#/components/schemas/RestartSafetyStatus"
           },
           "restartability_verified_for_abort": {
             "type": "boolean"
@@ -5682,6 +6782,28 @@
           "service_ready": {
             "type": "boolean"
           },
+          "snapshot_generation_healthy": {
+            "type": "boolean"
+          },
+          "snapshot_generation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "snapshot_serving_ready": {
+            "type": "boolean"
+          },
+          "snapshot_serving_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stale_peer_address_conflict_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "startup_recovery": {
             "oneOf": [
               {
@@ -5699,11 +6821,28 @@
             ],
             "type": "string"
           },
+          "strict_archive_snapshot_peer_count": {
+            "type": "integer"
+          },
           "sync_already_canonical_blocks_dropped": {
             "format": "uint64",
             "type": "integer"
           },
+          "sync_authoritative_peer_count": {
+            "type": "integer"
+          },
+          "sync_authoritative_status_age_ms": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "sync_buffered_apply_replay_avoided_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "sync_busy_backoff_sent": {
             "format": "uint64",
             "type": "integer"
           },
@@ -5714,8 +6853,37 @@
               "null"
             ]
           },
-          "sync_import_finality_work": {
-            "$ref": "#/components/schemas/SyncImportFinalityWorkHealthStatus"
+          "sync_certified_target_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sync_certified_target_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sync_certified_target_source": {
+            "enum": [
+              "standalone_tip_qc",
+              "direct_certified_qc",
+              "snapshot_status_proof",
+              "durable_checkpoint",
+              "validated_certified_block",
+              "local_progress",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sync_handler_timeout_backoff": {
+            "format": "uint64",
+            "type": "integer"
           },
           "sync_import_lane_degraded": {
             "type": "boolean"
@@ -5726,23 +6894,11 @@
               "null"
             ]
           },
-          "sync_inbound_role_rejected_block_sync_count": {
+          "sync_inbound_canceled_failure_count": {
             "format": "uint64",
             "type": "integer"
           },
-          "sync_inbound_role_rejected_bulk_sync_count": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "sync_inbound_role_rejected_control_count": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "sync_inbound_role_rejected_count": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "sync_inbound_role_rejected_finality_count": {
+          "sync_inbound_unexplained_failure_count": {
             "format": "uint64",
             "type": "integer"
           },
@@ -5754,6 +6910,15 @@
               "string",
               "null"
             ]
+          },
+          "sync_outbound_eof_count_by_lane": {
+            "items": {
+              "format": "uint64",
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
           },
           "sync_peer_selection_block_serving_candidates": {
             "type": "integer"
@@ -5788,12 +6953,13 @@
             "format": "uint64",
             "type": "integer"
           },
-          "sync_pending_channel_role_rejection_avoided_count": {
+          "sync_peer_target_height": {
             "format": "uint64",
             "type": "integer"
           },
-          "sync_post_import_maintenance_work": {
-            "$ref": "#/components/schemas/SyncPostImportMaintenanceWorkHealthStatus"
+          "sync_protocol_drop": {
+            "format": "uint64",
+            "type": "integer"
           },
           "sync_recovery_blocked_reason": {
             "type": [
@@ -5843,6 +7009,10 @@
               "null"
             ]
           },
+          "sync_response_served": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "sync_serving_advertisement": {
             "$ref": "#/components/schemas/SyncServingAdvertisement"
           },
@@ -5886,12 +7056,34 @@
             },
             "type": "array"
           },
+          "sync_target_availability": {
+            "enum": [
+              "satisfied",
+              "requesting",
+              "seeking_authoritative_peer",
+              "waiting_for_live_consensus"
+            ],
+            "type": "string"
+          },
+          "sync_target_blocked_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "sync_uncertified_live_edge_demoted_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "sync_unexpected_response_omission": {
             "format": "uint64",
             "type": "integer"
           },
           "sync_validator_status_fanout_dropped": {
             "format": "uint64",
+            "type": "integer"
+          },
+          "validator_peer_directory_hint_count": {
             "type": "integer"
           }
         },
@@ -5902,6 +7094,20 @@
           "service_ready",
           "producer_ready",
           "archive_ready",
+          "historical_reads_available",
+          "historical_readiness_reason",
+          "heavy_archive_serving_available",
+          "heavy_archive_serving_reason",
+          "local_import_priority_active",
+          "committed_query_overlay_ready",
+          "committed_query_overlay_tip_height",
+          "committed_query_overlay_oldest_height",
+          "committed_query_overlay_rows",
+          "cold_projection_queryable_height",
+          "queryable_state_lag_blocks",
+          "contract_event_archive_verified_height",
+          "contract_event_archive_verified_hash",
+          "contract_event_archive_verified_event_count",
           "runtime_role",
           "sync_serving_policy",
           "sync_serving_advertisement",
@@ -5914,20 +7120,35 @@
           "sync_status_refresh_coalesced",
           "sync_status_refresh_skipped_no_eligible_peer",
           "sync_validator_status_fanout_dropped",
+          "sync_busy_backoff_sent",
+          "sync_response_served",
+          "sync_protocol_drop",
+          "sync_unexpected_response_omission",
+          "sync_handler_timeout_backoff",
+          "sync_inbound_canceled_failure_count",
+          "sync_inbound_unexplained_failure_count",
+          "sync_outbound_eof_count_by_lane",
           "sync_peer_selection_block_serving_candidates",
           "sync_peer_selection_bootstrap_only_skipped",
           "sync_peer_selection_full_archive_preferred",
           "sync_peer_selection_role_not_sync_serving_backoffs",
           "sync_peer_selection_last_block_request_peer_policy",
           "sync_peer_selection_last_skip_reason",
-          "sync_inbound_role_rejected_count",
-          "sync_inbound_role_rejected_control_count",
-          "sync_inbound_role_rejected_finality_count",
-          "sync_inbound_role_rejected_block_sync_count",
-          "sync_inbound_role_rejected_bulk_sync_count",
-          "sync_pending_channel_role_rejection_avoided_count",
-          "bootstrap_disallowed_control_traffic_count",
-          "bootstrap_disallowed_finality_traffic_count",
+          "fresh_bootstrap_requires_snapshot",
+          "strict_archive_snapshot_peer_count",
+          "relayed_archive_hint_count",
+          "relayed_sync_serving_hint_count",
+          "stale_peer_address_conflict_count",
+          "validator_peer_directory_hint_count",
+          "conduit_relay_observation_count",
+          "last_peer_identity_mismatch",
+          "conduit_pending_response_channels",
+          "conduit_pending_response_channel_capacity",
+          "conduit_pending_response_channel_per_peer_capacity",
+          "conduit_inbound_queue_full_rejected_count",
+          "conduit_pending_response_capacity_rejected_count",
+          "conduit_pending_response_expired_count",
+          "conduit_response_unknown_count",
           "sync_stale_buffered_blocks_dropped",
           "sync_already_canonical_blocks_dropped",
           "sync_stale_same_height_validation_skipped",
@@ -5938,27 +7159,179 @@
           "restartability_verified_for_abort",
           "startup_recovery",
           "event_outbox_repair",
-          "required_checkpoint_artifact_gate",
-          "checkpoint_artifact_role_policy",
+          "snapshot_serving_ready",
+          "snapshot_serving_reason",
+          "snapshot_generation_healthy",
+          "snapshot_generation_reason",
+          "checkpoint_artifact_generation_mode",
           "checkpoint_artifact_producer_should_run",
-          "checkpoint_artifact_heavy_generation_enabled",
-          "restart_export_ready",
-          "checkpoint_artifact_consensus_safe",
-          "restart_safety",
+          "checkpoint_artifact_generation_enabled",
+          "checkpoint_artifact_worker_phase",
+          "checkpoint_artifact_worker_peak_rss_bytes",
+          "checkpoint_artifact_worker_enforcement_mode",
+          "checkpoint_artifact_worker_enforcement_outcome",
+          "sync_target_availability",
+          "sync_peer_target_height",
+          "sync_certified_target_height",
+          "sync_certified_target_hash",
+          "sync_certified_target_source",
+          "sync_certified_target_age_ms",
+          "sync_authoritative_peer_count",
+          "sync_authoritative_status_age_ms",
+          "sync_target_blocked_reason",
+          "sync_recovery_mode",
+          "sync_recovery_generation",
+          "sync_recovery_owner",
+          "sync_recovery_phase",
+          "sync_recovery_owner_age_ms",
+          "sync_recovery_progress_age_ms",
+          "sync_recovery_target_checkpoint",
+          "sync_recovery_blocked_reason",
+          "sync_import_lane_degraded",
+          "sync_import_lane_degraded_reason",
+          "pending_snapshot_cancel_reason",
+          "network_handler",
           "resource_pressure",
           "runtime_work",
-          "restart_maintenance",
-          "sync_import_finality_work",
-          "sync_post_import_maintenance_work",
+          "durable_recovery_head",
           "runtime_watchdog_last_pressure_snapshot",
           "runtime_watchdog_abort_suppressed_by_pressure",
-          "sync_import_lane_degraded",
           "hotstuff",
           "producer",
           "epoch_transition",
           "epoch_vrf",
-          "contract_runtime",
-          "sync_recovery_generation"
+          "certification_wait",
+          "replay",
+          "historical_validation",
+          "contract_runtime"
+        ],
+        "type": "object"
+      },
+      "ReplayContinuityDiagnosticsSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "append_conflicts": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "append_gaps": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "canonical_entries_appended": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "canonical_tip_height": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "commitment_entry_exports": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "durable_boundary_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durable_boundary_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "durable_head_lag_blocks": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "durable_head_read_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durable_oldest_retained_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "durable_retained_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "durable_tip_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durable_tip_height": {
+            "format": "uint64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "full_boundary_resets": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "full_state_snapshot_materializations": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "in_memory_head_lag_blocks": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "in_memory_tip_height": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "journal_repair_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "maintenance_last_duration_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "maintenance_max_duration_ms": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "peak_retained_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "canonical_entries_appended",
+          "append_gaps",
+          "append_conflicts",
+          "full_boundary_resets",
+          "full_state_snapshot_materializations",
+          "commitment_entry_exports",
+          "journal_repair_count",
+          "maintenance_last_duration_ms",
+          "maintenance_max_duration_ms",
+          "peak_retained_bytes",
+          "in_memory_tip_height",
+          "in_memory_head_lag_blocks",
+          "canonical_tip_height",
+          "durable_boundary_height",
+          "durable_boundary_hash",
+          "durable_oldest_retained_height",
+          "durable_tip_height",
+          "durable_tip_hash",
+          "durable_retained_entries",
+          "durable_head_lag_blocks",
+          "durable_head_read_error"
         ],
         "type": "object"
       },
@@ -5971,7 +7344,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -6396,295 +7769,6 @@
         ],
         "type": "object"
       },
-      "RestartMaintenanceHealthStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled_for_role": {
-            "type": "boolean"
-          },
-          "last_lock_hold_ms": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "last_skipped_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "enabled_for_role",
-          "last_skipped_reason",
-          "last_lock_hold_ms"
-        ],
-        "type": "object"
-      },
-      "RestartSafetyStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "durable_checkpoint_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "durable_checkpoint_height": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "durable_checkpoint_state_root": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "durable_restart_anchor_error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "durable_restart_anchor_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "durable_restart_anchor_height": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "durable_restart_anchor_state_root": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "durable_restart_anchor_valid": {
-            "type": "boolean"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "last_restart_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "max_producer_restart_lag_blocks": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "pre_restart_height": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "producer_disabled_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "producer_durability_ready": {
-            "type": "boolean"
-          },
-          "recovered_from_hash": {
-            "type": "string"
-          },
-          "recovered_from_height": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "recovery_mode": {
-            "type": "boolean"
-          },
-          "restart_floor_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_floor_height": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_floor_state_root": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_generation_block": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_generation_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation_last_deep_validation_ms": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_generation_retry_count": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "restart_generation_retry_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation_runtime_view_source": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation_state_root": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation_validated_by_commit_gate": {
-            "type": "boolean"
-          },
-          "restart_generation_validation_error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_generation_validation_source": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_lag_blocks": {
-            "format": "uint64",
-            "type": "integer"
-          },
-          "restart_rows_last_failed_block": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_rows_last_failed_lane": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_rows_valid": {
-            "type": "boolean"
-          },
-          "restart_rows_validation_error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_runtime_anchor_generation": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "restart_runtime_anchor_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "restart_runtime_anchor_height": {
-            "format": "uint64",
-            "type": [
-              "integer",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "enabled",
-          "recovery_mode",
-          "producer_durability_ready",
-          "restart_floor_height",
-          "restart_floor_hash",
-          "restart_floor_state_root",
-          "durable_checkpoint_height",
-          "durable_checkpoint_hash",
-          "durable_checkpoint_state_root",
-          "durable_restart_anchor_height",
-          "durable_restart_anchor_hash",
-          "durable_restart_anchor_state_root",
-          "durable_restart_anchor_valid",
-          "durable_restart_anchor_error",
-          "restart_generation",
-          "restart_generation_block",
-          "restart_generation_hash",
-          "restart_generation_state_root",
-          "restart_generation_validated_by_commit_gate",
-          "restart_generation_last_deep_validation_ms",
-          "restart_generation_validation_error",
-          "restart_generation_validation_source",
-          "restart_generation_retry_count",
-          "restart_generation_retry_reason",
-          "restart_runtime_anchor_height",
-          "restart_runtime_anchor_hash",
-          "restart_runtime_anchor_generation",
-          "restart_generation_runtime_view_source",
-          "restart_rows_valid",
-          "restart_rows_validation_error",
-          "restart_rows_last_failed_block",
-          "restart_rows_last_failed_lane",
-          "pre_restart_height",
-          "recovered_from_height",
-          "recovered_from_hash",
-          "restart_lag_blocks",
-          "max_producer_restart_lag_blocks",
-          "producer_disabled_reason",
-          "last_restart_reason"
-        ],
-        "type": "object"
-      },
       "RuntimePressureSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -6831,7 +7915,6 @@
               "invalid_restart_checkpoint_state",
               "durable_restart_rows_mismatch",
               "epoch_transition_marker_mismatch",
-              "historical_replay_bundle_mismatch",
               "durable_restart_state_ahead_of_canonical",
               "primary_restart_checkpoint_missing",
               "durable_certified_checkpoint_missing",
@@ -7549,7 +8632,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -7696,7 +8779,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           },
           "token_id": {
             "pattern": "^[0-9a-f]{64}$",
@@ -7719,7 +8802,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -8194,7 +9277,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -8272,7 +9355,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -8873,7 +9956,7 @@
             "type": "array"
           },
           "pagination": {
-            "$ref": "#/components/schemas/Pagination"
+            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
@@ -9212,7 +10295,7 @@
     },
     "/v1/accounts/{address}/balance": {
       "get": {
-        "description": "Returns the address's current balance in micro-ZIN (the chain's base unit, 1 ZIN = 1,000,000 micro-ZIN) and a derived `balance_zin` floating-point value for convenience. Returns zero for unknown addresses; the chain does not differentiate between a never-used address and an address that has drained to zero.",
+        "description": "Returns the address's committed balance in micro-ZIN (the chain's base unit, 1 ZIN = 1,000,000 micro-ZIN) and a derived `balance_zin` floating-point value for convenience. The response includes the committed state height, block hash, and state root used for the read. Returns zero for unknown addresses; the chain does not differentiate between a never-used address and an address that has drained to zero.",
         "operationId": "get_balance",
         "parameters": [
           {
@@ -9312,7 +10395,7 @@
     },
     "/v1/accounts/{address}/nonce": {
       "get": {
-        "description": "Returns the address's on-chain nonce (count of confirmed transactions) and `next_nonce`: the value the next signed transaction from this address must carry. `next_nonce` accounts for transactions already in the mempool and prepare buffer, so consecutive signs without waiting for inclusion still produce monotonically increasing nonces. Use `next_nonce` when building transactions; ignore the bare `nonce` unless you specifically need the finalized value.",
+        "description": "Returns the address's committed on-chain nonce (count of confirmed transactions) and `next_nonce`: the value the next signed transaction from this address must carry. `next_nonce` accounts for transactions already in the mempool and prepare buffer, so consecutive signs without waiting for inclusion still produce monotonically increasing nonces. Use `next_nonce` when building transactions; ignore the bare `nonce` unless you specifically need the finalized value.",
         "operationId": "get_nonce",
         "parameters": [
           {
@@ -9412,7 +10495,7 @@
     },
     "/v1/accounts/{address}/transactions": {
       "get": {
-        "description": "Returns the address's transactions across all transaction types (transfers, token operations, agent or task actions, contract calls, etc.) most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate; default page size is 20, max is 100. `total` is an exact indexed row count for the address. Each item includes the transaction hash, block number, block hash, position in block, transaction type, fee, status, and the transaction payload shape appropriate to its type.",
+        "description": "Returns the address's transactions across all transaction types (transfers, token operations, agent or task actions, contract calls, etc.) most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate; default page size is 20, max is 100. Each item includes the transaction hash, block number, block hash, position in block, transaction type, fee, status, and the transaction payload shape appropriate to its type.",
         "operationId": "get_account_transactions",
         "parameters": [
           {
@@ -9529,14 +10612,14 @@
     },
     "/v1/agents": {
       "get": {
-        "description": "Returns agents in registration order. Use the dedicated capability search endpoint (`/v1/tools/search/:capability`) for capability-filtered queries; this list endpoint exists for general directory browsing. Default page size is 20, max 100.",
+        "description": "Returns agents in registration order. Use the dedicated capability search endpoint (`/v1/tools/search/:capability`) for capability-filtered queries; this list endpoint exists for general directory browsing. Default page size is 20, max 100. Continue with the opaque `next_cursor`; offset pagination is not supported.",
         "operationId": "list_agents",
         "parameters": [
           {
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -9617,7 +10700,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of registered agents.",
+        "summary": "Cursor-paged list of registered agents.",
         "tags": [
           "Agents"
         ],
@@ -10030,7 +11113,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -10872,7 +11955,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -10953,7 +12036,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of registered arbitrators.",
+        "summary": "Cursor-paged list of registered arbitrators.",
         "tags": [
           "Other"
         ],
@@ -11506,7 +12589,7 @@
     },
     "/v1/capabilities/search": {
       "get": {
-        "description": "Searches canonical slugs, aliases, display names, descriptions, keywords, examples, and related skills. Exact slug and alias matches rank highest, followed by prefixes and token matches. Empty or one-character searches return the top catalog entries for browsing.",
+        "description": "Searches canonical slugs, aliases, display names, descriptions, keywords, examples, and related skills using deterministic cursor order. Every query token must match the indexed entry. Empty or one-character searches return catalog entries for browsing.",
         "operationId": "search_capabilities",
         "parameters": [
           {
@@ -11520,6 +12603,9 @@
           },
           {
             "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
           },
           {
             "description": "Visible status filter. Defaults to active.",
@@ -12033,7 +13119,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -12041,7 +13127,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_ContractList"
+                  "$ref": "#/components/schemas/ApiResponse_CursorContractList"
                 }
               }
             },
@@ -12114,7 +13200,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of all deployed contracts.",
+        "summary": "Cursor-paged list of all deployed contracts.",
         "tags": [
           "Contracts"
         ],
@@ -12234,7 +13320,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -12478,7 +13564,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -12584,7 +13670,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -13008,7 +14094,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -13355,7 +14441,7 @@
     },
     "/v1/contracts/{address}/transactions": {
       "get": {
-        "description": "Returns transactions involving the contract: deployment, calls, upgrades, direct ZIN transfers in. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. `total` is an exact indexed row count for the contract. Each item includes the transaction hash, type, gas used, and result (success or revert).",
+        "description": "Returns transactions involving the contract: deployment, calls, upgrades, direct ZIN transfers in. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. Each item includes the transaction hash, type, gas used, and result (success or revert).",
         "operationId": "get_contract_transactions",
         "parameters": [
           {
@@ -14154,7 +15240,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -14235,7 +15321,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of capability-to-market-rate observations.",
+        "summary": "Capability-to-market-rate observations.",
         "tags": [
           "Other"
         ],
@@ -14250,7 +15336,7 @@
     },
     "/v1/market-rates/{capability}": {
       "get": {
-        "description": "Returns the chain's running fair-price estimate for the named capability: median, mean, p10, p90 in micro-ZIN, plus sample count and last update block. Returns zeros and 0 samples if the capability has no recorded observations.",
+        "description": "Returns the chain's running fair-price estimate for the named capability, including fulfilled sample count plus average, median, minimum, and maximum observed fees in micro-ZIN. Returns 404 when no observation exists.",
         "operationId": "get_market_rate",
         "parameters": [
           {
@@ -14793,7 +15879,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -14906,7 +15992,36 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
+          },
+          {
+            "description": "Repeatable capability filter for public task discovery.",
+            "in": "query",
+            "name": "discover_capability",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Minimum offered task fee for public discovery.",
+            "in": "query",
+            "name": "discover_min_fee",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Repeatable capability-specific fee entry in `capability:fee` form. Each capability must also appear in `discover_capability`.",
+            "in": "query",
+            "name": "discover_fee",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -15456,7 +16571,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -15464,7 +16579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_TokenList"
+                  "$ref": "#/components/schemas/ApiResponse_CursorTokenList"
                 }
               }
             },
@@ -15537,7 +16652,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of all AXP-20 tokens.",
+        "summary": "Cursor-paged list of all AXP-20 tokens.",
         "tags": [
           "Tokens"
         ],
@@ -15704,7 +16819,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -15810,7 +16925,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -16239,7 +17354,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -16476,7 +17591,7 @@
     },
     "/v1/tokens/{id}/transactions": {
       "get": {
-        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. `total` is an exact indexed row count for the token. Each item includes the transaction hash, block, type, and the principals involved (from/to/owner/spender depending on type).",
+        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. Each item includes the transaction hash, block, type, and the principals involved (from/to/owner/spender depending on type).",
         "operationId": "get_token_transactions",
         "parameters": [
           {
@@ -17329,7 +18444,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -17435,7 +18550,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -17689,7 +18804,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -18912,7 +20027,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -18920,7 +20035,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_ToolList"
+                  "$ref": "#/components/schemas/ApiResponse_CursorToolList"
                 }
               }
             },
@@ -18993,7 +20108,7 @@
           },
           {}
         ],
-        "summary": "Paginated list of all registered tools in the marketplace.",
+        "summary": "Cursor-paged list of discoverable tools in the marketplace.",
         "tags": [
           "Tools"
         ],
@@ -19159,7 +20274,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -19445,7 +20560,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {
@@ -20389,7 +21504,7 @@
             "$ref": "#/components/parameters/PaginationLimit"
           },
           {
-            "$ref": "#/components/parameters/PaginationOffset"
+            "$ref": "#/components/parameters/PaginationCursor"
           }
         ],
         "responses": {

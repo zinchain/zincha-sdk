@@ -63,28 +63,53 @@ export interface NonceResponse {
   next_nonce: number;
 }
 
-export interface TransactionHistoryQuery {
+export interface CursorPageQuery {
   limit?: number;
   cursor?: string;
 }
 
-export interface ParticipantWorkflowQuery {
-  limit?: number;
-  cursor?: string;
-}
+export interface TransactionHistoryQuery extends CursorPageQuery {}
 
-export interface CapabilityListQuery {
-  limit?: number;
-  cursor?: string;
+export interface ParticipantWorkflowQuery extends CursorPageQuery {}
+
+export interface CapabilityListQuery extends CursorPageQuery {
   status?: "active" | "pending" | "deprecated" | "all" | string;
   category?: string;
   parent?: string;
 }
 
-export interface CapabilitySearchQuery {
-  limit?: number;
+export interface CapabilitySearchQuery extends CursorPageQuery {
   status?: "active" | "pending" | "deprecated" | "all" | string;
   category?: string;
+}
+
+export interface PendingTaskListQuery extends CursorPageQuery {
+  discover_capability?: string;
+  discover_min_fee?: number;
+  discover_fee?: string;
+}
+
+export interface CursorPagination {
+  limit: number;
+  cursor: string | null;
+  next_cursor: string | null;
+  has_more: boolean;
+  canonical_height: number;
+  canonical_hash: Hex;
+}
+
+export interface MarketRate {
+  capability: string;
+  total_fulfilled: number;
+  avg_fee: number;
+  median_fee: number;
+  min_fee: number;
+  max_fee: number;
+}
+
+export interface MarketRateListResponse {
+  rates: MarketRate[];
+  pagination: CursorPagination;
 }
 
 export interface CapabilityUsageSummary {

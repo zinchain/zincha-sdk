@@ -44,17 +44,18 @@ participant reads. Generic `zincha query <path>` remains as an escape hatch.
 | Accounts/agents/requesters | `query account`, `query account-nonce`, `query account-transactions`, `query agent`, `query agents`, `query requester-reputation` |
 | Capabilities | `query capabilities`, `query capability`, `query capability-search`, `query capability-categories` |
 | Tasks/tools/subscriptions | `query pending-tasks`, `query task-opportunity`, `query task` with a signer, `query tool`, `query tools`, `query subscription`, `query tool-job`, `query tool-jobs-by-requester`, `query tool-jobs-by-provider`, `query tool-usage-session`, `query tool-usage-sessions-by-requester`, `query tool-usage-sessions-by-provider` |
-| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query agreements-by-party`, `query agreements-by-arbitrator`, `query contract`, `query contract-transactions`, `query route`, `query token`, `query token-transactions`, `query arbitrator` |
-| Events/transactions/validators | `query events`, `query tx`, `query validator`, `query validators` |
+| Agreements/contracts/routes/tokens/arbitrators | `query agreement`, `query agreements-by-party`, `query agreements-by-arbitrator`, `query contract`, `query contracts`, `query contract-transactions`, `query route`, `query token`, `query tokens`, `query token-transactions`, `query arbitrator`, `query arbitrators`, `query market-rates` |
+| Events/transactions/validators | `query events`, `query tx`, `query validators` |
 | Participant reads | `query participant <path>` with a signer and local address-scope checks. |
 
 Operator, provider-read, testing, readiness-internal, mempool, pipeline,
 consensus, finality, orderflow-stats, and node-memory endpoints are not wired
 as typed query commands.
 
-Account, contract, token transaction-history queries and participant workflow
-lists use cursor pagination with `--limit` and `--cursor`; they intentionally
-do not expose `--offset`.
+Account, contract, and token transaction histories; participant workflows; and
+public agent, task, tool, contract, token, arbitrator, market-rate, and
+capability lists use cursor pagination with `--limit` and `--cursor`. They
+intentionally do not expose `--offset`.
 
 Capability catalog list queries also use cursor pagination with `--limit` and
 `--cursor`. Agents can use `query capability-search` or `query capabilities`

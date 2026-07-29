@@ -51,6 +51,12 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
+        command: "blocks",
+        method: "GET",
+        path_template: "/v1/blocks",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
         command: "account",
         method: "GET",
         path_template: "/v1/accounts/{address}",
@@ -63,6 +69,12 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
+        command: "account-transactions",
+        method: "GET",
+        path_template: "/v1/accounts/{address}/transactions",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
         command: "agent",
         method: "GET",
         path_template: "/v1/agents/{address}",
@@ -72,6 +84,36 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         command: "agents",
         method: "GET",
         path_template: "/v1/agents",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "requester-reputation",
+        method: "GET",
+        path_template: "/v1/requesters/{address}",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "capabilities",
+        method: "GET",
+        path_template: "/v1/capabilities",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "capability",
+        method: "GET",
+        path_template: "/v1/capabilities/{slug}",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "capability-search",
+        method: "GET",
+        path_template: "/v1/capabilities/search",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "capability-categories",
+        method: "GET",
+        path_template: "/v1/capabilities/categories",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
@@ -171,6 +213,18 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
+        command: "contracts",
+        method: "GET",
+        path_template: "/v1/contracts",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "contract-transactions",
+        method: "GET",
+        path_template: "/v1/contracts/{address}/transactions",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
         command: "route",
         method: "GET",
         path_template: "/v1/contracts/routes/{deployer}/{route_name}",
@@ -183,9 +237,33 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
+        command: "tokens",
+        method: "GET",
+        path_template: "/v1/tokens",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "token-transactions",
+        method: "GET",
+        path_template: "/v1/tokens/{token_id}/transactions",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
         command: "arbitrator",
         method: "GET",
         path_template: "/v1/arbitrators/{address}",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "arbitrators",
+        method: "GET",
+        path_template: "/v1/arbitrators",
+        category: SurfaceCategory::Public,
+    },
+    QueryEndpoint {
+        command: "market-rates",
+        method: "GET",
+        path_template: "/v1/market-rates",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
@@ -201,15 +279,9 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
-        command: "validator",
-        method: "GET",
-        path_template: "/v1/validators/{address}",
-        category: SurfaceCategory::Public,
-    },
-    QueryEndpoint {
         command: "validators",
         method: "GET",
-        path_template: "/v1/validators",
+        path_template: "/v1/consensus/validators",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
@@ -252,6 +324,7 @@ pub fn assert_public_surface() {
             endpoint.command
         );
         let path = endpoint.path_template;
+        let allowed_public_consensus_path = path == "/v1/consensus/validators";
         assert_ne!(
             path, "/v1/tasks",
             "typed query {} maps to removed task list endpoint",
@@ -261,7 +334,7 @@ pub fn assert_public_surface() {
             !path.contains("operator")
                 && !path.contains("mempool")
                 && !path.contains("pipeline")
-                && !path.contains("consensus")
+                && (!path.contains("consensus") || allowed_public_consensus_path)
                 && !path.contains("finality")
                 && !path.contains("testing")
                 && !path.contains("internal")
@@ -277,9 +350,26 @@ pub fn assert_public_surface() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::QueryCommand;
+    use clap::CommandFactory;
+    use std::collections::BTreeSet;
 
     #[test]
     fn typed_queries_do_not_cross_public_boundary() {
         assert_public_surface();
+    }
+
+    #[test]
+    fn typed_query_manifest_matches_clap_surface() {
+        let clap_commands: BTreeSet<_> = QueryCommand::command()
+            .get_subcommands()
+            .map(|command| command.get_name().to_string())
+            .filter(|name| name != "help")
+            .collect();
+        let manifest_commands: BTreeSet<_> = TYPED_QUERY_ENDPOINTS
+            .iter()
+            .map(|entry| entry.command.to_string())
+            .collect();
+        assert_eq!(clap_commands, manifest_commands);
     }
 }

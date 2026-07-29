@@ -128,6 +128,14 @@ impl ZinchaClient {
         self.get(&format!("/v1/accounts/{address}/nonce")).await
     }
 
+    pub async fn requester_reputation(&self, address: &str) -> Result<Value> {
+        self.get(&format!("/v1/requesters/{address}")).await
+    }
+
+    pub async fn validators(&self) -> Result<Value> {
+        self.get("/v1/consensus/validators").await
+    }
+
     pub async fn account_transactions(
         &self,
         address: &str,
@@ -136,6 +144,49 @@ impl ZinchaClient {
         self.request(
             Method::GET,
             &format!("/v1/accounts/{address}/transactions"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn agents(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(Method::GET, "/v1/agents", query.into_request_options())
+            .await
+    }
+
+    pub async fn tools(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(Method::GET, "/v1/tools", query.into_request_options())
+            .await
+    }
+
+    pub async fn contracts(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(Method::GET, "/v1/contracts", query.into_request_options())
+            .await
+    }
+
+    pub async fn tokens(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(Method::GET, "/v1/tokens", query.into_request_options())
+            .await
+    }
+
+    pub async fn arbitrators(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(Method::GET, "/v1/arbitrators", query.into_request_options())
+            .await
+    }
+
+    pub async fn market_rates(&self, query: CursorPageQuery) -> Result<Value> {
+        self.request(
+            Method::GET,
+            "/v1/market-rates",
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn pending_tasks(&self, query: PendingTaskListQuery) -> Result<Value> {
+        self.request(
+            Method::GET,
+            "/v1/tasks/pending",
             query.into_request_options(),
         )
         .await
@@ -569,6 +620,39 @@ impl RequestOptions {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct CursorPageQuery {
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+}
+
+impl CursorPageQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    fn into_request_options(self) -> RequestOptions {
+        let mut options = RequestOptions::default();
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
+        options
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct TransactionHistoryQuery {
     pub limit: Option<u64>,
     pub cursor: Option<String>,
@@ -664,6 +748,7 @@ impl CapabilityListQuery {
 #[derive(Clone, Debug, Default)]
 pub struct CapabilitySearchQuery {
     pub limit: Option<u64>,
+    pub cursor: Option<String>,
     pub status: Option<String>,
     pub category: Option<String>,
 }
@@ -675,6 +760,11 @@ impl CapabilitySearchQuery {
 
     pub fn limit(mut self, limit: u64) -> Self {
         self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
         self
     }
 
@@ -693,11 +783,74 @@ impl CapabilitySearchQuery {
         if let Some(limit) = self.limit {
             options = options.query_param("limit", limit.to_string());
         }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
         if let Some(status) = self.status {
             options = options.query_param("status", status);
         }
         if let Some(category) = self.category {
             options = options.query_param("category", category);
+        }
+        options
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct PendingTaskListQuery {
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+    pub discover_capabilities: Vec<String>,
+    pub discover_min_fee: Option<u64>,
+    pub discover_fees: Vec<(String, u64)>,
+}
+
+impl PendingTaskListQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    pub fn discover_capability(mut self, capability: impl Into<String>) -> Self {
+        self.discover_capabilities.push(capability.into());
+        self
+    }
+
+    pub fn discover_min_fee(mut self, fee: u64) -> Self {
+        self.discover_min_fee = Some(fee);
+        self
+    }
+
+    pub fn discover_fee(mut self, capability: impl Into<String>, fee: u64) -> Self {
+        self.discover_fees.push((capability.into(), fee));
+        self
+    }
+
+    fn into_request_options(self) -> RequestOptions {
+        let mut options = RequestOptions::default();
+        if let Some(limit) = self.limit {
+            options = options.query_param("limit", limit.to_string());
+        }
+        if let Some(cursor) = self.cursor {
+            options = options.query_param("cursor", cursor);
+        }
+        for capability in self.discover_capabilities {
+            options = options.query_param("discover_capability", capability);
+        }
+        if let Some(fee) = self.discover_min_fee {
+            options = options.query_param("discover_min_fee", fee.to_string());
+        }
+        for (capability, fee) in self.discover_fees {
+            options = options.query_param("discover_fee", format!("{capability}:{fee}"));
         }
         options
     }

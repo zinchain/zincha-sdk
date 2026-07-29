@@ -4,8 +4,9 @@ use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use zincha_client::{
-    signed_request_parts, CapabilityListQuery, CapabilitySearchQuery, ParticipantWorkflowQuery,
-    RequestOptions, TransactionHistoryQuery, ZinchaClient,
+    signed_request_parts, CapabilityListQuery, CapabilitySearchQuery, CursorPageQuery,
+    ParticipantWorkflowQuery, PendingTaskListQuery, RequestOptions, TransactionHistoryQuery,
+    ZinchaClient,
 };
 use zincha_primitives::crypto::{hash_bytes, Keypair};
 
@@ -119,6 +120,30 @@ async fn chain_info_gets_public_endpoint_and_unwraps_data() {
     assert_eq!(request.method, "GET");
     assert_eq!(request.path, "/v1/chain/info");
     assert!(request.body.is_empty());
+}
+
+#[tokio::test]
+async fn requester_reputation_and_validators_use_openapi_routes() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"address":"zn1requester"},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+    client
+        .requester_reputation("zn1requester")
+        .await
+        .expect("requester reputation");
+    let request = server.join().expect("server thread");
+    assert_eq!(request.path, "/v1/requesters/zn1requester");
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"validators":[]},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+    client.validators().await.expect("validators");
+    let request = server.join().expect("server thread");
+    assert_eq!(request.path, "/v1/consensus/validators");
 }
 
 #[tokio::test]
@@ -238,6 +263,60 @@ async fn transaction_history_helpers_use_cursor_pagination_without_offset() {
 }
 
 #[tokio::test]
+async fn high_cardinality_list_helpers_use_cursor_pagination_without_offset() {
+    macro_rules! assert_cursor_route {
+        ($method:ident, $path:literal, $cursor:literal, $limit:literal) => {{
+            let (url, server) = serve_once(
+                "200 OK",
+                r#"{"success":true,"data":{"items":[],"pagination":{"has_more":false}},"error":null}"#,
+            );
+            let client = ZinchaClient::new(&url).expect("client");
+            client
+                .$method(CursorPageQuery::new().cursor($cursor).limit($limit))
+                .await
+                .expect("cursor list");
+            let request = server.join().expect("server thread");
+            assert_eq!(
+                request.path,
+                concat!($path, "?limit=", stringify!($limit), "&cursor=", $cursor)
+            );
+            assert!(!request.path.contains("offset"));
+        }};
+    }
+
+    assert_cursor_route!(agents, "/v1/agents", "a1", 2);
+    assert_cursor_route!(tools, "/v1/tools", "a2", 3);
+    assert_cursor_route!(contracts, "/v1/contracts", "a3", 4);
+    assert_cursor_route!(tokens, "/v1/tokens", "a4", 5);
+    assert_cursor_route!(arbitrators, "/v1/arbitrators", "a5", 6);
+    assert_cursor_route!(market_rates, "/v1/market-rates", "a6", 7);
+
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"items":[],"pagination":{"has_more":false}},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+    client
+        .pending_tasks(
+            PendingTaskListQuery::new()
+                .limit(8)
+                .cursor("a7")
+                .discover_capability("ai.reasoning")
+                .discover_capability("ai.code.execution")
+                .discover_min_fee(100)
+                .discover_fee("ai.code.execution", 25),
+        )
+        .await
+        .expect("pending tasks");
+    let request = server.join().expect("server thread");
+    assert_eq!(
+        request.path,
+        "/v1/tasks/pending?limit=8&cursor=a7&discover_capability=ai.reasoning&discover_capability=ai.code.execution&discover_min_fee=100&discover_fee=ai.code.execution%3A25"
+    );
+    assert!(!request.path.contains("offset"));
+}
+
+#[tokio::test]
 async fn task_opportunity_helper_uses_public_unsigned_route() {
     let task_id = "aa".repeat(32);
     let response_body = format!(
@@ -304,6 +383,7 @@ async fn capability_catalog_helpers_use_public_unsigned_routes() {
             "smart contract",
             CapabilitySearchQuery::new()
                 .limit(10)
+                .cursor("search-page")
                 .status("active")
                 .category("blockchain"),
         )
@@ -314,7 +394,7 @@ async fn capability_catalog_helpers_use_public_unsigned_routes() {
     assert_eq!(request.method, "GET");
     assert_eq!(
         request.path,
-        "/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain"
+        "/v1/capabilities/search?q=smart+contract&limit=10&cursor=search-page&status=active&category=blockchain"
     );
     assert!(!request.path.contains("offset"));
 

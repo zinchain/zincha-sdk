@@ -6,8 +6,8 @@ use clap::{Args, Parser, Subcommand};
 use reqwest::Method;
 use serde_json::Value;
 use zincha_client::{
-    CapabilityListQuery, CapabilitySearchQuery, ParticipantWorkflowQuery, RequestOptions,
-    TransactionHistoryQuery, ZinchaClient,
+    CapabilityListQuery, CapabilitySearchQuery, CursorPageQuery, ParticipantWorkflowQuery,
+    PendingTaskListQuery, RequestOptions, TransactionHistoryQuery, ZinchaClient,
 };
 
 #[derive(Debug, Parser)]
@@ -43,7 +43,12 @@ pub enum QueryCommands {
     Agent {
         address: String,
     },
-    Agents,
+    Agents {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     RequesterReputation {
         address: String,
     },
@@ -67,6 +72,8 @@ pub enum QueryCommands {
         #[arg(long)]
         limit: Option<u64>,
         #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
         status: Option<String>,
         #[arg(long)]
         category: Option<String>,
@@ -84,12 +91,23 @@ pub enum QueryCommands {
         #[arg(long)]
         limit: Option<u64>,
         #[arg(long)]
-        offset: Option<u64>,
+        cursor: Option<String>,
+        #[arg(long = "discover-capability")]
+        discover_capability: Vec<String>,
+        #[arg(long = "discover-min-fee")]
+        discover_min_fee: Option<u64>,
+        #[arg(long = "discover-fee")]
+        discover_fee: Vec<String>,
     },
     Tool {
         tool_id: String,
     },
-    Tools,
+    Tools {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     Subscription {
         subscription_id: String,
     },
@@ -165,6 +183,12 @@ pub enum QueryCommands {
     Contract {
         address: String,
     },
+    Contracts {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     ContractTransactions {
         address: String,
         #[arg(long)]
@@ -179,6 +203,12 @@ pub enum QueryCommands {
     Token {
         token_id: String,
     },
+    Tokens {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     TokenTransactions {
         token_id: String,
         #[arg(long)]
@@ -189,6 +219,18 @@ pub enum QueryCommands {
     Arbitrator {
         address: String,
     },
+    Arbitrators {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
+    MarketRates {
+        #[arg(long)]
+        limit: Option<u64>,
+        #[arg(long)]
+        cursor: Option<String>,
+    },
     Events {
         #[arg(long)]
         topic: Option<String>,
@@ -197,9 +239,6 @@ pub enum QueryCommands {
     },
     Tx {
         hash: String,
-    },
-    Validator {
-        address: String,
     },
     Validators,
     Participant(ParticipantQuery),
@@ -248,12 +287,13 @@ pub async fn run_query(
             "query-agent",
             client.get(&format!("/v1/agents/{address}")).await?,
         ),
-        Some(QueryCommands::Agents) => ("query-agents", client.get("/v1/agents").await?),
+        Some(QueryCommands::Agents { limit, cursor }) => (
+            "query-agents",
+            client.agents(cursor_page_query(limit, cursor)).await?,
+        ),
         Some(QueryCommands::RequesterReputation { address }) => (
             "query-requester-reputation",
-            client
-                .get(&format!("/v1/requesters/{address}/reputation"))
-                .await?,
+            client.requester_reputation(&address).await?,
         ),
         Some(QueryCommands::Capabilities {
             limit,
@@ -275,12 +315,16 @@ pub async fn run_query(
         Some(QueryCommands::CapabilitySearch {
             text,
             limit,
+            cursor,
             status,
             category,
         }) => (
             "query-capability-search",
             client
-                .capability_search(&text, capability_search_query(limit, status, category))
+                .capability_search(
+                    &text,
+                    capability_search_query(limit, cursor, status, category),
+                )
                 .await?,
         ),
         Some(QueryCommands::CapabilityCategories) => (
@@ -304,15 +348,32 @@ pub async fn run_query(
             "query-task-opportunity",
             client.task_opportunity(&task_id).await?,
         ),
-        Some(QueryCommands::PendingTasks { limit, offset }) => (
+        Some(QueryCommands::PendingTasks {
+            limit,
+            cursor,
+            discover_capability,
+            discover_min_fee,
+            discover_fee,
+        }) => (
             "query-pending-tasks",
-            get_with_pagination(&client, "/v1/tasks/pending", limit, offset).await?,
+            client
+                .pending_tasks(pending_task_list_query(
+                    limit,
+                    cursor,
+                    discover_capability,
+                    discover_min_fee,
+                    discover_fee,
+                )?)
+                .await?,
         ),
         Some(QueryCommands::Tool { tool_id }) => (
             "query-tool",
             client.get(&format!("/v1/tools/{tool_id}")).await?,
         ),
-        Some(QueryCommands::Tools) => ("query-tools", client.get("/v1/tools").await?),
+        Some(QueryCommands::Tools { limit, cursor }) => (
+            "query-tools",
+            client.tools(cursor_page_query(limit, cursor)).await?,
+        ),
         Some(QueryCommands::Subscription { subscription_id }) => (
             "query-subscription",
             client
@@ -454,6 +515,10 @@ pub async fn run_query(
             "query-contract",
             client.get(&format!("/v1/contracts/{address}")).await?,
         ),
+        Some(QueryCommands::Contracts { limit, cursor }) => (
+            "query-contracts",
+            client.contracts(cursor_page_query(limit, cursor)).await?,
+        ),
         Some(QueryCommands::ContractTransactions {
             address,
             limit,
@@ -477,6 +542,10 @@ pub async fn run_query(
             "query-token",
             client.get(&format!("/v1/tokens/{token_id}")).await?,
         ),
+        Some(QueryCommands::Tokens { limit, cursor }) => (
+            "query-tokens",
+            client.tokens(cursor_page_query(limit, cursor)).await?,
+        ),
         Some(QueryCommands::TokenTransactions {
             token_id,
             limit,
@@ -490,6 +559,16 @@ pub async fn run_query(
         Some(QueryCommands::Arbitrator { address }) => (
             "query-arbitrator",
             client.get(&format!("/v1/arbitrators/{address}")).await?,
+        ),
+        Some(QueryCommands::Arbitrators { limit, cursor }) => (
+            "query-arbitrators",
+            client.arbitrators(cursor_page_query(limit, cursor)).await?,
+        ),
+        Some(QueryCommands::MarketRates { limit, cursor }) => (
+            "query-market-rates",
+            client
+                .market_rates(cursor_page_query(limit, cursor))
+                .await?,
         ),
         Some(QueryCommands::Events { topic, limit }) => {
             let mut opts = RequestOptions::default();
@@ -505,13 +584,7 @@ pub async fn run_query(
             )
         }
         Some(QueryCommands::Tx { hash }) => ("query-tx", client.transaction_status(&hash).await?),
-        Some(QueryCommands::Validator { address }) => (
-            "query-validator",
-            client.get(&format!("/v1/validators/{address}")).await?,
-        ),
-        Some(QueryCommands::Validators) => {
-            ("query-validators", client.get("/v1/validators").await?)
-        }
+        Some(QueryCommands::Validators) => ("query-validators", client.validators().await?),
         Some(QueryCommands::Participant(participant)) => (
             "query-participant",
             run_participant_query(participant, client).await?,
@@ -568,12 +641,16 @@ fn capability_list_query(
 
 fn capability_search_query(
     limit: Option<u64>,
+    cursor: Option<String>,
     status: Option<String>,
     category: Option<String>,
 ) -> CapabilitySearchQuery {
     let mut query = CapabilitySearchQuery::new();
     if let Some(limit) = limit {
         query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
     }
     if let Some(status) = status {
         query = query.status(status);
@@ -582,6 +659,49 @@ fn capability_search_query(
         query = query.category(category);
     }
     query
+}
+
+fn cursor_page_query(limit: Option<u64>, cursor: Option<String>) -> CursorPageQuery {
+    let mut query = CursorPageQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
+    }
+    query
+}
+
+fn pending_task_list_query(
+    limit: Option<u64>,
+    cursor: Option<String>,
+    discover_capabilities: Vec<String>,
+    discover_min_fee: Option<u64>,
+    discover_fees: Vec<String>,
+) -> Result<PendingTaskListQuery> {
+    let mut query = PendingTaskListQuery::new();
+    if let Some(limit) = limit {
+        query = query.limit(limit);
+    }
+    if let Some(cursor) = cursor {
+        query = query.cursor(cursor);
+    }
+    for capability in discover_capabilities {
+        query = query.discover_capability(capability);
+    }
+    if let Some(fee) = discover_min_fee {
+        query = query.discover_min_fee(fee);
+    }
+    for entry in discover_fees {
+        let (capability, fee) = entry.split_once(':').ok_or_else(|| {
+            anyhow::anyhow!("invalid --discover-fee {entry:?}: expected capability:fee")
+        })?;
+        let fee = fee.parse::<u64>().map_err(|error| {
+            anyhow::anyhow!("invalid --discover-fee {entry:?}: fee must be an integer: {error}")
+        })?;
+        query = query.discover_fee(capability, fee);
+    }
+    Ok(query)
 }
 
 fn participant_workflow_query(
@@ -647,26 +767,6 @@ async fn get_with_limit(client: &ZinchaClient, path: &str, limit: Option<u64>) -
                 RequestOptions::default().query_param("limit", limit.to_string()),
             )
             .await
-    } else {
-        client.get(path).await
-    }
-}
-
-async fn get_with_pagination(
-    client: &ZinchaClient,
-    path: &str,
-    limit: Option<u64>,
-    offset: Option<u64>,
-) -> Result<Value> {
-    let mut opts = RequestOptions::default();
-    if let Some(limit) = limit {
-        opts = opts.query_param("limit", limit.to_string());
-    }
-    if let Some(offset) = offset {
-        opts = opts.query_param("offset", offset.to_string());
-    }
-    if limit.is_some() || offset.is_some() {
-        client.request(Method::GET, path, opts).await
     } else {
         client.get(path).await
     }
@@ -861,6 +961,8 @@ mod tests {
             "smart contract",
             "--limit",
             "10",
+            "--cursor",
+            "search-page",
             "--status",
             "active",
             "--category",
@@ -871,11 +973,13 @@ mod tests {
             QueryCommands::CapabilitySearch {
                 text,
                 limit,
+                cursor,
                 status,
                 category,
             } => {
                 assert_eq!(text, "smart contract");
                 assert_eq!(limit, Some(10));
+                assert_eq!(cursor.as_deref(), Some("search-page"));
                 assert_eq!(status.as_deref(), Some("active"));
                 assert_eq!(category.as_deref(), Some("blockchain"));
             }
@@ -916,6 +1020,42 @@ mod tests {
             .to_string();
         assert!(help.contains("--cursor"), "{help}");
         assert!(!help.contains("--offset"), "{help}");
+
+        let search_help = command
+            .find_subcommand_mut("capability-search")
+            .expect("missing capability-search subcommand")
+            .render_long_help()
+            .to_string();
+        assert!(search_help.contains("--cursor"), "{search_help}");
+        assert!(!search_help.contains("--offset"), "{search_help}");
+    }
+
+    #[test]
+    fn public_list_queries_accept_cursor_not_offset() {
+        let mut command = QueryCommand::command();
+        for name in [
+            "agents",
+            "tools",
+            "contracts",
+            "tokens",
+            "arbitrators",
+            "market-rates",
+        ] {
+            QueryCommand::try_parse_from(["query", name, "--limit", "5", "--cursor", "abcdef"])
+                .unwrap_or_else(|error| panic!("parse {name}: {error}"));
+
+            let help = command
+                .find_subcommand_mut(name)
+                .unwrap_or_else(|| panic!("missing subcommand {name}"))
+                .render_long_help()
+                .to_string();
+            assert!(help.contains("--cursor"), "{name}: {help}");
+            assert!(!help.contains("--offset"), "{name}: {help}");
+
+            let error = QueryCommand::try_parse_from(["query", name, "--offset", "0"])
+                .expect_err("public list unexpectedly accepted --offset");
+            assert!(error.to_string().contains("--offset"), "{name}: {error}");
+        }
     }
 
     #[test]
@@ -976,18 +1116,42 @@ mod tests {
             "pending-tasks",
             "--limit",
             "25",
-            "--offset",
-            "50",
+            "--cursor",
+            "abcdef",
+            "--discover-capability",
+            "ai.reasoning",
+            "--discover-capability",
+            "ai.code.execution",
+            "--discover-min-fee",
+            "100",
+            "--discover-fee",
+            "ai.code.execution:25",
         ])
         .expect("parse pending tasks query");
 
         match parsed.command.expect("typed query command") {
-            QueryCommands::PendingTasks { limit, offset } => {
+            QueryCommands::PendingTasks {
+                limit,
+                cursor,
+                discover_capability,
+                discover_min_fee,
+                discover_fee,
+            } => {
                 assert_eq!(limit, Some(25));
-                assert_eq!(offset, Some(50));
+                assert_eq!(cursor.as_deref(), Some("abcdef"));
+                assert_eq!(
+                    discover_capability,
+                    vec!["ai.reasoning", "ai.code.execution"]
+                );
+                assert_eq!(discover_min_fee, Some(100));
+                assert_eq!(discover_fee, vec!["ai.code.execution:25"]);
             }
             other => panic!("unexpected query command {other:?}"),
         }
+
+        let error = QueryCommand::try_parse_from(["query", "pending-tasks", "--offset", "50"])
+            .expect_err("pending tasks must reject offset pagination");
+        assert!(error.to_string().contains("--offset"), "{error}");
 
         let mut command = QueryCommand::command();
         let help = command
@@ -996,7 +1160,11 @@ mod tests {
             .render_long_help()
             .to_string();
         assert!(help.contains("--limit"), "{help}");
-        assert!(help.contains("--offset"), "{help}");
+        assert!(help.contains("--cursor"), "{help}");
+        assert!(help.contains("--discover-capability"), "{help}");
+        assert!(help.contains("--discover-min-fee"), "{help}");
+        assert!(help.contains("--discover-fee"), "{help}");
+        assert!(!help.contains("--offset"), "{help}");
         assert!(!help.contains("--secret-key"), "{help}");
     }
 }

@@ -318,6 +318,7 @@ class ZinchaClient:
         self,
         q: str,
         *,
+        cursor: Optional[str] = None,
         limit: Optional[int] = None,
         status: Optional[str] = None,
         category: Optional[str] = None,
@@ -326,6 +327,7 @@ class ZinchaClient:
             "/v1/capabilities/search",
             query={
                 "q": q,
+                "cursor": cursor,
                 "limit": limit,
                 "status": status,
                 "category": category,
@@ -2336,8 +2338,14 @@ class ZinchaClient:
             body["amount_zin"] = int(amount_zin)
         return self._request_from_base_url(self.faucet_url, "POST", "/v1/faucet", body=body)
 
-    def agents(self, **query: Any) -> Any:
-        return self.get("/v1/agents", query=query)
+    def agents(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/agents", query={"cursor": cursor, "limit": limit})
+
+    def arbitrators(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/arbitrators", query={"cursor": cursor, "limit": limit})
+
+    def market_rates(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/market-rates", query={"cursor": cursor, "limit": limit})
 
     def agent(self, address: str) -> Any:
         return self.get("/v1/agents/%s" % normalize_address(address))
@@ -2375,8 +2383,25 @@ class ZinchaClient:
             query=query,
         )
 
-    def pending_tasks(self, **query: Any) -> Any:
-        return self.get("/v1/tasks/pending", query=query)
+    def pending_tasks(
+        self,
+        *,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        discover_capability: Optional[str] = None,
+        discover_min_fee: Optional[int] = None,
+        discover_fee: Optional[str] = None,
+    ) -> Any:
+        return self.get(
+            "/v1/tasks/pending",
+            query={
+                "cursor": cursor,
+                "limit": limit,
+                "discover_capability": discover_capability,
+                "discover_min_fee": discover_min_fee,
+                "discover_fee": discover_fee,
+            },
+        )
 
     def task_opportunity(self, task_id: str) -> Any:
         return self.get("/v1/tasks/%s/opportunity" % _normalize_hash(task_id))
@@ -2545,11 +2570,11 @@ class ZinchaClient:
             timeout=timeout,
         )
 
-    def tools(self, **query: Any) -> Any:
-        return self.get("/v1/tools", query=query)
+    def tools(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/tools", query={"cursor": cursor, "limit": limit})
 
-    def contracts(self, **query: Any) -> Any:
-        return self.get("/v1/contracts", query=query)
+    def contracts(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/contracts", query={"cursor": cursor, "limit": limit})
 
     def contract(self, address: str) -> Any:
         return self.get("/v1/contracts/%s" % normalize_address(address))
@@ -2569,8 +2594,8 @@ class ZinchaClient:
     def contract_capabilities(self) -> Any:
         return self.get("/v1/contracts/capabilities")
 
-    def tokens(self, **query: Any) -> Any:
-        return self.get("/v1/tokens", query=query)
+    def tokens(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
+        return self.get("/v1/tokens", query={"cursor": cursor, "limit": limit})
 
     def token(self, token_id: str) -> Any:
         return self.get("/v1/tokens/%s" % _normalize_hash(token_id))

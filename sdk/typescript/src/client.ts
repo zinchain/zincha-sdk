@@ -127,12 +127,15 @@ import type {
   CapabilityListQuery,
   CapabilitySearchQuery,
   ChainInfo,
+  CursorPageQuery,
   EmbedOptions,
   FaucetRequest,
   FaucetResponse,
   Hex,
+  MarketRateListResponse,
   NonceResponse,
   ParticipantWorkflowQuery,
+  PendingTaskListQuery,
   ReleaseName,
   RequestOptions,
   SignedTransaction,
@@ -1138,8 +1141,18 @@ export class ZinchaClient {
     });
   }
 
-  agents(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
-    return this.get("/v1/agents", { query });
+  agents(query?: CursorPageQuery): Promise<unknown> {
+    return this.get("/v1/agents", { query: cursorPageQuery(query) });
+  }
+
+  arbitrators(query?: CursorPageQuery): Promise<unknown> {
+    return this.get("/v1/arbitrators", { query: cursorPageQuery(query) });
+  }
+
+  marketRates(query?: CursorPageQuery): Promise<MarketRateListResponse> {
+    return this.get<MarketRateListResponse>("/v1/market-rates", {
+      query: cursorPageQuery(query),
+    });
   }
 
   agent(address: string): Promise<unknown> {
@@ -1185,8 +1198,8 @@ export class ZinchaClient {
     return this.get(`/v1/requesters/${normalizeAddress(address)}/reputation-history`, { query });
   }
 
-  pendingTasks(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
-    return this.get("/v1/tasks/pending", { query });
+  pendingTasks(query?: PendingTaskListQuery): Promise<unknown> {
+    return this.get("/v1/tasks/pending", { query: pendingTaskListQuery(query) });
   }
 
   taskOpportunity(id: Hex): Promise<unknown> {
@@ -1291,12 +1304,12 @@ export class ZinchaClient {
     });
   }
 
-  tools(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
-    return this.get("/v1/tools", { query });
+  tools(query?: CursorPageQuery): Promise<unknown> {
+    return this.get("/v1/tools", { query: cursorPageQuery(query) });
   }
 
-  contracts(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
-    return this.get("/v1/contracts", { query });
+  contracts(query?: CursorPageQuery): Promise<unknown> {
+    return this.get("/v1/contracts", { query: cursorPageQuery(query) });
   }
 
   contract(address: string): Promise<unknown> {
@@ -1313,8 +1326,8 @@ export class ZinchaClient {
     return this.get("/v1/contracts/capabilities");
   }
 
-  tokens(query?: Record<string, string | number | boolean | undefined>): Promise<unknown> {
-    return this.get("/v1/tokens", { query });
+  tokens(query?: CursorPageQuery): Promise<unknown> {
+    return this.get("/v1/tokens", { query: cursorPageQuery(query) });
   }
 
   token(id: Hex): Promise<unknown> {
@@ -1427,6 +1440,23 @@ function participantWorkflowQuery(query?: ParticipantWorkflowQuery): RequestOpti
   };
 }
 
+function cursorPageQuery(query?: CursorPageQuery): RequestOptions["query"] {
+  return {
+    cursor: query?.cursor,
+    limit: query?.limit,
+  };
+}
+
+function pendingTaskListQuery(query?: PendingTaskListQuery): RequestOptions["query"] {
+  return {
+    cursor: query?.cursor,
+    limit: query?.limit,
+    discover_capability: query?.discover_capability,
+    discover_min_fee: query?.discover_min_fee,
+    discover_fee: query?.discover_fee,
+  };
+}
+
 function capabilityListQuery(query?: CapabilityListQuery): RequestOptions["query"] {
   return {
     limit: query?.limit,
@@ -1444,6 +1474,7 @@ function capabilitySearchQuery(
   return {
     q,
     limit: query?.limit,
+    cursor: query?.cursor,
     status: query?.status,
     category: query?.category,
   };

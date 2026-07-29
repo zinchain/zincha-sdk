@@ -75,11 +75,20 @@ fn help_and_version_are_available() {
 }
 
 #[test]
-fn transaction_history_query_help_uses_cursor_not_offset() {
+fn cursor_paged_query_help_uses_cursor_not_offset() {
     for command in [
         "account-transactions",
         "contract-transactions",
         "token-transactions",
+        "agents",
+        "pending-tasks",
+        "tools",
+        "contracts",
+        "tokens",
+        "arbitrators",
+        "market-rates",
+        "capabilities",
+        "capability-search",
     ] {
         let output = zincha()
             .args(["query", command, "--help"])

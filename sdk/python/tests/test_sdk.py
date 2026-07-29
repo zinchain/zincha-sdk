@@ -278,6 +278,51 @@ class PythonSdkTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             client.account_transactions(GOLDEN["sender"], offset=0)
 
+    def test_high_cardinality_list_helpers_use_cursor_pagination(self):
+        calls = []
+
+        def transport(method, url, headers, body, timeout):
+            calls.append(url)
+            return 200, json.dumps(
+                {
+                    "success": True,
+                    "data": {"items": [], "pagination": {"has_more": False}},
+                    "error": None,
+                }
+            )
+
+        client = ZinchaClient(base_url="http://node.test", transport=transport)
+        client.agents(cursor="a1", limit=2)
+        client.pending_tasks(
+            cursor="a2",
+            limit=3,
+            discover_capability="reasoning",
+            discover_min_fee=7,
+            discover_fee="42",
+        )
+        client.tools(cursor="a3", limit=4)
+        client.contracts(cursor="a4", limit=5)
+        client.tokens(cursor="a5", limit=6)
+        client.arbitrators(cursor="a6", limit=7)
+        client.market_rates(cursor="a7", limit=8)
+        client.capability_search("reasoning", cursor="a8", limit=9, status="all")
+
+        self.assertEqual(
+            calls,
+            [
+                "http://node.test/v1/agents?cursor=a1&limit=2",
+                "http://node.test/v1/tasks/pending?cursor=a2&limit=3"
+                "&discover_capability=reasoning&discover_min_fee=7&discover_fee=42",
+                "http://node.test/v1/tools?cursor=a3&limit=4",
+                "http://node.test/v1/contracts?cursor=a4&limit=5",
+                "http://node.test/v1/tokens?cursor=a5&limit=6",
+                "http://node.test/v1/arbitrators?cursor=a6&limit=7",
+                "http://node.test/v1/market-rates?cursor=a7&limit=8",
+                "http://node.test/v1/capabilities/search?q=reasoning&cursor=a8&limit=9&status=all",
+            ],
+        )
+        self.assertTrue(all("offset=" not in url for url in calls))
+
     def test_capability_catalog_helpers_use_public_urls_and_drop_unsupported_keys(self):
         calls = []
 
@@ -295,6 +340,7 @@ class PythonSdkTests(unittest.TestCase):
         )
         client.capability_search(
             "smart contract",
+            cursor="search-cursor",
             limit=10,
             status="active",
             category="blockchain",
@@ -308,7 +354,7 @@ class PythonSdkTests(unittest.TestCase):
         )
         self.assertEqual(
             calls[1][1],
-            "http://node.test/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain",
+            "http://node.test/v1/capabilities/search?q=smart+contract&cursor=search-cursor&limit=10&status=active&category=blockchain",
         )
         self.assertEqual(calls[2][1], "http://node.test/v1/capabilities/ai.reasoning")
         self.assertEqual(calls[3][1], "http://node.test/v1/capabilities/categories")

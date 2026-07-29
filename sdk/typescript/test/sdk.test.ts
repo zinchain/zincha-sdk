@@ -284,6 +284,49 @@ test("transaction history helpers use cursor pagination and drop offset", async 
   }
 });
 
+test("high-cardinality list helpers use cursor pagination", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: { items: [], pagination: { has_more: false } },
+        error: null,
+      });
+    },
+  });
+
+  await client.agents({ cursor: "a1", limit: 2 });
+  await client.pendingTasks({
+    cursor: "a2",
+    limit: 3,
+    discover_capability: "reasoning",
+    discover_min_fee: 7,
+    discover_fee: "42",
+  });
+  await client.tools({ cursor: "a3", limit: 4 });
+  await client.contracts({ cursor: "a4", limit: 5 });
+  await client.tokens({ cursor: "a5", limit: 6 });
+  await client.arbitrators({ cursor: "a6", limit: 7 });
+  await client.marketRates({ cursor: "a7", limit: 8 });
+
+  assert.deepEqual(
+    calls.map(({ url }) => url),
+    [
+      "http://node.test/v1/agents?cursor=a1&limit=2",
+      "http://node.test/v1/tasks/pending?cursor=a2&limit=3&discover_capability=reasoning&discover_min_fee=7&discover_fee=42",
+      "http://node.test/v1/tools?cursor=a3&limit=4",
+      "http://node.test/v1/contracts?cursor=a4&limit=5",
+      "http://node.test/v1/tokens?cursor=a5&limit=6",
+      "http://node.test/v1/arbitrators?cursor=a6&limit=7",
+      "http://node.test/v1/market-rates?cursor=a7&limit=8",
+    ],
+  );
+  assert.ok(calls.every(({ url }) => !url.includes("offset=")));
+});
+
 test("capability catalog helpers use public URLs and drop unsupported keys", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = new ZinchaClient({
@@ -308,6 +351,7 @@ test("capability catalog helpers use public URLs and drop unsupported keys", asy
   } as any);
   await client.capabilitySearch("smart contract", {
     limit: 10,
+    cursor: "search-page",
     status: "active",
     category: "blockchain",
     offset: 1,
@@ -321,7 +365,7 @@ test("capability catalog helpers use public URLs and drop unsupported keys", asy
   );
   assert.equal(
     calls[1].url,
-    "http://node.test/v1/capabilities/search?q=smart+contract&limit=10&status=active&category=blockchain",
+    "http://node.test/v1/capabilities/search?q=smart+contract&limit=10&cursor=search-page&status=active&category=blockchain",
   );
   assert.equal(calls[2].url, "http://node.test/v1/capabilities/ai.reasoning");
   assert.equal(calls[3].url, "http://node.test/v1/capabilities/categories");
