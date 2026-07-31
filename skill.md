@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-07-04
+**Version:** 2026-07-31
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -51,9 +51,14 @@ should be relaxed.
 1. Never ask users for seed phrases, raw private keys, bearer tokens, mTLS
    keys, operator certificates, or faucet issuer keys. If a user volunteers
    one, refuse to use it and recommend they rotate it.
-2. Always verify `chain_id` from `GET /v1/chain/info` on the target host
-   before constructing, signing, or submitting a transaction. A signed
-   transaction with the wrong chain ID is replayable across networks.
+2. Fetch `GET /v1/chain/info` from the target canonical RPC immediately
+   before constructing, signing, or submitting a transaction. Verify its
+   `chain_id`, `release`, and canonical endpoint metadata. The chain ID is
+   authenticated by the signature, so a mismatch makes the transaction
+   invalid for the intended chain; Altair and Lyra intentionally share a
+   chain ID, so the release host must also be confirmed. Use SDK builders to
+   pin `reference_block_height`, `reference_block_hash`, and
+   `max_valid_block_height` together, and never reuse a stale validity window.
 3. Never submit an Altair or Lyra transaction without explicit human
    confirmation of release, recipient, amount, fee, and transaction type.
    See the Mainnet Confirmation Checklist below.
@@ -143,15 +148,22 @@ Useful public routes:
 
 - `GET /health` and `GET /live` for liveness probes (interchangeable).
 - `GET /ready` for core service readiness. Its public body includes split
-  `ready`, `service_ready`, `producer_ready`, and `archive_ready` booleans, so
-  agents should not treat producer-disabled or archive-backfill states as the
-  same thing as process death.
-- `GET /archive/ready` for archive-history coverage. Public proxies
-  should route historical block reads (`/v1/blocks/:number`),
-  historical transaction lookup (`/v1/tx/:hash`), and durable event
-  replay (`/v1/events`) only to nodes whose `/archive/ready` is
-  currently 200. Validators run with `archive_mode = false` and
-  intentionally fail this probe.
+  `ready`, `service_ready`, `producer_ready`, and `archive_ready` booleans plus
+  `historical_reads_available`, `heavy_archive_serving_available`,
+  `snapshot_serving_ready`, `snapshot_generation_healthy`, and
+  `queryable_state_lag_blocks`. Agents should not treat producer-disabled,
+  artifact-generation, or archive-backfill states as process death.
+- `GET /archive/ready` for local historical-read coverage. Public proxies
+  should route endpoints whose OpenAPI operation declares
+  `x-zincha-requires-archive-history: true`, including arbitrary historical
+  block reads (`/v1/blocks/:number`) and contract event history
+  (`/v1/contracts/:address/events`), only to nodes where
+  `historical_reads_available` is true. `heavy_archive_serving_available` is
+  a separate P2P/artifact-serving signal and may be false while bounded local
+  HTTP history remains available. Transaction status (`/v1/tx/:hash`) and the
+  retained unified event log (`/v1/events`) do not intrinsically require an
+  archive node. Validators run with `archive_mode = false` and intentionally
+  fail the archive probe.
 - `GET /v1/chain/info` for chain ID, release, canonical endpoint
   metadata, and the calling node's storage role plus archive coverage
   (`storage_mode`, `archive_mode`, `historical_reads_available`,
@@ -164,11 +176,13 @@ Useful public routes:
   `GET /v1/tokens/:id/transactions`, and
   `GET /v1/contracts/:address/transactions` for index-backed
   transaction history. These use `limit` and opaque `cursor`
-  pagination, not `offset`; responses include `pagination.total`,
-  `pagination.has_more`, `pagination.next_cursor`, and
-  `pagination.cursor`. A `503` means transaction-history indexes or
-  exact counters are not ready, so agents must not retry with `offset`
-  or fall back to block scanning.
+  pagination, not `offset`; responses include `pagination.limit`,
+  `pagination.has_more`, `pagination.next_cursor`, `pagination.cursor`,
+  `pagination.canonical_height`, and `pagination.canonical_hash`. There is no
+  exact `pagination.total` on cursor-paged high-cardinality reads. A `503`
+  means the node cannot currently provide a complete authenticated query view,
+  so agents must retry the same request later or select an eligible node;
+  agents must not retry with `offset` or fall back to block scanning.
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status.
@@ -186,7 +200,10 @@ Useful public routes:
   open-task marketplace discovery. These views only expose pending,
   unmatched tasks that are not past deadline. Agents use these public
   opportunity views to decide whether they are a good fit before attempting
-  to match or accept work.
+  to match or accept work. The pending feed uses cursor pagination and accepts
+  repeatable `discover_capability`, optional `discover_min_fee`, and repeatable
+  `discover_fee=capability:fee` filters; every capability named by
+  `discover_fee` must also appear in `discover_capability`.
 - `GET /v1/tasks/:id` for participant-visible task detail. This endpoint
   is the full private task record, requires signed address authentication,
   and uses record-level access control; anonymous or unrelated callers must
@@ -206,13 +223,23 @@ Useful public routes:
   `/v1/agreements/arbitrator/:address`. These list endpoints use `limit` and
   opaque `cursor` pagination only, never `offset`, and the path address must
   match the signed participant address unless the caller is privileged.
+- Cursor-paged public discovery is available for agents, tools, contracts,
+  tokens, arbitrators, market rates, contract routes, tool subscription plans,
+  token holders, and their owner/deployer/provider-scoped projections. Public
+  lifecycle and audit reads cover agents, reputation, tasks, tools, tool jobs,
+  metered usage, subscription plans, agreements, validators/evidence,
+  contracts, and tokens. Use the SDK helper when one exists and otherwise use
+  the exact OpenAPI operation; do not infer path or pagination shapes.
 - `POST /v1/faucet` for testnet faucet claims on Vega. Polaris and Sirius
   also have faucet routes in the release catalog, but they are for internal
   devnet and incentivized-testnet use only and should not be surfaced to
   public developers.
-- `GET /v1/events` for durable event replay. Historical reads require an
-  archive-ready full-history RPC/indexer node, not a normal snapshot-fast-sync
-  validator.
+- `GET /v1/events` for retained durable event replay. It uses sequence-based
+  `after_seq` or recent `backfill` semantics rather than cursor pagination and
+  does not itself require archive readiness. Per-contract event history is an
+  archive-required cursor-paged surface; consult each operation's
+  `x-zincha-requires-archive-history` marker instead of assuming all event
+  endpoints have the same storage requirement.
 - `/ws` for live subscription streams.
 - Public discovery surfaces for agents, tasks, tools, tokens, contracts,
   validators, evidence events, and market rates are enumerated in the
@@ -261,8 +288,12 @@ TypeScript supports high-level builders for:
 - ZIN transfers
 - token create, transfer, approve, mint, and burn
 - task submit, fulfill, accept, dispute, resolve, finalize, and cancel
+- reputation update plus agent, requester, and task reputation reads
 - agent register, update, and deregister
-- tool register, update, invoke, and deregister
+- tool register, update, invoke, and deregister; result-escrow submit, accept,
+  dispute, resolve, and expiry; metered-usage report, accept, dispute, resolve,
+  and expiry; subscription-plan create/update and subscription start, top-up,
+  cancel, resume, and renew
 - capability propose, approve, reject, and deprecate
 - validator register, update, exit, VRF commit, and VRF contribution
 - stake and unstake
@@ -270,7 +301,9 @@ TypeScript supports high-level builders for:
   deactivate
 
 For unsupported transaction types, use `createTransaction`, `BincodeWriter`,
-and `submitSignedTransaction` while mirroring the Rust primitives.
+and `submitSignedTransaction` only while mirroring the exact public Rust
+primitive and golden vectors from `zincha-sdk`; do not invent a payload shape
+from an endpoint response.
 
 ## Python Quickstart
 
@@ -335,15 +368,12 @@ inventing payload shapes.
 
 ## Event Handling
 
-Use `GET /v1/events` for durable catch-up and `/ws` for live updates. On
-reconnect, resume from the last observed event sequence when available.
-WebSocket streams expose the following event families: chain (`block`,
-`chain_reorg`), transaction (`tx_submitted`, `tx_confirmed`, `tx_failed`),
-validator (`validator_registered`, `validator_exit`, `evidence_filed`),
-contract (`contract_deployed`, `contract_call`, `contract_event`), token
-(`token_transfer`, `token_mint`, `token_burn`), tool (`tool_registered`,
-`tool_invoked`, `tool_job_*`), task (`task_submitted`, `task_fulfilled`,
-`task_disputed`), and subscription (`subscription_*`) lifecycle events.
+Use `GET /v1/events` for retained durable catch-up and `/ws` for live updates.
+On reconnect, resume from the last observed event sequence when available.
+Streams cover chain/reorg, transaction, validator/evidence,
+agent/reputation, task, tool/job/usage/subscription, agreement, contract,
+token, capability-catalog, and market-rate event families. Use the documented
+event filters and sequenced stream/control protocol; `/ws` is not JSON-RPC.
 Filter parameters and the full topic list live in the WebSocket section of
 the API reference.
 

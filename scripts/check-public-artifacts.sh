@@ -482,6 +482,45 @@ if "block_timestamp_ms" not in transaction_status_properties:
 if "timestamp_ms" in transaction_status_properties:
     raise SystemExit("error: TransactionStatus must not expose timestamp_ms")
 
+cursor_pagination = spec["components"]["schemas"].get("CursorPagination") or {}
+cursor_properties = cursor_pagination.get("properties") or {}
+for field in (
+    "limit",
+    "has_more",
+    "next_cursor",
+    "cursor",
+    "canonical_height",
+    "canonical_hash",
+):
+    if field not in cursor_properties:
+        raise SystemExit(f"error: CursorPagination missing {field}")
+if "total" in cursor_properties:
+    raise SystemExit("error: CursorPagination must not expose an exact total")
+
+archive_history_policy = {
+    "/v1/blocks/{number}": True,
+    "/v1/contracts/{address}/events": True,
+    "/v1/tx/{hash}": False,
+    "/v1/events": False,
+}
+for path, expected in archive_history_policy.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    actual = operation.get("x-zincha-requires-archive-history")
+    if actual is not expected:
+        raise SystemExit(
+            f"error: GET {path} x-zincha-requires-archive-history must be {expected}"
+        )
+
+pending_task_operation = (((spec.get("paths") or {}).get("/v1/tasks/pending") or {}).get("get") or {})
+pending_task_parameter_names = {
+    parameter.get("name")
+    for parameter in pending_task_operation.get("parameters") or []
+    if parameter.get("name")
+}
+for field in ("discover_capability", "discover_min_fee", "discover_fee"):
+    if field not in pending_task_parameter_names:
+        raise SystemExit(f"error: GET /v1/tasks/pending missing {field}")
+
 contract_runtime_status = spec["components"]["schemas"].get("ContractRuntimeProfileStatus") or {}
 contract_runtime_cache = (contract_runtime_status.get("properties") or {}).get("cache") or {}
 contract_runtime_cache_properties = contract_runtime_cache.get("properties") or {}
@@ -541,6 +580,8 @@ private_markers=(
     "\`--network\` is an alias"
     "contract/address/token transaction history) only to"
     "covers every Public-audience"
+    "responses include \`pagination.total\`"
+    "historical transaction lookup (\`/v1/tx/:hash\`)"
 )
 
 for marker in "${private_markers[@]}"; do
@@ -581,8 +622,21 @@ required_skill_markers=(
     "open-task opportunity discovery and signed task detail by ID"
     "index-backed"
     "pagination.next_cursor"
+    "pagination.canonical_height"
+    "There is no"
+    "exact \`pagination.total\`"
     "agents must not retry with \`offset\`"
     "provider-authenticated"
+    "x-zincha-requires-archive-history: true"
+    "heavy_archive_serving_available"
+    "do not intrinsically require an"
+    "discover_capability"
+    "discover_min_fee"
+    "discover_fee=capability:fee"
+    "Cursor-paged public discovery is available for agents, tools, contracts"
+    "reputation update plus agent, requester, and task reputation reads"
+    "result-escrow submit, accept,"
+    "/ws\` is not JSON-RPC"
 )
 
 for marker in "${required_skill_markers[@]}"; do
