@@ -482,6 +482,47 @@ if "block_timestamp_ms" not in transaction_status_properties:
 if "timestamp_ms" in transaction_status_properties:
     raise SystemExit("error: TransactionStatus must not expose timestamp_ms")
 
+contract_runtime_status = spec["components"]["schemas"].get("ContractRuntimeProfileStatus") or {}
+contract_runtime_cache = (contract_runtime_status.get("properties") or {}).get("cache") or {}
+contract_runtime_cache_properties = contract_runtime_cache.get("properties") or {}
+contract_runtime_cache_required = set(contract_runtime_cache.get("required") or [])
+for field in (
+    "compiled_module_cache_entries",
+    "compiled_module_cache_bytes",
+    "compiled_module_cache_hits",
+    "compiled_module_cache_misses",
+    "compiled_module_cache_evictions",
+    "compiled_module_cache_oversized_bypasses",
+    "compiled_module_compilations",
+    "compiled_module_cache_max_entries",
+    "compiled_module_cache_max_bytes",
+    "compiled_module_compilations_inflight",
+    "compiled_module_max_concurrent_compilations",
+):
+    if field not in contract_runtime_cache_properties or field not in contract_runtime_cache_required:
+        raise SystemExit(f"error: ContractRuntimeProfileStatus.cache missing required {field}")
+
+direct_finality_status = spec["components"]["schemas"].get("DirectFinalityValidationStatus") or {}
+direct_finality_properties = direct_finality_status.get("properties") or {}
+direct_finality_required = set(direct_finality_status.get("required") or [])
+for field in (
+    "current_parent_scratch_pool_peak_bytes",
+    "current_parent_scratch_pool_max_entries",
+    "current_parent_scratch_pool_max_bytes",
+    "current_parent_scratch_pool_hits",
+    "current_parent_scratch_pool_misses",
+    "current_parent_scratch_pool_discards",
+    "state_commitment_lane_cache_entries",
+    "state_commitment_lane_cache_bytes",
+    "state_commitment_lane_cache_cap_bytes",
+    "state_commitment_lane_cache_hits",
+    "state_commitment_lane_cache_misses",
+    "state_commitment_lane_cache_evictions",
+    "state_commitment_durable_loader_backed",
+):
+    if field not in direct_finality_properties or field not in direct_finality_required:
+        raise SystemExit(f"error: DirectFinalityValidationStatus missing required {field}")
+
 print("openapi/openapi.json parsed OK")
 PY
 

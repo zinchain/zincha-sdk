@@ -3801,6 +3801,44 @@
           "cache": {
             "additionalProperties": false,
             "properties": {
+              "compiled_module_cache_bytes": {
+                "type": "integer"
+              },
+              "compiled_module_cache_entries": {
+                "type": "integer"
+              },
+              "compiled_module_cache_evictions": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "compiled_module_cache_hits": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "compiled_module_cache_max_bytes": {
+                "type": "integer"
+              },
+              "compiled_module_cache_max_entries": {
+                "type": "integer"
+              },
+              "compiled_module_cache_misses": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "compiled_module_cache_oversized_bypasses": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "compiled_module_compilations": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "compiled_module_compilations_inflight": {
+                "type": "integer"
+              },
+              "compiled_module_max_concurrent_compilations": {
+                "type": "integer"
+              },
               "validation_cache_bytes": {
                 "type": "integer"
               },
@@ -3841,7 +3879,18 @@
               "validation_cache_negative_entries",
               "validation_cache_max_entries",
               "validation_cache_max_bytes",
-              "validation_negative_cache_max_entries"
+              "validation_negative_cache_max_entries",
+              "compiled_module_cache_entries",
+              "compiled_module_cache_bytes",
+              "compiled_module_cache_hits",
+              "compiled_module_cache_misses",
+              "compiled_module_cache_evictions",
+              "compiled_module_cache_oversized_bypasses",
+              "compiled_module_compilations",
+              "compiled_module_cache_max_entries",
+              "compiled_module_cache_max_bytes",
+              "compiled_module_compilations_inflight",
+              "compiled_module_max_concurrent_compilations"
             ],
             "type": "object"
           },
@@ -4075,7 +4124,31 @@
             "format": "uint64",
             "type": "integer"
           },
+          "current_parent_scratch_pool_discards": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "current_parent_scratch_pool_estimated_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_max_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_max_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_misses": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_scratch_pool_peak_bytes": {
             "format": "uint64",
             "type": "integer"
           },
@@ -4293,6 +4366,33 @@
             "format": "uint64",
             "type": "integer"
           },
+          "state_commitment_durable_loader_backed": {
+            "type": "boolean"
+          },
+          "state_commitment_lane_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "state_commitment_lane_cache_cap_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "state_commitment_lane_cache_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "state_commitment_lane_cache_evictions": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "state_commitment_lane_cache_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "state_commitment_lane_cache_misses": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "timeout_count": {
             "format": "uint64",
             "type": "integer"
@@ -4351,6 +4451,12 @@
           "current_parent_overlay_checkpoint_rollback_count",
           "current_parent_overlay_delta_estimated_bytes",
           "current_parent_scratch_pool_estimated_bytes",
+          "current_parent_scratch_pool_peak_bytes",
+          "current_parent_scratch_pool_max_entries",
+          "current_parent_scratch_pool_max_bytes",
+          "current_parent_scratch_pool_hits",
+          "current_parent_scratch_pool_misses",
+          "current_parent_scratch_pool_discards",
           "current_parent_artifact_cache_bytes",
           "current_parent_state_read_cache_bytes",
           "current_parent_state_read_cache_entries",
@@ -4361,6 +4467,13 @@
           "current_parent_state_read_cache_lock_wait_ns",
           "current_parent_artifact_cache_cap_bytes",
           "current_parent_state_read_cache_cap_bytes",
+          "state_commitment_lane_cache_entries",
+          "state_commitment_lane_cache_bytes",
+          "state_commitment_lane_cache_cap_bytes",
+          "state_commitment_lane_cache_hits",
+          "state_commitment_lane_cache_misses",
+          "state_commitment_lane_cache_evictions",
+          "state_commitment_durable_loader_backed",
           "current_parent_state_manager_workspace_count",
           "live_edge_material_entries",
           "live_edge_material_bytes",
