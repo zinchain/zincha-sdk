@@ -151,6 +151,7 @@ for required in (
     "capability_category",
     "capability_status",
     "after_seq",
+    "before_seq",
     "backfill",
     "limit",
 ):
@@ -162,6 +163,14 @@ for stale in ("event_type", "since_ms", "until_ms", "offset"):
 status_enum = ((event_log_params.get("capability_status") or {}).get("schema") or {}).get("enum")
 if status_enum != ["active", "pending", "rejected", "deprecated"]:
     raise SystemExit("error: GET /v1/events capability_status must document catalog status enum")
+
+event_log_schema = ((spec.get("components") or {}).get("schemas") or {}).get("EventLog") or {}
+event_log_page = ((event_log_schema.get("properties") or {}).get("page") or {})
+event_log_page_properties = event_log_page.get("properties") or {}
+if "next_before_seq" not in event_log_page_properties:
+    raise SystemExit("error: EventLog.page missing next_before_seq backfill continuation")
+if "next_before_seq" not in (event_log_page.get("required") or []):
+    raise SystemExit("error: EventLog.page must require next_before_seq")
 
 task_opportunity = (((spec.get("paths") or {}).get("/v1/tasks/{id}/opportunity") or {}).get("get") or {})
 if not task_opportunity:
@@ -630,6 +639,7 @@ required_skill_markers=(
     "x-zincha-requires-archive-history: true"
     "heavy_archive_serving_available"
     "do not intrinsically require an"
+    "before_seq=page.next_before_seq"
     "discover_capability"
     "discover_min_fee"
     "discover_fee=capability:fee"

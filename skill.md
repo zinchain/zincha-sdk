@@ -235,9 +235,13 @@ Useful public routes:
   devnet and incentivized-testnet use only and should not be surfaced to
   public developers.
 - `GET /v1/events` for retained durable event replay. It uses sequence-based
-  `after_seq` or recent `backfill` semantics rather than cursor pagination and
-  does not itself require archive readiness. Per-contract event history is an
-  archive-required cursor-paged surface; consult each operation's
+  `after_seq` or recent `backfill` semantics rather than opaque cursor
+  pagination and does not itself require archive readiness. Backfill scans are
+  bounded: when `page.has_more` is true, repeat the same filtered request with
+  the exclusive `before_seq=page.next_before_seq` continuation until
+  `has_more` is false. Never combine `after_seq` and `before_seq` in one
+  request. Per-contract event history is an archive-required cursor-paged
+  surface; consult each operation's
   `x-zincha-requires-archive-history` marker instead of assuming all event
   endpoints have the same storage requirement.
 - `/ws` for live subscription streams.

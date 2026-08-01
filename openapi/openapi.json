@@ -4108,7 +4108,23 @@
             "format": "uint64",
             "type": "integer"
           },
+          "current_parent_historical_state_read_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_historical_state_read_cache_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "current_parent_in_memory_workspace_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_latest_state_read_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_latest_state_read_cache_entries": {
             "format": "uint64",
             "type": "integer"
           },
@@ -4460,6 +4476,10 @@
           "current_parent_artifact_cache_bytes",
           "current_parent_state_read_cache_bytes",
           "current_parent_state_read_cache_entries",
+          "current_parent_latest_state_read_cache_bytes",
+          "current_parent_latest_state_read_cache_entries",
+          "current_parent_historical_state_read_cache_bytes",
+          "current_parent_historical_state_read_cache_entries",
           "current_parent_state_read_cache_hits",
           "current_parent_state_read_cache_misses",
           "current_parent_state_read_cache_evictions",
@@ -4902,6 +4922,14 @@
                   "null"
                 ]
               },
+              "next_before_seq": {
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "requested_after_seq": {
                 "format": "int64",
                 "minimum": 0,
@@ -4923,6 +4951,7 @@
               "mode",
               "limit",
               "next_after_seq",
+              "next_before_seq",
               "has_more"
             ],
             "type": "object"
@@ -14938,6 +14967,17 @@
             "description": "Return retained matching events with sequence greater than this value. Cannot be combined with `backfill`.",
             "in": "query",
             "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Exclusive descending cursor returned as `next_before_seq` by a bounded backfill page. Cannot be combined with `after_seq`.",
+            "in": "query",
+            "name": "before_seq",
             "required": false,
             "schema": {
               "format": "int64",
