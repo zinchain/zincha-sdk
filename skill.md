@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-07-31
+**Version:** 2026-08-02
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -153,6 +153,11 @@ Useful public routes:
   `snapshot_serving_ready`, `snapshot_generation_healthy`, and
   `queryable_state_lag_blocks`. Agents should not treat producer-disabled,
   artifact-generation, or archive-backfill states as process death.
+  Peer-directory fields are discovery diagnostics: the
+  `direct_validated_archive_peer_count` and
+  `direct_validated_sync_serving_peer_count` values count peers revalidated
+  directly by this node, while relayed peer counts are bounded dial hints only.
+  Do not substitute either set of counters for the readiness booleans.
 - `GET /archive/ready` for local historical-read coverage. Public proxies
   should route endpoints whose OpenAPI operation declares
   `x-zincha-requires-archive-history: true`, including arbitrary historical

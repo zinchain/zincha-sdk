@@ -6786,6 +6786,12 @@
           "contract_runtime": {
             "$ref": "#/components/schemas/ContractRuntimeProfileStatus"
           },
+          "direct_validated_archive_peer_count": {
+            "type": "integer"
+          },
+          "direct_validated_sync_serving_peer_count": {
+            "type": "integer"
+          },
           "durable_recovery_head": {
             "$ref": "#/components/schemas/DurableRecoveryHeadHealthStatus"
           },
@@ -7278,6 +7284,8 @@
           "sync_peer_selection_last_skip_reason",
           "fresh_bootstrap_requires_snapshot",
           "strict_archive_snapshot_peer_count",
+          "direct_validated_archive_peer_count",
+          "direct_validated_sync_serving_peer_count",
           "relayed_archive_hint_count",
           "relayed_sync_serving_hint_count",
           "stale_peer_address_conflict_count",

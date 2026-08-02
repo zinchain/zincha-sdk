@@ -38,6 +38,20 @@ for required in (
     if required not in description:
         raise SystemExit(f"error: OpenAPI description missing {required!r}")
 
+readiness_schema = ((spec.get("components") or {}).get("schemas") or {}).get(
+    "ReadinessProbeStatus"
+) or {}
+readiness_properties = readiness_schema.get("properties") or {}
+readiness_required = set(readiness_schema.get("required") or [])
+for field in (
+    "direct_validated_archive_peer_count",
+    "direct_validated_sync_serving_peer_count",
+):
+    if field not in readiness_properties:
+        raise SystemExit(f"error: ReadinessProbeStatus missing {field}")
+    if field not in readiness_required:
+        raise SystemExit(f"error: ReadinessProbeStatus must require {field}")
+
 capability_paths = {
     "/v1/capabilities": (
         "list_capabilities",
@@ -638,6 +652,9 @@ required_skill_markers=(
     "provider-authenticated"
     "x-zincha-requires-archive-history: true"
     "heavy_archive_serving_available"
+    "direct_validated_archive_peer_count"
+    "direct_validated_sync_serving_peer_count"
+    "relayed peer counts are bounded dial hints only"
     "do not intrinsically require an"
     "before_seq=page.next_before_seq"
     "discover_capability"
