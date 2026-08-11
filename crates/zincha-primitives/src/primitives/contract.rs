@@ -818,7 +818,7 @@ pub fn compute_contract_event_block_root(events: &[ContractEvent]) -> Hash256 {
             .then_with(|| a.data.cmp(&b.data))
     });
     let leaf_hashes: Vec<Hash256> = sorted.iter().map(hash_contract_event).collect();
-    crate::crypto::MerkleTree::from_hashes(leaf_hashes).root()
+    crate::crypto::MerkleTree::root_from_hashes_owned(leaf_hashes)
 }
 
 pub fn advance_contract_event_archive_accumulator(

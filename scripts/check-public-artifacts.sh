@@ -585,6 +585,100 @@ for field in (
     if field not in direct_finality_properties or field not in direct_finality_required:
         raise SystemExit(f"error: DirectFinalityValidationStatus missing required {field}")
 
+direct_finality_reject_reasons = (
+    (direct_finality_properties.get("last_reject_reason") or {}).get("enum") or []
+)
+if "timeout_committee_mismatch" not in direct_finality_reject_reasons:
+    raise SystemExit(
+        "error: DirectFinalityValidationStatus must document timeout_committee_mismatch"
+    )
+
+epoch_transition_status = spec["components"]["schemas"].get("EpochTransitionHealthStatus") or {}
+epoch_transition_properties = epoch_transition_status.get("properties") or {}
+epoch_transition_required = set(epoch_transition_status.get("required") or [])
+for field in (
+    "validator_participation_summary_epochs",
+    "validator_participation_last_block",
+    "validator_participation_retained_bytes",
+):
+    if field not in epoch_transition_properties or field not in epoch_transition_required:
+        raise SystemExit(f"error: EpochTransitionHealthStatus missing required {field}")
+if epoch_transition_properties["validator_participation_summary_epochs"].get("maxItems") != 2:
+    raise SystemExit(
+        "error: validator participation diagnostics must remain bounded to two epochs"
+    )
+
+event_outbox_status = spec["components"]["schemas"].get("EventOutboxRepairHealthStatus") or {}
+event_outbox_properties = event_outbox_status.get("properties") or {}
+event_outbox_required = set(event_outbox_status.get("required") or [])
+for field in (
+    "status_summary_rebuild_requested",
+    "status_summary_rebuild_count",
+):
+    if field not in event_outbox_properties or field not in event_outbox_required:
+        raise SystemExit(f"error: EventOutboxRepairHealthStatus missing required {field}")
+
+producer_status = spec["components"]["schemas"].get("ProducerHealthStatus") or {}
+producer_properties = producer_status.get("properties") or {}
+producer_required = set(producer_status.get("required") or [])
+for field in (
+    "soft_wait_canonical_runtime_publication_count",
+    "soft_wait_durable_proposal_awaiting_qc_count",
+    "soft_wait_initial_sync_count",
+):
+    if field not in producer_properties or field not in producer_required:
+        raise SystemExit(f"error: ProducerHealthStatus missing required {field}")
+
+runtime_work_status = spec["components"]["schemas"].get("RuntimeWorkHealthStatus") or {}
+runtime_work_properties = runtime_work_status.get("properties") or {}
+runtime_work_required = set(runtime_work_status.get("required") or [])
+for field in (
+    "production_worker_active",
+    "production_single_flight_skipped",
+    "block_queue_depth",
+    "block_queue_high_water",
+    "block_queue_bytes",
+    "block_queue_high_water_bytes",
+    "block_queue_dropped",
+    "finality_queue_depth",
+    "finality_queue_high_water",
+    "finality_queue_bytes",
+    "finality_queue_high_water_bytes",
+    "finality_queue_dropped",
+    "sync_response_queue_depth",
+    "sync_response_queue_high_water",
+    "sync_response_queue_bytes",
+    "sync_response_queue_high_water_bytes",
+    "finality_round_lock",
+):
+    if field not in runtime_work_properties or field not in runtime_work_required:
+        raise SystemExit(f"error: RuntimeWorkHealthStatus missing required {field}")
+finality_round_lock = runtime_work_properties["finality_round_lock"]
+finality_round_lock_properties = finality_round_lock.get("properties") or {}
+finality_round_lock_required = set(finality_round_lock.get("required") or [])
+for field in (
+    "owner_phase",
+    "owner_generation",
+    "owner_age_ms",
+    "waiter_count",
+    "contention_count",
+    "timeout_count",
+):
+    if field not in finality_round_lock_properties or field not in finality_round_lock_required:
+        raise SystemExit(f"error: finality_round_lock missing required {field}")
+
+validator_schema = spec["components"]["schemas"].get("Validator") or {}
+validator_properties = validator_schema.get("properties") or {}
+for field in (
+    "consecutive_inactive_epochs",
+    "suspended",
+    "suspended_since_epoch",
+):
+    if field not in validator_properties:
+        raise SystemExit(f"error: Validator missing {field}")
+if "jailed" in validator_properties:
+    raise SystemExit("error: Validator must not expose retired jailed lifecycle state")
+
 print("openapi/openapi.json parsed OK")
 PY
 
@@ -655,6 +749,8 @@ required_skill_markers=(
     "direct_validated_archive_peer_count"
     "direct_validated_sync_serving_peer_count"
     "relayed peer counts are bounded dial hints only"
+    "Hints are selected only for fresh bootstrap, block catch-up, or archive"
+    "selector-owned recovery connections are retired after the work completes."
     "do not intrinsically require an"
     "before_seq=page.next_before_seq"
     "discover_capability"

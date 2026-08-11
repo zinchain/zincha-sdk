@@ -15,7 +15,7 @@ pub const ADDRESS_PREFIX: &str = "zn1";
 // ---------------------------------------------------------------------------
 
 /// A 20-byte Zincha address derived from a public key.
-/// Format: zn1<bech32-like hex>
+/// Format: `zn1` followed by 40 lowercase hex characters.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Address(#[serde(with = "hex_serde")] pub [u8; 20]);
 

@@ -157,6 +157,9 @@ Useful public routes:
   `direct_validated_archive_peer_count` and
   `direct_validated_sync_serving_peer_count` values count peers revalidated
   directly by this node, while relayed peer counts are bounded dial hints only.
+  Hints are selected only for fresh bootstrap, block catch-up, or archive
+  backfill; they do not create a permanent all-to-all connection mesh, and
+  selector-owned recovery connections are retired after the work completes.
   Do not substitute either set of counters for the readiness booleans.
 - `GET /archive/ready` for local historical-read coverage. Public proxies
   should route endpoints whose OpenAPI operation declares
