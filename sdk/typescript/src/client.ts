@@ -9,6 +9,12 @@ import {
 } from "./transaction.ts";
 import {
   createSignableTransaction,
+  encodeAgreementAcceptData,
+  encodeAgreementCancelData,
+  encodeAgreementCreateData,
+  encodeAgreementDisputeData,
+  encodeAgreementExecuteData,
+  encodeAgreementResolveData,
   encodeAgentDeregisterData,
   encodeTaskAcceptData,
   encodeTaskCancelData,
@@ -66,6 +72,12 @@ import {
   encodeCapabilityRejectData,
   type AgentDeregisterInput,
   type AgentUpdateInput,
+  type AgreementAcceptInput,
+  type AgreementCancelInput,
+  type AgreementCreateInput,
+  type AgreementDisputeInput,
+  type AgreementExecuteInput,
+  type AgreementResolveInput,
   type CapabilityApproveInput,
   type CapabilityDeprecateInput,
   type CapabilityProposeInput,
@@ -561,6 +573,96 @@ export class ZinchaClient {
   /** Convenience: build + submit a `task_cancel` transaction. */
   async cancelTaskAndSubmit(keypair: Keypair, input: TaskCancelInput): Promise<SubmitTransactionResponse> {
     return this.submitSignedTransaction(await this.buildCancelTask(keypair, input));
+  }
+
+  /** Build, sign, and return an escrow-funded `agreement_create` transaction. */
+  async buildCreateAgreement(keypair: Keypair, input: AgreementCreateInput): Promise<SignedTransaction> {
+    const proposer = normalizeAddress(keypair.address());
+    if (!input.parties.some((party) => normalizeAddress(party) === proposer)) {
+      throw new Error("agreement proposer must be included in parties");
+    }
+    if (normalizeAddress(input.serviceProvider) === proposer) {
+      throw new Error("agreement serviceProvider cannot be the proposer");
+    }
+    if (input.settlementApprover !== null && input.settlementApprover !== undefined) {
+      const approver = normalizeAddress(input.settlementApprover);
+      const settlementRecipients = input.settlementAllocations && input.settlementAllocations.length > 0
+        ? input.settlementAllocations.map((allocation) => normalizeAddress(allocation.recipient))
+        : [normalizeAddress(input.serviceProvider)];
+      const invalidRecipient = approver !== proposer && settlementRecipients.includes(approver);
+      if (invalidRecipient) {
+        throw new Error("settlementApprover cannot be a non-proposer payout recipient");
+      }
+    }
+    return this.buildTypedTransaction(
+      keypair,
+      "agreement_create",
+      { ...input, amountMicroZin: input.escrowAmount },
+      encodeAgreementCreateData(input),
+    );
+  }
+
+  /** Convenience: build + submit an `agreement_create` transaction. */
+  async createAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementCreateInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildCreateAgreement(keypair, input));
+  }
+
+  async buildAcceptAgreement(keypair: Keypair, input: AgreementAcceptInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "agreement_accept", input, encodeAgreementAcceptData(input));
+  }
+
+  async acceptAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementAcceptInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildAcceptAgreement(keypair, input));
+  }
+
+  async buildExecuteAgreement(keypair: Keypair, input: AgreementExecuteInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "agreement_execute", input, encodeAgreementExecuteData(input));
+  }
+
+  async executeAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementExecuteInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildExecuteAgreement(keypair, input));
+  }
+
+  async buildDisputeAgreement(keypair: Keypair, input: AgreementDisputeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "agreement_dispute", input, encodeAgreementDisputeData(input));
+  }
+
+  async disputeAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementDisputeInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDisputeAgreement(keypair, input));
+  }
+
+  async buildResolveAgreement(keypair: Keypair, input: AgreementResolveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "agreement_resolve", input, encodeAgreementResolveData(input));
+  }
+
+  async resolveAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementResolveInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildResolveAgreement(keypair, input));
+  }
+
+  async buildCancelAgreement(keypair: Keypair, input: AgreementCancelInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(keypair, "agreement_cancel", input, encodeAgreementCancelData(input));
+  }
+
+  async cancelAgreementAndSubmit(
+    keypair: Keypair,
+    input: AgreementCancelInput,
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildCancelAgreement(keypair, input));
   }
 
   /** Build, sign, and return a `reputation_update` transaction. */

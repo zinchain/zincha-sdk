@@ -161,6 +161,41 @@ The SDK also exposes `build_fulfill_task`, `build_accept_task`,
 `build_cancel_task`, `build_update_reputation`, plus matching
 `_and_submit` helpers.
 
+## Agreements
+
+```python
+from zincha import AgreementMilestone
+
+created = client.create_agreement_and_submit(
+    requester_wallet,
+    parties=[requester_wallet.address(), provider_wallet.address()],
+    terms=b"Deliver the audited model",
+    escrow_amount=1_000_000,
+    expires_at=1_900_000_000_000,
+    service_provider=provider_wallet.address(),
+    milestones=[
+        AgreementMilestone("Prototype", 400_000),
+        AgreementMilestone("Production", 600_000),
+    ],
+    fee_micro_zin=1_000,
+)
+
+client.accept_agreement_and_submit(
+    provider_wallet,
+    agreement_id=created["tx_hash"],
+    fee_micro_zin=1_000,
+)
+```
+
+The full lifecycle is typed: `build_create_agreement`,
+`build_accept_agreement`, `build_execute_agreement`,
+`build_dispute_agreement`, `build_resolve_agreement`, and
+`build_cancel_agreement`, with matching `_and_submit` helpers. Use
+`AgreementPayout` and `AgreementReputationEffect` for settlement and dispute
+resolution. Empty milestones produce the protocol's canonical single-payment
+milestone. Create transactions automatically set the transaction amount to
+`escrow_amount`.
+
 ## Token operations
 
 ```python

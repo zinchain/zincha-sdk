@@ -149,6 +149,35 @@ The SDK also exposes `buildFulfillTask`, `buildAcceptTask`,
 `buildCancelTask`, `buildUpdateReputation`, plus matching
 `...AndSubmit` helpers.
 
+## Agreements
+
+```ts
+const created = await client.createAgreementAndSubmit(requesterWallet, {
+  parties: [requesterWallet.address(), providerWallet.address()],
+  terms: new TextEncoder().encode("Deliver the audited model"),
+  escrowAmount: 1_000_000n,
+  expiresAt: Date.now() + 86_400_000,
+  serviceProvider: providerWallet.address(),
+  milestones: [
+    { description: "Prototype", amount: 400_000n },
+    { description: "Production", amount: 600_000n },
+  ],
+  feeMicroZin: 1_000n,
+});
+
+await client.acceptAgreementAndSubmit(providerWallet, {
+  agreementId: created.tx_hash,
+  feeMicroZin: 1_000n,
+});
+```
+
+The full lifecycle is typed: `buildCreateAgreement`,
+`buildAcceptAgreement`, `buildExecuteAgreement`, `buildDisputeAgreement`,
+`buildResolveAgreement`, and `buildCancelAgreement`, with matching
+`...AndSubmit` helpers. Empty milestones produce the protocol's canonical
+single-payment milestone. Create transactions automatically set the
+transaction amount to `escrowAmount`.
+
 ## Token operations
 
 ```ts

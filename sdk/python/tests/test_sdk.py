@@ -3,6 +3,9 @@ import unittest
 from pathlib import Path
 
 from zincha import (
+    AgreementMilestone,
+    AgreementPayout,
+    AgreementReputationEffect,
     BincodeWriter,
     Keypair,
     MatchPreferences,
@@ -11,6 +14,12 @@ from zincha import (
     TX_TYPE_WIRE_CODES,
     bytes_to_hex,
     create_transfer_transaction,
+    encode_agreement_accept_data,
+    encode_agreement_cancel_data,
+    encode_agreement_create_data,
+    encode_agreement_dispute_data,
+    encode_agreement_execute_data,
+    encode_agreement_resolve_data,
     encode_agent_deregister_data,
     encode_agent_register_data,
     encode_agent_update_data,
@@ -802,11 +811,12 @@ class BincodePrimitiveTests(unittest.TestCase):
     def test_writer_emits_little_endian_primitives(self):
         w = BincodeWriter()
         w.write_u8(1)
+        w.write_u16(0x2345)
         w.write_u32(0x12345678)
         w.write_u64(0x0102030405060708)
         self.assertEqual(
             w.finish().hex(),
-            "01" + "78563412" + "0807060504030201",
+            "01" + "4523" + "78563412" + "0807060504030201",
         )
 
     def test_writer_option_none_is_zero_byte(self):
@@ -1034,6 +1044,156 @@ class GoldenVectorTests(unittest.TestCase):
 
         cancel = encode_task_cancel_data(task_id=golden["cancel"]["input"]["task_id"])
         self.assertEqual(cancel.hex(), golden["cancel"]["data_hex"])
+
+    def test_agreement_lifecycle_encoders_match_rust_golden(self):
+        golden = json.loads(_python_fixture_path("golden-agreement-lifecycle.json").read_text())
+        create = golden["create"]["input"]
+        encoded_create = encode_agreement_create_data(
+            parties=create["parties"],
+            terms=bytes.fromhex(create["terms_hex"]),
+            escrow_amount=create["escrow_amount"],
+            expires_at=create["expires_at"],
+            arbitrator=create["arbitrator"],
+            milestones=[AgreementMilestone(**item) for item in create["milestones"]],
+            service_provider=create["service_provider"],
+            settlement_allocations=[
+                AgreementPayout(**item) for item in create["settlement_allocations"]
+            ],
+            settlement_approver=create["settlement_approver"],
+        )
+        self.assertEqual(encoded_create.hex(), golden["create"]["data_hex"])
+        self.assertEqual(
+            encode_agreement_accept_data(**golden["accept"]["input"]).hex(),
+            golden["accept"]["data_hex"],
+        )
+        self.assertEqual(
+            encode_agreement_execute_data(**golden["execute"]["input"]).hex(),
+            golden["execute"]["data_hex"],
+        )
+        self.assertEqual(
+            encode_agreement_dispute_data(**golden["dispute"]["input"]).hex(),
+            golden["dispute"]["data_hex"],
+        )
+        resolve = golden["resolve"]["input"]
+        self.assertEqual(
+            encode_agreement_resolve_data(
+                agreement_id=resolve["agreement_id"],
+                payouts=[AgreementPayout(**item) for item in resolve["payouts"]],
+                reputation_effects=[
+                    AgreementReputationEffect(**item)
+                    for item in resolve["reputation_effects"]
+                ],
+                reason=resolve["reason"],
+                milestone_index=resolve["milestone_index"],
+            ).hex(),
+            golden["resolve"]["data_hex"],
+        )
+        self.assertEqual(
+            encode_agreement_cancel_data(**golden["cancel"]["input"]).hex(),
+            golden["cancel"]["data_hex"],
+        )
+
+    def test_agreement_encoders_reject_invalid_settlement_and_milestones(self):
+        proposer = "zn1" + "11" * 20
+        provider = "zn1" + "22" * 20
+        with self.assertRaisesRegex(ValueError, "sum to escrow_amount"):
+            encode_agreement_create_data(
+                parties=[proposer, provider],
+                terms=b"",
+                escrow_amount=100,
+                expires_at=0,
+                service_provider=provider,
+                milestones=[AgreementMilestone("bad", 99)],
+            )
+        with self.assertRaisesRegex(ValueError, "sum to 10,000"):
+            encode_agreement_resolve_data(
+                agreement_id="aa" * 32,
+                payouts=[AgreementPayout(provider, 9_999)],
+                reason="reason",
+            )
+        with self.assertRaisesRegex(ValueError, "4,096 UTF-8 bytes"):
+            encode_agreement_dispute_data(
+                agreement_id="aa" * 32,
+                reason="x" * 4_097,
+            )
+
+    def test_agreement_client_builders_sign_lifecycle_and_fund_create_escrow(self):
+        keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
+        provider = "zn1" + "22" * 20
+
+        def transport(*_args):
+            raise AssertionError("network should not be used")
+
+        client = ZinchaClient(base_url="http://node.test/", transport=transport)
+        common = {
+            "nonce": 10,
+            "chain_id": "zincha-vega-1",
+            "timestamp_ms": 1_700_000_000_000,
+            "reference_block_height": 42,
+            "reference_block_hash": "11" * 32,
+            "max_valid_block_height": 142,
+        }
+        created = client.build_create_agreement(
+            keypair,
+            **common,
+            parties=[keypair.address(), provider],
+            terms=b"deliver",
+            escrow_amount=1_000,
+            expires_at=1_900_000_000_000,
+            service_provider=provider,
+        )
+        self.assertEqual(created.transaction.tx_type, "agreement_create")
+        self.assertEqual(created.transaction.amount, 1_000)
+        with self.assertRaisesRegex(ValueError, "non-proposer payout recipient"):
+            client.build_create_agreement(
+                keypair,
+                **common,
+                parties=[keypair.address(), provider],
+                terms=b"",
+                escrow_amount=1_000,
+                expires_at=0,
+                service_provider=provider,
+                settlement_approver=provider,
+            )
+
+        agreement_id = "aa" * 32
+        accept = client.build_accept_agreement(keypair, **common, agreement_id=agreement_id)
+        execute = client.build_execute_agreement(
+            keypair,
+            **common,
+            agreement_id=agreement_id,
+            result_hash="bb" * 32,
+            milestone_index=0,
+        )
+        dispute = client.build_dispute_agreement(
+            keypair,
+            **common,
+            agreement_id=agreement_id,
+            reason="failed",
+            milestone_index=0,
+        )
+        resolve = client.build_resolve_agreement(
+            keypair,
+            **common,
+            agreement_id=agreement_id,
+            payouts=[AgreementPayout(provider, 10_000)],
+            reason="resolved",
+            milestone_index=0,
+        )
+        cancel = client.build_cancel_agreement(keypair, **common, agreement_id=agreement_id)
+        self.assertEqual(
+            [tx.transaction.tx_type for tx in (accept, execute, dispute, resolve, cancel)],
+            [
+                "agreement_accept",
+                "agreement_execute",
+                "agreement_dispute",
+                "agreement_resolve",
+                "agreement_cancel",
+            ],
+        )
+        for signed in (accept, execute, dispute, resolve, cancel):
+            self.assertEqual(signed.transaction.amount, 0)
+            self.assertRegex(signed.hash, r"^[0-9a-f]{64}$")
 
     def test_reputation_update_encoder_matches_rust_wire_layout(self):
         task_id = "12" * 32

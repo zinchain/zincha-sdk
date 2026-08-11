@@ -9,7 +9,7 @@
 // builder is covered by a golden vector test (see test/sdk.test.ts) that
 // pins it to a fixture produced by the Rust SDK.
 
-import { BincodeWriter, asU64 } from "./bincode.ts";
+import { BincodeWriter, asU32, asU64 } from "./bincode.ts";
 import { bytesToHex, hexToBytes, normalizeAddress, rawAddressHex } from "./crypto.ts";
 import { createTransaction } from "./transaction.ts";
 import type {
@@ -489,6 +489,251 @@ export interface TaskCancelInput extends BaseTxOptions {
 /** Encode the `TaskCancel` payload: raw 32-byte task id, matching the Rust handler. */
 export function encodeTaskCancelData(input: TaskCancelInput): Uint8Array {
   return hexToBytes(input.taskId, 32);
+}
+
+/* ─── Agreement lifecycle ───────────────────────────────────────── */
+
+export interface AgreementMilestoneInput {
+  description: string;
+  amount: BigNumberish;
+}
+
+export interface AgreementPayoutInput {
+  recipient: AddressString;
+  /** Share in basis points. All shares in a payout vector must sum to 10,000. */
+  shareBps: number;
+}
+
+export type AgreementDisputeOutcome = "won" | "lost";
+
+export interface AgreementReputationEffectInput {
+  party: AddressString;
+  outcome: AgreementDisputeOutcome;
+}
+
+export interface AgreementCreateInput extends BaseTxOptions {
+  parties: readonly AddressString[];
+  terms: Uint8Array;
+  escrowAmount: BigNumberish;
+  expiresAt: BigNumberish;
+  arbitrator?: AddressString | null;
+  /** Empty or omitted creates one canonical "Complete agreement" milestone. */
+  milestones?: readonly AgreementMilestoneInput[];
+  serviceProvider: AddressString;
+  /** Empty or omitted lets the protocol assign 100% to the service provider. */
+  settlementAllocations?: readonly AgreementPayoutInput[];
+  settlementApprover?: AddressString | null;
+}
+
+export interface AgreementAcceptInput extends BaseTxOptions {
+  agreementId: Hex;
+}
+
+export interface AgreementExecuteInput extends BaseTxOptions {
+  agreementId: Hex;
+  resultHash: Hex;
+  milestoneIndex: number;
+}
+
+export interface AgreementDisputeInput extends BaseTxOptions {
+  agreementId: Hex;
+  reason: string;
+  milestoneIndex?: number | null;
+}
+
+export interface AgreementResolveInput extends BaseTxOptions {
+  agreementId: Hex;
+  payouts: readonly AgreementPayoutInput[];
+  reputationEffects?: readonly AgreementReputationEffectInput[];
+  reason: string;
+  milestoneIndex?: number | null;
+}
+
+export interface AgreementCancelInput extends BaseTxOptions {
+  agreementId: Hex;
+}
+
+const AGREEMENT_REASON_MAX_BYTES = 4_096;
+
+function normalizedAddressSet(addresses: readonly AddressString[]): Set<string> {
+  return new Set(addresses.map(rawAddressHex));
+}
+
+function validateAgreementReason(reason: string, label: string): void {
+  const length = new TextEncoder().encode(reason).length;
+  if (length > AGREEMENT_REASON_MAX_BYTES) {
+    throw new Error(`${label} must not exceed 4,096 UTF-8 bytes`);
+  }
+}
+
+function validateAgreementPayouts(
+  payouts: readonly AgreementPayoutInput[],
+  label: string,
+  allowedRecipients?: ReadonlySet<string>,
+): void {
+  if (payouts.length === 0) {
+    throw new Error(`${label} cannot be empty`);
+  }
+  const recipients = new Set<string>();
+  let total = 0;
+  for (const payout of payouts) {
+    const recipient = rawAddressHex(payout.recipient);
+    if (recipients.has(recipient)) {
+      throw new Error(`${label} cannot contain duplicate recipients`);
+    }
+    if (allowedRecipients !== undefined && !allowedRecipients.has(recipient)) {
+      throw new Error(`${label} recipient must be an agreement party`);
+    }
+    if (!Number.isInteger(payout.shareBps) || payout.shareBps <= 0 || payout.shareBps > 10_000) {
+      throw new Error(`${label} shareBps must be between 1 and 10,000`);
+    }
+    recipients.add(recipient);
+    total += payout.shareBps;
+  }
+  if (total !== 10_000) {
+    throw new Error(`${label} must sum to 10,000 bps`);
+  }
+}
+
+function writeAgreementMilestone(w: BincodeWriter, milestone: AgreementMilestoneInput): void {
+  w.writeString(milestone.description);
+  w.writeU64(milestone.amount);
+}
+
+function writeAgreementPayout(w: BincodeWriter, payout: AgreementPayoutInput): void {
+  writeAddress(w, payout.recipient);
+  w.writeU16(payout.shareBps);
+}
+
+function writeAgreementReputationEffect(
+  w: BincodeWriter,
+  effect: AgreementReputationEffectInput,
+): void {
+  writeAddress(w, effect.party);
+  w.writeU32(effect.outcome === "won" ? 0 : effect.outcome === "lost" ? 1 : (() => {
+    throw new Error(`unsupported agreement dispute outcome: ${String(effect.outcome)}`);
+  })());
+}
+
+export function encodeAgreementCreateData(input: AgreementCreateInput): Uint8Array {
+  if (input.parties.length < 2 || input.parties.length > 10) {
+    throw new Error("agreement parties must contain between 2 and 10 addresses");
+  }
+  const parties = normalizedAddressSet(input.parties);
+  if (parties.size !== input.parties.length) {
+    throw new Error("agreement parties cannot contain duplicates");
+  }
+  const escrowAmount = asU64(input.escrowAmount, "escrowAmount");
+  if (escrowAmount === 0n) {
+    throw new Error("escrowAmount must be greater than zero");
+  }
+  if (input.terms.length > 65_536) {
+    throw new Error("agreement terms must not exceed 65,536 bytes");
+  }
+  const milestones = input.milestones && input.milestones.length > 0
+    ? [...input.milestones]
+    : [{ description: "Complete agreement", amount: escrowAmount }];
+  if (milestones.length > 20) {
+    throw new Error("agreement cannot contain more than 20 milestones");
+  }
+  let milestoneTotal = 0n;
+  for (const milestone of milestones) {
+    if (new TextEncoder().encode(milestone.description).length > 1_024) {
+      throw new Error("agreement milestone description must not exceed 1,024 UTF-8 bytes");
+    }
+    milestoneTotal += asU64(milestone.amount, "milestone amount");
+    if (milestoneTotal > 0xffff_ffff_ffff_ffffn) {
+      throw new Error("agreement milestone amounts overflow unsigned 64 bits");
+    }
+  }
+  if (milestoneTotal !== escrowAmount) {
+    throw new Error("agreement milestone amounts must sum to escrowAmount");
+  }
+  const serviceProvider = rawAddressHex(input.serviceProvider);
+  if (!parties.has(serviceProvider)) {
+    throw new Error("serviceProvider must be an agreement party");
+  }
+  if (input.arbitrator !== null && input.arbitrator !== undefined && parties.has(rawAddressHex(input.arbitrator))) {
+    throw new Error("arbitrator cannot be an agreement party");
+  }
+  const allocations = input.settlementAllocations ?? [];
+  if (allocations.length > 0) {
+    validateAgreementPayouts(allocations, "settlementAllocations", parties);
+    if (!allocations.some((allocation) => rawAddressHex(allocation.recipient) === serviceProvider)) {
+      throw new Error("serviceProvider must receive a settlement allocation");
+    }
+  }
+  if (input.settlementApprover !== null && input.settlementApprover !== undefined
+    && !parties.has(rawAddressHex(input.settlementApprover))) {
+    throw new Error("settlementApprover must be an agreement party");
+  }
+  if (input.parties.length > 2 && (input.settlementApprover === null || input.settlementApprover === undefined)) {
+    throw new Error("multi-party agreements require settlementApprover");
+  }
+
+  const w = new BincodeWriter();
+  w.writeVec(input.parties, writeAddress);
+  w.writeBytes(input.terms);
+  w.writeU64(escrowAmount);
+  w.writeU64(input.expiresAt);
+  w.writeOption(input.arbitrator, writeAddress);
+  w.writeVec(milestones, writeAgreementMilestone);
+  writeAddress(w, input.serviceProvider);
+  w.writeVec(allocations, writeAgreementPayout);
+  w.writeOption(input.settlementApprover, writeAddress);
+  return w.finish();
+}
+
+export function encodeAgreementAcceptData(input: AgreementAcceptInput): Uint8Array {
+  const w = new BincodeWriter();
+  writeHash256(w, input.agreementId);
+  return w.finish();
+}
+
+export function encodeAgreementExecuteData(input: AgreementExecuteInput): Uint8Array {
+  const w = new BincodeWriter();
+  writeHash256(w, input.agreementId);
+  writeHash256(w, input.resultHash);
+  w.writeU32(asU32(input.milestoneIndex, "milestoneIndex"));
+  return w.finish();
+}
+
+export function encodeAgreementDisputeData(input: AgreementDisputeInput): Uint8Array {
+  validateAgreementReason(input.reason, "agreement dispute reason");
+  const w = new BincodeWriter();
+  writeHash256(w, input.agreementId);
+  w.writeString(input.reason);
+  w.writeOption(input.milestoneIndex, (writer, index) => writer.writeU32(asU32(index, "milestoneIndex")));
+  return w.finish();
+}
+
+export function encodeAgreementResolveData(input: AgreementResolveInput): Uint8Array {
+  validateAgreementReason(input.reason, "agreement resolution reason");
+  validateAgreementPayouts(input.payouts, "resolution payouts");
+  const effects = input.reputationEffects ?? [];
+  const effectParties = normalizedAddressSet(effects.map((effect) => effect.party));
+  if (effectParties.size !== effects.length) {
+    throw new Error("reputationEffects cannot contain duplicate parties");
+  }
+  if (effects.length > 0) {
+    const outcomes = new Set(effects.map((effect) => effect.outcome));
+    if (!outcomes.has("won") || !outcomes.has("lost")) {
+      throw new Error("reputationEffects must include at least one winner and one loser");
+    }
+  }
+  const w = new BincodeWriter();
+  writeHash256(w, input.agreementId);
+  w.writeVec(input.payouts, writeAgreementPayout);
+  w.writeVec(effects, writeAgreementReputationEffect);
+  w.writeString(input.reason);
+  w.writeOption(input.milestoneIndex, (writer, index) => writer.writeU32(asU32(index, "milestoneIndex")));
+  return w.finish();
+}
+
+export function encodeAgreementCancelData(input: AgreementCancelInput): Uint8Array {
+  const w = new BincodeWriter();
+  writeHash256(w, input.agreementId);
+  return w.finish();
 }
 
 export interface ReputationUpdateInput extends BaseTxOptions {

@@ -22,6 +22,12 @@ def as_u32(value: int, field: str = "value") -> int:
     return int(value)
 
 
+def as_u16(value: int, field: str = "value") -> int:
+    if int(value) != value or value < 0 or value > 0xFFFF:
+        raise ValueError("%s must fit in unsigned 16 bits" % field)
+    return int(value)
+
+
 def as_u8(value: int, field: str = "value") -> int:
     if int(value) != value or value < 0 or value > 0xFF:
         raise ValueError("%s must fit in unsigned 8 bits" % field)
@@ -34,6 +40,9 @@ class BincodeWriter:
 
     def write_u8(self, value: int) -> None:
         self._chunks.append(bytes([as_u8(value)]))
+
+    def write_u16(self, value: int) -> None:
+        self._chunks.append(as_u16(value).to_bytes(2, "little"))
 
     def write_u32(self, value: int) -> None:
         self._chunks.append(as_u32(value).to_bytes(4, "little"))

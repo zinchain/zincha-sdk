@@ -13,8 +13,17 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .builders import (
     CAPABILITY_PARENT_UNSET,
+    AgreementMilestone,
+    AgreementPayout,
+    AgreementReputationEffect,
     MatchPreferences,
     create_signable_transaction,
+    encode_agreement_accept_data,
+    encode_agreement_cancel_data,
+    encode_agreement_create_data,
+    encode_agreement_dispute_data,
+    encode_agreement_execute_data,
+    encode_agreement_resolve_data,
     encode_agent_deregister_data,
     encode_agent_register_data,
     encode_agent_update_data,
@@ -1035,6 +1044,251 @@ class ZinchaClient:
 
     def cancel_task_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
         return self.submit_signed_transaction(self.build_cancel_task(keypair, **input))
+
+    def build_create_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        parties: Sequence[str],
+        terms: bytes,
+        escrow_amount: int,
+        expires_at: int,
+        service_provider: str,
+        arbitrator: Optional[str] = None,
+        milestones: Sequence[AgreementMilestone] = (),
+        settlement_allocations: Sequence[AgreementPayout] = (),
+        settlement_approver: Optional[str] = None,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build + sign an escrow-funded ``agreement_create`` transaction."""
+        proposer = normalize_address(keypair.address())
+        if not any(normalize_address(party) == proposer for party in parties):
+            raise ValueError("agreement proposer must be included in parties")
+        if normalize_address(service_provider) == proposer:
+            raise ValueError("agreement service_provider cannot be the proposer")
+        if settlement_approver is not None:
+            approver = normalize_address(settlement_approver)
+            settlement_recipients = (
+                [normalize_address(allocation.recipient) for allocation in settlement_allocations]
+                if settlement_allocations
+                else [normalize_address(service_provider)]
+            )
+            if approver != proposer and approver in settlement_recipients:
+                raise ValueError(
+                    "settlement_approver cannot be a non-proposer payout recipient"
+                )
+        data = encode_agreement_create_data(
+            parties=parties,
+            terms=terms,
+            escrow_amount=escrow_amount,
+            expires_at=expires_at,
+            service_provider=service_provider,
+            arbitrator=arbitrator,
+            milestones=milestones,
+            settlement_allocations=settlement_allocations,
+            settlement_approver=settlement_approver,
+        )
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_create",
+            data=data,
+            amount_micro_zin=escrow_amount,
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def create_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_create_agreement(keypair, **input))
+
+    def build_accept_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        agreement_id: str,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_accept",
+            data=encode_agreement_accept_data(agreement_id=agreement_id),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def accept_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_accept_agreement(keypair, **input))
+
+    def build_execute_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        agreement_id: str,
+        result_hash: str,
+        milestone_index: int,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_execute",
+            data=encode_agreement_execute_data(
+                agreement_id=agreement_id,
+                result_hash=result_hash,
+                milestone_index=milestone_index,
+            ),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def execute_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_execute_agreement(keypair, **input))
+
+    def build_dispute_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        agreement_id: str,
+        reason: str,
+        milestone_index: Optional[int] = None,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_dispute",
+            data=encode_agreement_dispute_data(
+                agreement_id=agreement_id,
+                reason=reason,
+                milestone_index=milestone_index,
+            ),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def dispute_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_dispute_agreement(keypair, **input))
+
+    def build_resolve_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        agreement_id: str,
+        payouts: Sequence[AgreementPayout],
+        reason: str,
+        reputation_effects: Sequence[AgreementReputationEffect] = (),
+        milestone_index: Optional[int] = None,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_resolve",
+            data=encode_agreement_resolve_data(
+                agreement_id=agreement_id,
+                payouts=payouts,
+                reputation_effects=reputation_effects,
+                reason=reason,
+                milestone_index=milestone_index,
+            ),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def resolve_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_resolve_agreement(keypair, **input))
+
+    def build_cancel_agreement(
+        self,
+        keypair: Keypair,
+        *,
+        agreement_id: str,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="agreement_cancel",
+            data=encode_agreement_cancel_data(agreement_id=agreement_id),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def cancel_agreement_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_cancel_agreement(keypair, **input))
 
     def build_update_reputation(
         self,

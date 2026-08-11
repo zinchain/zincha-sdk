@@ -16,7 +16,7 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
-from .bincode import BigNumberish, BincodeWriter, as_u64
+from .bincode import BigNumberish, BincodeWriter, as_u32, as_u64
 from .crypto import hex_to_bytes, normalize_address, raw_address_hex
 from .transaction import Transaction, create_transaction
 
@@ -46,6 +46,24 @@ class MatchPreferences:
     max_price: int = 0
     discovery_threshold: int = 10
     discovery_boost: int = 15
+
+
+@dataclass(frozen=True)
+class AgreementMilestone:
+    description: str
+    amount: BigNumberish
+
+
+@dataclass(frozen=True)
+class AgreementPayout:
+    recipient: str
+    share_bps: int
+
+
+@dataclass(frozen=True)
+class AgreementReputationEffect:
+    party: str
+    outcome: str
 
 
 # ─── Capability + Hash256 helpers ───────────────────────────────────
@@ -398,6 +416,193 @@ def encode_task_finalize_data(*, task_id: Hex) -> bytes:
 def encode_task_cancel_data(*, task_id: Hex) -> bytes:
     """Encode the ``TaskCancel`` payload: raw 32-byte task id, matching the Rust handler."""
     return hex_to_bytes(task_id, 32)
+
+
+# ─── Agreement lifecycle ───────────────────────────────────────────
+
+
+_AGREEMENT_REASON_MAX_BYTES = 4_096
+_AGREEMENT_OUTCOME_CODES = {"won": 0, "lost": 1}
+
+
+def _validate_agreement_reason(reason: str, label: str) -> None:
+    if len(reason.encode("utf-8")) > _AGREEMENT_REASON_MAX_BYTES:
+        raise ValueError("%s must not exceed 4,096 UTF-8 bytes" % label)
+
+
+def _validate_agreement_payouts(
+    payouts: Sequence[AgreementPayout],
+    label: str,
+    allowed_recipients: Optional[set[str]] = None,
+) -> None:
+    if not payouts:
+        raise ValueError("%s cannot be empty" % label)
+    recipients = set()
+    total = 0
+    for payout in payouts:
+        recipient = raw_address_hex(payout.recipient)
+        if recipient in recipients:
+            raise ValueError("%s cannot contain duplicate recipients" % label)
+        if allowed_recipients is not None and recipient not in allowed_recipients:
+            raise ValueError("%s recipient must be an agreement party" % label)
+        if not isinstance(payout.share_bps, int) or payout.share_bps <= 0 or payout.share_bps > 10_000:
+            raise ValueError("%s share_bps must be between 1 and 10,000" % label)
+        recipients.add(recipient)
+        total += payout.share_bps
+    if total != 10_000:
+        raise ValueError("%s must sum to 10,000 bps" % label)
+
+
+def _write_agreement_milestone(w: BincodeWriter, milestone: AgreementMilestone) -> None:
+    w.write_string(milestone.description)
+    w.write_u64(milestone.amount)
+
+
+def _write_agreement_payout(w: BincodeWriter, payout: AgreementPayout) -> None:
+    _write_address(w, payout.recipient)
+    w.write_u16(payout.share_bps)
+
+
+def _write_agreement_reputation_effect(
+    w: BincodeWriter, effect: AgreementReputationEffect
+) -> None:
+    _write_address(w, effect.party)
+    try:
+        outcome = _AGREEMENT_OUTCOME_CODES[effect.outcome]
+    except KeyError as error:
+        raise ValueError("unsupported agreement dispute outcome: %s" % effect.outcome) from error
+    w.write_u32(outcome)
+
+
+def encode_agreement_create_data(
+    *,
+    parties: Sequence[str],
+    terms: bytes,
+    escrow_amount: BigNumberish,
+    expires_at: BigNumberish,
+    service_provider: str,
+    arbitrator: Optional[str] = None,
+    milestones: Sequence[AgreementMilestone] = (),
+    settlement_allocations: Sequence[AgreementPayout] = (),
+    settlement_approver: Optional[str] = None,
+) -> bytes:
+    if len(parties) < 2 or len(parties) > 10:
+        raise ValueError("agreement parties must contain between 2 and 10 addresses")
+    normalized_parties = [raw_address_hex(party) for party in parties]
+    party_set = set(normalized_parties)
+    if len(party_set) != len(normalized_parties):
+        raise ValueError("agreement parties cannot contain duplicates")
+    escrow = as_u64(escrow_amount, "escrow_amount")
+    if escrow == 0:
+        raise ValueError("escrow_amount must be greater than zero")
+    if len(terms) > 65_536:
+        raise ValueError("agreement terms must not exceed 65,536 bytes")
+    canonical_milestones = list(milestones) or [
+        AgreementMilestone(description="Complete agreement", amount=escrow)
+    ]
+    if len(canonical_milestones) > 20:
+        raise ValueError("agreement cannot contain more than 20 milestones")
+    milestone_total = 0
+    for milestone in canonical_milestones:
+        if len(milestone.description.encode("utf-8")) > 1_024:
+            raise ValueError("agreement milestone description must not exceed 1,024 UTF-8 bytes")
+        milestone_total += as_u64(milestone.amount, "milestone amount")
+        if milestone_total > 0xFFFF_FFFF_FFFF_FFFF:
+            raise ValueError("agreement milestone amounts overflow unsigned 64 bits")
+    if milestone_total != escrow:
+        raise ValueError("agreement milestone amounts must sum to escrow_amount")
+    normalized_provider = raw_address_hex(service_provider)
+    if normalized_provider not in party_set:
+        raise ValueError("service_provider must be an agreement party")
+    if arbitrator is not None and raw_address_hex(arbitrator) in party_set:
+        raise ValueError("arbitrator cannot be an agreement party")
+    allocations = list(settlement_allocations)
+    if allocations:
+        _validate_agreement_payouts(allocations, "settlement_allocations", party_set)
+        if not any(raw_address_hex(item.recipient) == normalized_provider for item in allocations):
+            raise ValueError("service_provider must receive a settlement allocation")
+    if settlement_approver is not None and raw_address_hex(settlement_approver) not in party_set:
+        raise ValueError("settlement_approver must be an agreement party")
+    if len(parties) > 2 and settlement_approver is None:
+        raise ValueError("multi-party agreements require settlement_approver")
+
+    w = BincodeWriter()
+    w.write_vec(parties, _write_address)
+    w.write_bytes(terms)
+    w.write_u64(escrow)
+    w.write_u64(expires_at)
+    w.write_option(arbitrator, _write_address)
+    w.write_vec(canonical_milestones, _write_agreement_milestone)
+    _write_address(w, service_provider)
+    w.write_vec(allocations, _write_agreement_payout)
+    w.write_option(settlement_approver, _write_address)
+    return w.finish()
+
+
+def encode_agreement_accept_data(*, agreement_id: Hex) -> bytes:
+    w = BincodeWriter()
+    _write_hash256(w, agreement_id)
+    return w.finish()
+
+
+def encode_agreement_execute_data(
+    *, agreement_id: Hex, result_hash: Hex, milestone_index: int
+) -> bytes:
+    w = BincodeWriter()
+    _write_hash256(w, agreement_id)
+    _write_hash256(w, result_hash)
+    w.write_u32(as_u32(milestone_index, "milestone_index"))
+    return w.finish()
+
+
+def encode_agreement_dispute_data(
+    *, agreement_id: Hex, reason: str, milestone_index: Optional[int] = None
+) -> bytes:
+    _validate_agreement_reason(reason, "agreement dispute reason")
+    w = BincodeWriter()
+    _write_hash256(w, agreement_id)
+    w.write_string(reason)
+    w.write_option(
+        milestone_index,
+        lambda writer, index: writer.write_u32(as_u32(index, "milestone_index")),
+    )
+    return w.finish()
+
+
+def encode_agreement_resolve_data(
+    *,
+    agreement_id: Hex,
+    payouts: Sequence[AgreementPayout],
+    reason: str,
+    reputation_effects: Sequence[AgreementReputationEffect] = (),
+    milestone_index: Optional[int] = None,
+) -> bytes:
+    _validate_agreement_reason(reason, "agreement resolution reason")
+    _validate_agreement_payouts(payouts, "resolution payouts")
+    effects = list(reputation_effects)
+    parties = [raw_address_hex(effect.party) for effect in effects]
+    if len(set(parties)) != len(parties):
+        raise ValueError("reputation_effects cannot contain duplicate parties")
+    if effects:
+        outcomes = {effect.outcome for effect in effects}
+        if "won" not in outcomes or "lost" not in outcomes:
+            raise ValueError("reputation_effects must include at least one winner and one loser")
+    w = BincodeWriter()
+    _write_hash256(w, agreement_id)
+    w.write_vec(payouts, _write_agreement_payout)
+    w.write_vec(effects, _write_agreement_reputation_effect)
+    w.write_string(reason)
+    w.write_option(
+        milestone_index,
+        lambda writer, index: writer.write_u32(as_u32(index, "milestone_index")),
+    )
+    return w.finish()
+
+
+def encode_agreement_cancel_data(*, agreement_id: Hex) -> bytes:
+    w = BincodeWriter()
+    _write_hash256(w, agreement_id)
+    return w.finish()
 
 
 def encode_reputation_update_data(

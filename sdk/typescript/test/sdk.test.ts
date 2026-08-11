@@ -9,6 +9,12 @@ import {
   TX_TYPE_WIRE_CODES,
   bytesToHex,
   createTransferTransaction,
+  encodeAgreementAcceptData,
+  encodeAgreementCancelData,
+  encodeAgreementCreateData,
+  encodeAgreementDisputeData,
+  encodeAgreementExecuteData,
+  encodeAgreementResolveData,
   encodeAgentDeregisterData,
   encodeAgentRegisterData,
   encodeAgentUpdateData,
@@ -749,11 +755,12 @@ function jsonResponse(status: number, payload: unknown): Response {
 test("BincodeWriter emits little-endian primitives matching bincode v1 wire format", () => {
   const w = new BincodeWriter();
   w.writeU8(1);
+  w.writeU16(0x2345);
   w.writeU32(0x12345678);
   w.writeU64(0x0102030405060708n);
   assert.equal(
     bytesToHex(w.finish()),
-    "0178563412" + "0807060504030201",
+    "01452378563412" + "0807060504030201",
   );
 });
 
@@ -990,6 +997,152 @@ test("task lifecycle encoders match Rust golden vector", () => {
 
   const cancel = encodeTaskCancelData({ taskId: golden.cancel.input.task_id });
   assert.equal(bytesToHex(cancel), golden.cancel.data_hex);
+});
+
+test("agreement lifecycle encoders match Rust golden vector", () => {
+  const fixture = JSON.parse(readFileSync(
+    new URL("../../testdata/golden-agreement-lifecycle.json", import.meta.url),
+    "utf8",
+  ));
+  const create = fixture.create.input;
+  assert.equal(bytesToHex(encodeAgreementCreateData({
+    parties: create.parties,
+    terms: Uint8Array.from(Buffer.from(create.terms_hex, "hex")),
+    escrowAmount: create.escrow_amount,
+    expiresAt: create.expires_at,
+    arbitrator: create.arbitrator,
+    milestones: create.milestones.map((item: any) => ({
+      description: item.description,
+      amount: item.amount,
+    })),
+    serviceProvider: create.service_provider,
+    settlementAllocations: create.settlement_allocations.map((item: any) => ({
+      recipient: item.recipient,
+      shareBps: item.share_bps,
+    })),
+    settlementApprover: create.settlement_approver,
+  })), fixture.create.data_hex);
+  assert.equal(bytesToHex(encodeAgreementAcceptData({
+    agreementId: fixture.accept.input.agreement_id,
+  })), fixture.accept.data_hex);
+  assert.equal(bytesToHex(encodeAgreementExecuteData({
+    agreementId: fixture.execute.input.agreement_id,
+    resultHash: fixture.execute.input.result_hash,
+    milestoneIndex: fixture.execute.input.milestone_index,
+  })), fixture.execute.data_hex);
+  assert.equal(bytesToHex(encodeAgreementDisputeData({
+    agreementId: fixture.dispute.input.agreement_id,
+    reason: fixture.dispute.input.reason,
+    milestoneIndex: fixture.dispute.input.milestone_index,
+  })), fixture.dispute.data_hex);
+  assert.equal(bytesToHex(encodeAgreementResolveData({
+    agreementId: fixture.resolve.input.agreement_id,
+    payouts: fixture.resolve.input.payouts.map((item: any) => ({
+      recipient: item.recipient,
+      shareBps: item.share_bps,
+    })),
+    reputationEffects: fixture.resolve.input.reputation_effects,
+    reason: fixture.resolve.input.reason,
+    milestoneIndex: fixture.resolve.input.milestone_index,
+  })), fixture.resolve.data_hex);
+  assert.equal(bytesToHex(encodeAgreementCancelData({
+    agreementId: fixture.cancel.input.agreement_id,
+  })), fixture.cancel.data_hex);
+});
+
+test("agreement encoders reject invalid settlement and milestone inputs", () => {
+  const proposer = "zn1" + "11".repeat(20);
+  const provider = "zn1" + "22".repeat(20);
+  const base = {
+    parties: [proposer, provider],
+    terms: new Uint8Array(),
+    escrowAmount: 100n,
+    expiresAt: 0n,
+    serviceProvider: provider,
+  };
+  assert.throws(
+    () => encodeAgreementCreateData({ ...base, milestones: [{ description: "bad", amount: 99n }] }),
+    /sum to escrowAmount/,
+  );
+  assert.throws(
+    () => encodeAgreementResolveData({
+      agreementId: "aa".repeat(32),
+      payouts: [{ recipient: provider, shareBps: 9_999 }],
+      reason: "reason",
+    }),
+    /sum to 10,000/,
+  );
+  assert.throws(
+    () => encodeAgreementDisputeData({
+      agreementId: "aa".repeat(32),
+      reason: "x".repeat(4_097),
+    }),
+    /4,096 UTF-8 bytes/,
+  );
+});
+
+test("agreement client builders sign every lifecycle transaction and fund create escrow", async () => {
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const provider = "zn1" + "22".repeat(20);
+  const common = {
+    nonce: 10n,
+    chainId: "zincha-vega-1",
+    timestampMs: 1_700_000_000_000n,
+    referenceBlockHeight: 42n,
+    referenceBlockHash: "11".repeat(32),
+    maxValidBlockHeight: 142n,
+  };
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async () => { throw new Error("network should not be used"); },
+  });
+  const created = await client.buildCreateAgreement(keypair, {
+    ...common,
+    parties: [keypair.address(), provider],
+    terms: new TextEncoder().encode("deliver"),
+    escrowAmount: 1_000n,
+    expiresAt: 1_900_000_000_000n,
+    serviceProvider: provider,
+  });
+  assert.equal(created.transaction.txType, "agreement_create");
+  assert.equal(created.transaction.amount, 1_000n);
+  await assert.rejects(
+    () => client.buildCreateAgreement(keypair, {
+      ...common,
+      parties: [keypair.address(), provider],
+      terms: new Uint8Array(),
+      escrowAmount: 1_000n,
+      expiresAt: 0n,
+      serviceProvider: provider,
+      settlementApprover: provider,
+    }),
+    /non-proposer payout recipient/,
+  );
+
+  const agreementId = "aa".repeat(32);
+  const accept = await client.buildAcceptAgreement(keypair, { ...common, agreementId });
+  const execute = await client.buildExecuteAgreement(keypair, {
+    ...common, agreementId, resultHash: "bb".repeat(32), milestoneIndex: 0,
+  });
+  const dispute = await client.buildDisputeAgreement(keypair, {
+    ...common, agreementId, reason: "failed", milestoneIndex: 0,
+  });
+  const resolve = await client.buildResolveAgreement(keypair, {
+    ...common,
+    agreementId,
+    payouts: [{ recipient: provider, shareBps: 10_000 }],
+    reason: "resolved",
+    milestoneIndex: 0,
+  });
+  const cancel = await client.buildCancelAgreement(keypair, { ...common, agreementId });
+  assert.deepEqual(
+    [accept, execute, dispute, resolve, cancel].map((tx) => tx.transaction.txType),
+    ["agreement_accept", "agreement_execute", "agreement_dispute", "agreement_resolve", "agreement_cancel"],
+  );
+  for (const signed of [accept, execute, dispute, resolve, cancel]) {
+    assert.equal(signed.transaction.amount, 0n);
+    assert.match(signed.hash, /^[0-9a-f]{64}$/);
+  }
 });
 
 test("reputation update encoder matches Rust wire layout", () => {

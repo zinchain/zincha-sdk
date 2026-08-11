@@ -15,6 +15,13 @@ export function asU32(value: number, field = "value"): number {
   return value;
 }
 
+export function asU16(value: number, field = "value"): number {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff) {
+    throw new Error(`${field} must fit in unsigned 16 bits`);
+  }
+  return value;
+}
+
 export class BincodeWriter {
   private readonly chunks: Uint8Array[] = [];
 
@@ -23,6 +30,12 @@ export class BincodeWriter {
       throw new Error("value must fit in unsigned 8 bits");
     }
     this.chunks.push(new Uint8Array([value]));
+  }
+
+  writeU16(value: number): void {
+    const out = new Uint8Array(2);
+    new DataView(out.buffer).setUint16(0, asU16(value), true);
+    this.chunks.push(out);
   }
 
   writeU32(value: number): void {
