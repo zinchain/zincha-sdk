@@ -855,9 +855,9 @@ fn common_prefix_length(left: &[u8], right: &[u8]) -> usize {
 }
 
 fn hex_prefix_encode(nibbles: &[u8], is_leaf: bool) -> Vec<u8> {
-    let odd = nibbles.len() % 2 != 0;
+    let odd = !nibbles.len().is_multiple_of(2);
     let flag = if is_leaf { 2 } else { 0 } + usize::from(odd);
-    let mut encoded = Vec::with_capacity(1 + (nibbles.len() + 1) / 2);
+    let mut encoded = Vec::with_capacity(1 + nibbles.len().div_ceil(2));
     if odd {
         encoded.push(((flag as u8) << 4) | nibbles[0]);
         for pair in nibbles[1..].chunks(2) {
