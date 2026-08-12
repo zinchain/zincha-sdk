@@ -505,6 +505,122 @@ if "block_timestamp_ms" not in transaction_status_properties:
 if "timestamp_ms" in transaction_status_properties:
     raise SystemExit("error: TransactionStatus must not expose timestamp_ms")
 
+def require_exact_properties(schema_name, expected):
+    schema = spec["components"]["schemas"].get(schema_name) or {}
+    actual = set((schema.get("properties") or {}).keys())
+    expected = set(expected)
+    if actual != expected:
+        raise SystemExit(
+            f"error: {schema_name} properties differ: "
+            f"missing={sorted(expected - actual)}, stale={sorted(actual - expected)}"
+        )
+    if schema.get("additionalProperties") is not False:
+        raise SystemExit(f"error: {schema_name} must reject undocumented properties")
+
+public_transaction = {
+    "sender", "tx_type", "nonce", "fee", "amount", "recipient", "chain_id", "tx_data",
+}
+receipt = {
+    "gas_used", "gas_limit", "effective_gas_price", "base_fee_per_gas", "fee_charged",
+    "fee_base_fee_total", "fee_burned", "fee_treasury", "fee_validator_base_fee",
+    "fee_validator_tip", "fee_refunded",
+}
+location = {
+    "tx_hash", "status", "source", "terminal", "known", "mempool_stage", "block_number",
+    "block_hash", "block_timestamp_ms", "tx_index",
+}
+require_exact_properties("BlockTransaction", public_transaction | {"tx_hash"})
+require_exact_properties(
+    "TransactionListItem",
+    public_transaction | receipt | location | {"is_sender", "is_recipient", "contract_address"},
+)
+require_exact_properties(
+    "TokenTransaction",
+    public_transaction | receipt | location | {"token_id"},
+)
+for schema_name in ("BlockTransaction", "TransactionListItem", "TokenTransaction"):
+    properties = spec["components"]["schemas"][schema_name]["properties"]
+    for stale in ("from", "to", "fee_micro_zin"):
+        if stale in properties:
+            raise SystemExit(f"error: {schema_name} must not expose stale {stale}")
+
+expected_transaction_statuses = [
+    "accepted", "pending", "queued", "prepared", "confirmed", "rejected", "unknown",
+]
+if transaction_status_properties["status"].get("enum") != expected_transaction_statuses:
+    raise SystemExit("error: TransactionStatus has stale or incomplete status values")
+expected_transaction_sources = [
+    "admission_cache", "canonical_chain", "mempool", "prepare_buffer",
+    "private_orderflow", "rejection_index", "unknown",
+]
+if transaction_status_properties["source"].get("enum") != expected_transaction_sources:
+    raise SystemExit("error: TransactionStatus has stale or incomplete source values")
+
+batch_operation = (((spec.get("paths") or {}).get("/v1/tx/submit/batch") or {}).get("post") or {})
+batch_request = (
+    (((batch_operation.get("requestBody") or {}).get("content") or {})
+    .get("application/json", {})
+    .get("schema", {}))
+)
+if batch_request.get("required") != ["signed_transactions_hex"]:
+    raise SystemExit("error: batch submission must require signed_transactions_hex")
+if "signed_tx_hexes" in (batch_request.get("properties") or {}):
+    raise SystemExit("error: batch submission must not document stale signed_tx_hexes")
+require_exact_properties(
+    "SubmitBatchResult",
+    {"status", "accepted_count", "rejected_count", "tx_hashes", "results"},
+)
+batch_result_item = spec["components"]["schemas"]["SubmitBatchResult"]["properties"]["results"]["items"]
+if "success" in (batch_result_item.get("properties") or {}):
+    raise SystemExit("error: batch result items must not document nonexistent success")
+
+require_exact_properties(
+    "Token",
+    {
+        "token_id", "name", "symbol", "decimals", "total_supply", "max_supply", "mintable",
+        "burnable", "creator", "mint_authority", "created_at_block", "metadata", "storage_deposit",
+    },
+)
+require_exact_properties(
+    "TokenReceipt",
+    {
+        "token_id", "tool_id", "invoker", "amount_paid", "issued_at", "block_number",
+        "nonce", "receipt_root", "proof_siblings",
+    },
+)
+for schema_name, stale_fields in {
+    "Contract": {"current_version", "balance_micro_zin", "active"},
+    "Tool": {"price_per_call_micro_zin", "total_calls", "total_revenue_micro_zin"},
+    "Agent": {"registered_at_ms", "last_activity_ms"},
+}.items():
+    properties = (spec["components"]["schemas"].get(schema_name) or {}).get("properties") or {}
+    stale = stale_fields & set(properties)
+    if stale:
+        raise SystemExit(f"error: {schema_name} contains obsolete properties {sorted(stale)}")
+
+requester_history_response = (
+    spec["paths"]["/v1/requesters/{address}/reputation-history"]["get"]["responses"]["200"]
+    ["content"]["application/json"]["schema"].get("$ref")
+)
+if requester_history_response != "#/components/schemas/ApiResponse_RequesterReputationHistory":
+    raise SystemExit("error: requester reputation history uses the wrong response envelope")
+
+tool_response_refs = {
+    "/v1/tools/search/{capability}": "#/components/schemas/ApiResponse_ToolSearchList",
+    "/v1/tools/owner/{address}": "#/components/schemas/ApiResponse_ToolOwnerList",
+}
+for path, expected_ref in tool_response_refs.items():
+    actual_ref = spec["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"].get("$ref")
+    if actual_ref != expected_ref:
+        raise SystemExit(f"error: GET {path} must return {expected_ref}")
+
+contract_capabilities = spec["components"]["schemas"].get("ContractPlatformCapabilities") or {}
+for field in ("upgrade_policy", "supported_verification_backends"):
+    if field not in (contract_capabilities.get("properties") or {}):
+        raise SystemExit(f"error: ContractPlatformCapabilities missing {field}")
+if contract_capabilities.get("additionalProperties") is not False:
+    raise SystemExit("error: ContractPlatformCapabilities must reject undocumented properties")
+
 cursor_pagination = spec["components"]["schemas"].get("CursorPagination") or {}
 cursor_properties = cursor_pagination.get("properties") or {}
 for field in (

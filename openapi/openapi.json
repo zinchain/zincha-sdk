@@ -86,13 +86,14 @@
     },
     "schemas": {
       "Agent": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "Public agent profile. Backed by the AgentIdentity::read_view_with_reputation_history_total view.",
         "properties": {
           "active": {
             "type": "boolean"
           },
           "address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
           "capabilities": {
@@ -102,21 +103,223 @@
             },
             "type": "array"
           },
+          "deregistered_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "description": {
             "type": "string"
           },
-          "last_activity_ms": {
+          "description_embedding": {
+            "items": {
+              "format": "float",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "fee_schedule": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "feedback": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "embedding": {
+                  "items": {
+                    "format": "float",
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "quality": {
+                  "format": "double",
+                  "maximum": 10,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "requester_accepted": {
+                  "type": "boolean"
+                },
+                "reviewer": {
+                  "pattern": "^zn1[0-9a-f]{40}$",
+                  "type": "string"
+                },
+                "task_fee": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "task_id": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "reviewer",
+                "task_id",
+                "quality",
+                "requester_accepted",
+                "text",
+                "embedding",
+                "timestamp",
+                "task_fee"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "feedback_embedding": {
+            "items": {
+              "format": "float",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "metadata": {
+            "items": {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "min_fee": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
+          },
+          "model_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
           },
           "name": {
             "type": "string"
           },
+          "neural_embedding": {
+            "items": {
+              "format": "float",
+              "type": "number"
+            },
+            "type": "array"
+          },
           "owner": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
-          "registered_at_ms": {
+          "recent_reputation_events": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "counterparty": {
+                  "pattern": "^zn1[0-9a-f]{40}$",
+                  "type": "string"
+                },
+                "effective_quality": {
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "event_type": {
+                  "enum": [
+                    "task_completed",
+                    "quality_rating",
+                    "task_failed",
+                    "agreement_completed",
+                    "dispute_won",
+                    "dispute_lost",
+                    "agreement_expired"
+                  ],
+                  "type": "string"
+                },
+                "reference_id": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "requester_accepted": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "score_after": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "score_before": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "storage_deposit": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "submitted_quality": {
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "timestamp": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "event_type",
+                "reference_id",
+                "counterparty",
+                "score_before",
+                "score_after",
+                "value",
+                "timestamp",
+                "storage_deposit"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "registered_at": {
             "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registered_at_block": {
+            "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
           "reputation": {
@@ -126,8 +329,42 @@
             "description": "Total count of reputation events recorded for this agent. Use with the reputation-history endpoint to paginate.",
             "format": "int64",
             "type": "integer"
+          },
+          "stake": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
+        "required": [
+          "address",
+          "name",
+          "description",
+          "description_embedding",
+          "neural_embedding",
+          "model_hash",
+          "capabilities",
+          "owner",
+          "stake",
+          "reputation",
+          "registered_at_block",
+          "registered_at",
+          "active",
+          "deregistered_at",
+          "metadata",
+          "feedback",
+          "feedback_embedding",
+          "recent_reputation_events",
+          "reputation_history_total",
+          "min_fee",
+          "fee_schedule",
+          "storage_deposit"
+        ],
         "type": "object"
       },
       "AgentList": {
@@ -149,9 +386,40 @@
         "type": "object"
       },
       "AgentReputationSummary": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "Reputation breakdown surfaced on agent profiles.",
         "properties": {
+          "avg_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": "number"
+          },
+          "backed_score": {
+            "format": "double",
+            "type": "number"
+          },
+          "cumulative_quality": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "days_inactive": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "dispute_loss_ratio": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "dispute_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
           "disputes_lost": {
             "format": "int64",
             "minimum": 0,
@@ -163,15 +431,28 @@
             "type": "integer"
           },
           "effective_score": {
-            "description": "Score with 30-day half-life decay applied.",
             "format": "double",
             "type": "number"
+          },
+          "last_updated": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ratings_received": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "reliability": {
             "format": "double",
             "type": "number"
           },
-          "score": {
+          "stake_backed_score_cap": {
+            "format": "double",
+            "type": "number"
+          },
+          "stored_score": {
             "format": "double",
             "type": "number"
           },
@@ -185,16 +466,48 @@
             "minimum": 0,
             "type": "integer"
           },
-          "total_value_completed_micro_zin": {
+          "total_value_completed": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "weighted_quality": {
+          "total_value_rated": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value_weighted_quality": {
             "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "weighted_avg_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
             "type": "number"
           }
         },
+        "required": [
+          "stored_score",
+          "stake_backed_score_cap",
+          "backed_score",
+          "effective_score",
+          "tasks_completed",
+          "tasks_failed",
+          "cumulative_quality",
+          "disputes_won",
+          "disputes_lost",
+          "last_updated",
+          "total_value_completed",
+          "value_weighted_quality",
+          "ratings_received",
+          "total_value_rated",
+          "avg_quality",
+          "weighted_avg_quality",
+          "reliability",
+          "days_inactive"
+        ],
         "type": "object"
       },
       "Agreement": {
@@ -1441,6 +1754,30 @@
         ],
         "type": "object"
       },
+      "ApiResponse_RequesterReputationHistory": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RequesterReputationHistory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_SubmitBatchResult": {
         "properties": {
           "data": {
@@ -1825,12 +2162,36 @@
         ],
         "type": "object"
       },
-      "ApiResponse_ToolList": {
+      "ApiResponse_ToolOwnerList": {
         "properties": {
           "data": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/ToolList"
+                "$ref": "#/components/schemas/ToolOwnerList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_ToolSearchList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolSearchList"
               },
               {
                 "type": "null"
@@ -3409,28 +3770,60 @@
         "type": "object"
       },
       "BlockTransaction": {
-        "additionalProperties": true,
-        "description": "Public view of one transaction included in a block. Shape varies by transaction type.",
+        "additionalProperties": false,
+        "description": "Canonical public view of one transaction included in a block.",
         "properties": {
-          "fee_micro_zin": {
+          "amount": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
-          "from": {
+          "chain_id": {
             "type": "string"
+          },
+          "fee": {
+            "description": "Maximum transaction fee in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "nonce": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
+          },
+          "recipient": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "sender": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "tx_data": {
+            "additionalProperties": true,
+            "description": "Decoded transaction-type-specific public payload. Omitted when the transaction has no data.",
+            "type": "object"
           },
           "tx_hash": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
           "tx_type": {
+            "description": "Rust transaction variant name emitted by the node, for example `Transfer`, `TokenTransfer`, or `SubmitTask`.",
             "type": "string"
           }
         },
+        "required": [
+          "tx_hash",
+          "sender",
+          "tx_type",
+          "nonce",
+          "fee",
+          "amount",
+          "recipient",
+          "chain_id"
+        ],
         "type": "object"
       },
       "CapabilityCatalogEntry": {
@@ -4024,18 +4417,28 @@
         "type": "object"
       },
       "Contract": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "active": {
-            "type": "boolean"
+          "abi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractAbi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "abi_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
-          },
-          "balance_micro_zin": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
           },
           "bytecode_hash": {
             "pattern": "^[0-9a-f]{64}$",
@@ -4046,15 +4449,152 @@
             "minimum": 0,
             "type": "integer"
           },
-          "current_version": {
-            "format": "int32",
-            "minimum": 1,
-            "type": "integer"
-          },
           "deployer": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
+          "export_metadata": {
+            "additionalProperties": false,
+            "properties": {
+              "bytecode_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "callable_exports": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "callable_exports_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "has_memory_export": {
+                "type": "boolean"
+              },
+              "profile_id": {
+                "type": "string"
+              },
+              "profile_version": {
+                "format": "int32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "profile_id",
+              "profile_version",
+              "bytecode_hash",
+              "has_memory_export",
+              "callable_exports",
+              "callable_exports_hash"
+            ],
+            "type": "object"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "source_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storage_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_generation": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_reserve": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "storage_slot_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "updated_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "build_recipe_hash": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "bytecode_witness_hash": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "compiler": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "enum": [
+                      "wat",
+                      "rust",
+                      "assemblyscript"
+                    ],
+                    "type": "string"
+                  },
+                  "source_hash": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "verified_at_block": {
+                    "format": "int64",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "language",
+                  "compiler",
+                  "source_hash",
+                  "bytecode_witness_hash",
+                  "build_recipe_hash",
+                  "verified_at_block"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "verified_source_storage_deposit": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -4064,73 +4604,97 @@
           "address",
           "deployer",
           "bytecode_hash",
-          "current_version",
-          "balance_micro_zin",
-          "active"
+          "export_metadata",
+          "created_at_block",
+          "updated_at_block",
+          "is_active",
+          "abi",
+          "abi_hash",
+          "verified",
+          "source_hash",
+          "verification",
+          "storage_deposit",
+          "verified_source_storage_deposit",
+          "storage_bytes",
+          "storage_slot_count",
+          "storage_generation",
+          "storage_reserve",
+          "storage_root"
         ],
         "type": "object"
       },
       "ContractAbi": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "address": {
-            "type": "string"
-          },
-          "events": {
-            "items": {
-              "properties": {
-                "fields": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "type": "array"
-                },
-                "topic": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "type": "array"
-          },
           "functions": {
             "items": {
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
-                "mutability": {
-                  "enum": [
-                    "pure",
-                    "view",
-                    "nonpayable",
-                    "payable"
-                  ],
+                "description": {
                   "type": "string"
+                },
+                "mutates": {
+                  "type": "boolean"
                 },
                 "name": {
                   "type": "string"
                 },
                 "params": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/ContractAbiParam"
                   },
                   "type": "array"
                 },
                 "returns": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "items": {
+                    "$ref": "#/components/schemas/ContractAbiParam"
+                  },
+                  "type": "array"
                 }
               },
+              "required": [
+                "name",
+                "description",
+                "params",
+                "returns",
+                "mutates"
+              ],
               "type": "object"
             },
             "type": "array"
           },
+          "name": {
+            "type": "string"
+          },
           "version": {
-            "format": "int32",
-            "type": "integer"
+            "type": "string"
           }
         },
+        "required": [
+          "name",
+          "version",
+          "functions"
+        ],
+        "type": "object"
+      },
+      "ContractAbiParam": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ty": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "ty",
+          "description"
+        ],
         "type": "object"
       },
       "ContractEvent": {
@@ -4144,8 +4708,13 @@
             "type": "string"
           },
           "data": {
-            "description": "Hex-encoded event data payload.",
-            "type": "string"
+            "description": "Raw event payload bytes.",
+            "items": {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
           },
           "log_index": {
             "format": "int32",
@@ -4172,8 +4741,17 @@
         "type": "object"
       },
       "ContractEventList": {
+        "additionalProperties": false,
         "properties": {
-          "items": {
+          "contract": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "events": {
             "items": {
               "$ref": "#/components/schemas/ContractEvent"
             },
@@ -4184,31 +4762,39 @@
           }
         },
         "required": [
-          "items",
+          "contract",
+          "events",
+          "count",
           "pagination"
         ],
         "type": "object"
       },
       "ContractList": {
+        "additionalProperties": false,
         "properties": {
-          "items": {
+          "contracts": {
             "items": {
               "$ref": "#/components/schemas/Contract"
             },
             "type": "array"
+          },
+          "deployer": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
           },
           "pagination": {
             "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
-          "items",
+          "deployer",
+          "contracts",
           "pagination"
         ],
         "type": "object"
       },
       "ContractPlatformCapabilities": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "contract_vm_profile_id": {
             "description": "Consensus Wasm VM profile selected by this chain binary.",
@@ -4258,6 +4844,62 @@
           "profile_version": {
             "type": "integer"
           },
+          "supported_verification_backends": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "direct_bytecode_reproduction": {
+                  "type": "boolean"
+                },
+                "language": {
+                  "enum": [
+                    "wat",
+                    "rust",
+                    "assemblyscript"
+                  ],
+                  "type": "string"
+                },
+                "requires_build_recipe": {
+                  "type": "boolean"
+                },
+                "requires_bytecode_witness": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "language",
+                "direct_bytecode_reproduction",
+                "requires_bytecode_witness",
+                "requires_build_recipe"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "upgrade_policy": {
+            "additionalProperties": false,
+            "properties": {
+              "immutable_replacement_supported": {
+                "type": "boolean"
+              },
+              "route_scheme": {
+                "type": "string"
+              },
+              "same_address_upgrades_supported": {
+                "type": "boolean"
+              },
+              "stable_route_aliases_supported": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "same_address_upgrades_supported",
+              "immutable_replacement_supported",
+              "stable_route_aliases_supported",
+              "route_scheme"
+            ],
+            "type": "object"
+          },
           "wasm_features": {
             "items": {
               "type": "string"
@@ -4284,30 +4926,48 @@
         "type": "object"
       },
       "ContractRoute": {
+        "additionalProperties": false,
         "properties": {
-          "contract_address": {
-            "type": "string"
+          "created_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "deployer": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
-          "function_name": {
-            "type": "string"
-          },
-          "registered_at_block": {
-            "format": "int64",
+          "revision": {
+            "format": "int32",
             "minimum": 0,
             "type": "integer"
           },
           "route_name": {
             "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "target_contract_address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "updated_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
           "deployer",
           "route_name",
-          "contract_address",
-          "function_name"
+          "target_contract_address",
+          "revision",
+          "created_at_block",
+          "updated_at_block",
+          "storage_deposit"
         ],
         "type": "object"
       },
@@ -4470,46 +5130,139 @@
         "type": "object"
       },
       "ContractSource": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "address": {
+          "bytecode_hash": {
+            "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "build_settings": {
-            "additionalProperties": true,
+          "contract_address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "source": {
+            "additionalProperties": false,
+            "properties": {
+              "build_recipe": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "build_recipe_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytecode_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "bytecode_witness": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytecode_witness_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "compiler": {
+                "type": "string"
+              },
+              "language": {
+                "enum": [
+                  "wat",
+                  "rust",
+                  "assemblyscript"
+                ],
+                "type": "string"
+              },
+              "source_code": {
+                "type": "string"
+              },
+              "source_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "language",
+              "compiler",
+              "source_code",
+              "source_hash",
+              "bytecode_witness",
+              "bytecode_witness_hash",
+              "build_recipe",
+              "build_recipe_hash",
+              "bytecode_hash"
+            ],
             "type": "object"
           },
-          "files": {
-            "items": {
-              "properties": {
-                "content": {
-                  "type": "string"
-                },
-                "path": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "path",
-                "content"
-              ],
-              "type": "object"
-            },
-            "type": "array"
+          "verification": {
+            "$ref": "#/components/schemas/ContractVerificationRecord"
+          }
+        },
+        "required": [
+          "contract_address",
+          "bytecode_hash",
+          "verification",
+          "source"
+        ],
+        "type": "object"
+      },
+      "ContractVerificationRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "build_recipe_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytecode_witness_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "compiler": {
+            "type": "string"
           },
           "language": {
-            "description": "Source language, e.g. `rust`, `assemblyscript`.",
+            "enum": [
+              "wat",
+              "rust",
+              "assemblyscript"
+            ],
+            "type": "string"
+          },
+          "source_hash": {
+            "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
           "verified_at_block": {
             "format": "int64",
-            "type": "integer"
-          },
-          "version": {
-            "format": "int32",
+            "minimum": 0,
             "type": "integer"
           }
         },
+        "required": [
+          "language",
+          "compiler",
+          "source_hash",
+          "bytecode_witness_hash",
+          "build_recipe_hash",
+          "verified_at_block"
+        ],
         "type": "object"
       },
       "CursorContractList": {
@@ -5769,13 +6522,76 @@
         "type": "object"
       },
       "FaucetResult": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "amount_micro_zin": {
+          "address_claimed_today_micro_zin": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
+          "amount_micro_zin": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "faucet_address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "fee_micro_zin": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_distributed_today_micro_zin": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_reserve_balance_micro_zin": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_reserved_cost_today_micro_zin": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limits": {
+            "additionalProperties": false,
+            "properties": {
+              "address_cooldown_secs": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "address_daily_limit_micro_zin": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "global_daily_limit_micro_zin": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "address_cooldown_secs",
+              "address_daily_limit_micro_zin",
+              "global_daily_limit_micro_zin"
+            ],
+            "type": "object"
+          },
           "recipient": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending"
+            ],
             "type": "string"
           },
           "tx_hash": {
@@ -5785,8 +6601,16 @@
         },
         "required": [
           "tx_hash",
+          "status",
+          "recipient",
           "amount_micro_zin",
-          "recipient"
+          "fee_micro_zin",
+          "faucet_address",
+          "address_claimed_today_micro_zin",
+          "global_distributed_today_micro_zin",
+          "global_reserved_cost_today_micro_zin",
+          "global_reserve_balance_micro_zin",
+          "limits"
         ],
         "type": "object"
       },
@@ -8164,8 +8988,13 @@
         "type": "object"
       },
       "ReputationHistory": {
+        "additionalProperties": false,
         "properties": {
-          "items": {
+          "agent": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "events": {
             "items": {
               "$ref": "#/components/schemas/ReputationHistoryItem"
             },
@@ -8173,57 +9002,105 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/CursorPagination"
+          },
+          "reputation_event_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
-          "items",
+          "agent",
+          "events",
+          "reputation_event_count",
           "pagination"
         ],
         "type": "object"
       },
       "ReputationHistoryItem": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "block_number": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "event_type": {
-            "description": "e.g. `task_completed`, `task_failed`, `rating_received`, `dispute_won`.",
+          "counterparty": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
-          "rating": {
+          "effective_quality": {
             "format": "double",
             "maximum": 10,
             "minimum": 0,
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "event_type": {
+            "enum": [
+              "task_completed",
+              "quality_rating",
+              "task_failed",
+              "agreement_completed",
+              "dispute_won",
+              "dispute_lost",
+              "agreement_expired"
+            ],
+            "type": "string"
+          },
+          "reference_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "requester_accepted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "score_after": {
             "format": "double",
             "type": "number"
           },
-          "score_delta": {
+          "score_before": {
             "format": "double",
             "type": "number"
           },
-          "task_id": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
-          },
-          "timestamp_ms": {
+          "storage_deposit": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
-          "tx_hash": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
+          "submitted_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
           },
-          "value_micro_zin": {
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           }
         },
+        "required": [
+          "event_type",
+          "reference_id",
+          "counterparty",
+          "score_before",
+          "score_after",
+          "value",
+          "submitted_quality",
+          "effective_quality",
+          "requester_accepted",
+          "timestamp",
+          "storage_deposit"
+        ],
         "type": "object"
       },
       "RequesterAutoMatchPolicy": {
@@ -8365,11 +9242,17 @@
         "type": "object"
       },
       "RequesterReputation": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "Requester reputation view. Mirrors RequesterReputation::read_view in src/primitives/agent.rs.",
         "properties": {
           "address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
+          },
+          "agreement_disputes_initiated": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "auto_match_bonded_amount": {
             "format": "int64",
@@ -8377,6 +9260,13 @@
             "type": "integer"
           },
           "auto_match_bonded_amount_zin": {
+            "format": "double",
+            "type": "number"
+          },
+          "auto_match_policy": {
+            "$ref": "#/components/schemas/RequesterAutoMatchPolicy"
+          },
+          "avg_rating_given": {
             "format": "double",
             "type": "number"
           },
@@ -8391,6 +9281,11 @@
             "maximum": 1,
             "minimum": 0,
             "type": "number"
+          },
+          "disputes_initiated": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "economic_backing": {
             "format": "int64",
@@ -8416,7 +9311,22 @@
             "minimum": 0,
             "type": "number"
           },
+          "last_active": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "lowest_ratings_given": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "matched_agent_timeouts": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "perfect_ratings_given": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -8427,7 +9337,32 @@
             "minimum": 0,
             "type": "number"
           },
+          "ratings_given": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "reviewed_outcomes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "same_entity_submission_units_neutralized": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tasks_cancelled": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tasks_fulfilled": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -8468,6 +9403,155 @@
             "type": "number"
           }
         },
+        "required": [
+          "address",
+          "trust_score",
+          "tasks_submitted",
+          "third_party_tasks_submitted",
+          "same_entity_submission_units_neutralized",
+          "tasks_fulfilled",
+          "tasks_cancelled",
+          "matched_agent_timeouts",
+          "fulfillment_rate",
+          "cancellation_rate",
+          "ratings_given",
+          "failed_reports_given",
+          "reviewed_outcomes",
+          "failed_report_rate",
+          "avg_rating_given",
+          "rating_fairness",
+          "lowest_ratings_given",
+          "perfect_ratings_given",
+          "total_spent",
+          "total_spent_zin",
+          "total_escrowed",
+          "total_escrowed_zin",
+          "auto_match_bonded_amount",
+          "auto_match_bonded_amount_zin",
+          "economic_backing",
+          "economic_backing_zin",
+          "disputes_initiated",
+          "agreement_disputes_initiated",
+          "dispute_rate",
+          "last_active",
+          "storage_deposit",
+          "auto_match_policy"
+        ],
+        "type": "object"
+      },
+      "RequesterReputationHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequesterReputationHistoryItem"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          },
+          "requester": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requester",
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "RequesterReputationHistoryItem": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "counterparty": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "effective_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "event_type": {
+            "enum": [
+              "task_completed",
+              "quality_rating",
+              "task_failed",
+              "agreement_completed",
+              "dispute_won",
+              "dispute_lost",
+              "agreement_expired"
+            ],
+            "type": "string"
+          },
+          "reference_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "requester_accepted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "score_after": {
+            "format": "double",
+            "type": "number"
+          },
+          "score_before": {
+            "format": "double",
+            "type": "number"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "submitted_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_address",
+          "event_type",
+          "reference_id",
+          "counterparty",
+          "score_before",
+          "score_after",
+          "value",
+          "submitted_quality",
+          "effective_quality",
+          "requester_accepted",
+          "timestamp",
+          "storage_deposit"
+        ],
         "type": "object"
       },
       "RequesterTrustSummary": {
@@ -8957,35 +10041,74 @@
         "type": "object"
       },
       "SubmitBatchResult": {
+        "additionalProperties": false,
         "properties": {
+          "accepted_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rejected_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
           "results": {
             "items": {
+              "additionalProperties": false,
               "properties": {
                 "error": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "index": {
                   "minimum": 0,
                   "type": "integer"
                 },
-                "success": {
-                  "type": "boolean"
+                "status": {
+                  "enum": [
+                    "pending",
+                    "rejected"
+                  ],
+                  "type": "string"
                 },
                 "tx_hash": {
                   "pattern": "^[0-9a-f]{64}$",
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
                 "index",
-                "success"
+                "status",
+                "tx_hash",
+                "error"
               ],
               "type": "object"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "batch-processed"
+            ],
+            "type": "string"
+          },
+          "tx_hashes": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
             },
             "type": "array"
           }
         },
         "required": [
+          "status",
+          "accepted_count",
+          "rejected_count",
+          "tx_hashes",
           "results"
         ],
         "type": "object"
@@ -9728,7 +10851,7 @@
         "type": "object"
       },
       "Token": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "AXP-20 token metadata. Field set mirrors the TokenMetadata struct in src/primitives/token.rs.",
         "properties": {
           "burnable": {
@@ -9740,6 +10863,7 @@
             "type": "integer"
           },
           "creator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
           "decimals": {
@@ -9754,17 +10878,32 @@
             "type": "integer"
           },
           "metadata": {
-            "description": "Free-form metadata blob set at creation (JSON, max 4 KB). Empty string if not set.",
-            "type": "string"
+            "description": "Raw JSON metadata bytes set at creation.",
+            "items": {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 4096,
+            "type": "array"
+          },
+          "mint_authority": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "mintable": {
             "type": "boolean"
           },
-          "minter": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "symbol": {
             "maxLength": 10,
@@ -9786,7 +10925,14 @@
           "symbol",
           "decimals",
           "total_supply",
-          "creator"
+          "max_supply",
+          "burnable",
+          "creator",
+          "mint_authority",
+          "created_at_block",
+          "metadata",
+          "storage_deposit",
+          "mintable"
         ],
         "type": "object"
       },
@@ -9857,7 +11003,13 @@
         "type": "object"
       },
       "TokenHolderList": {
+        "additionalProperties": false,
         "properties": {
+          "holder_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/TokenHolder"
@@ -9875,65 +11027,129 @@
         "required": [
           "token_id",
           "items",
+          "holder_count",
           "pagination"
         ],
         "type": "object"
       },
       "TokenList": {
+        "additionalProperties": false,
         "properties": {
-          "items": {
+          "creator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          },
+          "tokens": {
             "items": {
               "$ref": "#/components/schemas/Token"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/CursorPagination"
           }
         },
         "required": [
-          "items",
+          "creator",
+          "tokens",
           "pagination"
         ],
         "type": "object"
       },
       "TokenReceipt": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "creator": {
-            "type": "string"
-          },
-          "deployment_block": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "deployment_tx_hash": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
-          },
-          "initial_supply": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "token_id": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "TokenTransaction": {
-        "additionalProperties": true,
-        "properties": {
-          "amount": {
+          "amount_paid": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "block_number": {
             "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "invoker": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nonce": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "proof_siblings": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "hash": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "is_right": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "hash",
+                "is_right"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "receipt_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "token_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token_id",
+          "tool_id",
+          "invoker",
+          "amount_paid",
+          "issued_at",
+          "block_number",
+          "nonce",
+          "receipt_root",
+          "proof_siblings"
+        ],
+        "type": "object"
+      },
+      "TokenTransaction": {
+        "additionalProperties": false,
+        "description": "One confirmed canonical transaction indexed for this token.",
+        "properties": {
+          "amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "base_fee_per_gas": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
           "block_timestamp_ms": {
@@ -9941,30 +11157,162 @@
             "minimum": 1,
             "type": "integer"
           },
-          "from": {
+          "chain_id": {
             "type": "string"
           },
-          "to": {
+          "effective_gas_price": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee": {
+            "description": "Maximum transaction fee in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_base_fee_total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_burned": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_charged": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_refunded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_treasury": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_base_fee": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_tip": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_limit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "known": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "mempool_stage": {
+            "type": "null"
+          },
+          "nonce": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "recipient": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
+          },
+          "sender": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "canonical_chain"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "confirmed"
+            ],
+            "type": "string"
+          },
+          "terminal": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "token_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "tx_data": {
+            "additionalProperties": true,
+            "description": "Decoded transaction-type-specific public payload. Omitted when the transaction has no data.",
+            "type": "object"
           },
           "tx_hash": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
+          "tx_index": {
+            "minimum": 0,
+            "type": "integer"
+          },
           "tx_type": {
-            "enum": [
-              "token_create",
-              "token_mint",
-              "token_transfer",
-              "token_approve",
-              "token_burn"
-            ],
+            "description": "Rust transaction variant name emitted by the node, for example `Transfer`, `TokenTransfer`, or `SubmitTask`.",
             "type": "string"
           }
         },
+        "required": [
+          "tx_hash",
+          "status",
+          "source",
+          "terminal",
+          "known",
+          "mempool_stage",
+          "block_number",
+          "block_hash",
+          "block_timestamp_ms",
+          "tx_index",
+          "sender",
+          "tx_type",
+          "nonce",
+          "fee",
+          "amount",
+          "recipient",
+          "chain_id",
+          "gas_used",
+          "gas_limit",
+          "effective_gas_price",
+          "base_fee_per_gas",
+          "fee_charged",
+          "fee_base_fee_total",
+          "fee_burned",
+          "fee_treasury",
+          "fee_validator_base_fee",
+          "fee_validator_tip",
+          "fee_refunded",
+          "token_id"
+        ],
         "type": "object"
       },
       "TokenTransactionList": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
@@ -9974,31 +11322,42 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/CursorPagination"
-          },
-          "token_id": {
-            "pattern": "^[0-9a-f]{64}$",
-            "type": "string"
           }
         },
         "required": [
-          "token_id",
           "items",
           "pagination"
         ],
         "type": "object"
       },
       "Tool": {
-        "additionalProperties": true,
-        "description": "Marketplace tool registration. Field set mirrors the ToolEntry struct in src/primitives/tool.rs.",
+        "additionalProperties": false,
+        "description": "Public marketplace tool registration view.",
         "properties": {
           "active": {
             "type": "boolean"
+          },
+          "arbitration_policy": {
+            "enum": [
+              "protocol"
+            ],
+            "type": "string"
           },
           "capabilities": {
             "items": {
               "type": "string"
             },
             "type": "array"
+          },
+          "challenge_window_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "deregistered_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "description": {
             "type": "string"
@@ -10007,13 +11366,23 @@
             "description": "Tool invocation endpoint. Off-chain tools use HTTPS URLs; on-chain contract tools use `contract://<address>/<function>`.",
             "type": "string"
           },
+          "match_enabled": {
+            "type": "boolean"
+          },
+          "max_result_metadata_bytes": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
           "owner": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
           },
-          "price_per_call_micro_zin": {
+          "price_per_call": {
+            "description": "Flat invocation price or metered unit price in micro-ZIN.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -10023,13 +11392,78 @@
             "minimum": 0,
             "type": "integer"
           },
-          "success_rate": {
-            "format": "double",
-            "maximum": 1,
-            "minimum": 0,
-            "type": "number"
+          "reputation": {
+            "additionalProperties": false,
+            "properties": {
+              "avg_quality": {
+                "format": "double",
+                "maximum": 10,
+                "minimum": 0,
+                "type": "number"
+              },
+              "failed_calls": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "success_rate": {
+                "format": "double",
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              "successful_calls": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total_calls": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total_revenue": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "verified_calls": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "verified_success_rate": {
+                "format": "double",
+                "maximum": 1,
+                "minimum": 0,
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "total_calls",
+              "successful_calls",
+              "failed_calls",
+              "verified_calls",
+              "verified_success_rate",
+              "success_rate",
+              "avg_quality",
+              "total_revenue"
+            ],
+            "type": "object"
           },
-          "successful_calls": {
+          "settlement_mode": {
+            "enum": [
+              "prepaid_access",
+              "result_escrowed",
+              "metered_usage",
+              "milestone_escrowed"
+            ],
+            "type": "string"
+          },
+          "sla_ms": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -10038,24 +11472,28 @@
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "total_calls": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "total_revenue_micro_zin": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+          "version": {
+            "type": "string"
           }
         },
         "required": [
           "tool_id",
           "owner",
           "name",
+          "description",
+          "price_per_call",
+          "settlement_mode",
+          "sla_ms",
+          "challenge_window_ms",
+          "max_result_metadata_bytes",
+          "arbitration_policy",
           "capabilities",
-          "price_per_call_micro_zin",
-          "active"
+          "match_enabled",
+          "active",
+          "deregistered_at",
+          "version",
+          "registered_at_block",
+          "reputation"
         ],
         "type": "object"
       },
@@ -10354,11 +11792,149 @@
         ],
         "type": "object"
       },
-      "ToolList": {
+      "ToolOwnerItem": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price_per_call": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "total_calls": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_revenue": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tool_id",
+          "name",
+          "price_per_call",
+          "capabilities",
+          "total_calls",
+          "total_revenue"
+        ],
+        "type": "object"
+      },
+      "ToolOwnerList": {
+        "additionalProperties": false,
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/Tool"
+              "$ref": "#/components/schemas/ToolOwnerItem"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ToolSearchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "avg_quality": {
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": "number"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "price_per_call": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
+          },
+          "success_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "tool_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "total_calls": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verified_calls": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verified_success_rate": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "tool_id",
+          "name",
+          "owner",
+          "price_per_call",
+          "capabilities",
+          "success_rate",
+          "verified_success_rate",
+          "verified_calls",
+          "total_calls",
+          "avg_quality",
+          "score"
+        ],
+        "type": "object"
+      },
+      "ToolSearchList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ToolSearchItem"
             },
             "type": "array"
           },
@@ -10854,9 +12430,19 @@
         "type": "object"
       },
       "TransactionListItem": {
-        "additionalProperties": true,
-        "description": "One historical transaction. Shape varies by transaction type; the listed properties are the common envelope.",
+        "additionalProperties": false,
+        "description": "One confirmed canonical transaction with public transaction data, receipt accounting, and resource-history context.",
         "properties": {
+          "amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "base_fee_per_gas": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "block_hash": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
@@ -10871,23 +12457,119 @@
             "minimum": 1,
             "type": "integer"
           },
-          "fee_micro_zin": {
+          "chain_id": {
+            "type": "string"
+          },
+          "contract_address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "effective_gas_price": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
-          "from": {
-            "type": "string"
+          "fee": {
+            "description": "Maximum transaction fee in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_base_fee_total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_burned": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_charged": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_refunded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_treasury": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_base_fee": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_tip": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_limit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "is_recipient": {
+            "type": "boolean"
+          },
+          "is_sender": {
+            "type": "boolean"
+          },
+          "known": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "mempool_stage": {
+            "type": "null"
           },
           "nonce": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
+          },
+          "recipient": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "sender": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "canonical_chain"
+            ],
+            "type": "string"
           },
           "status": {
             "enum": [
-              "success",
-              "failed"
+              "confirmed"
             ],
             "type": "string"
+          },
+          "terminal": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "tx_data": {
+            "additionalProperties": true,
+            "description": "Decoded transaction-type-specific public payload. Omitted when the transaction has no data.",
+            "type": "object"
           },
           "tx_hash": {
             "pattern": "^[0-9a-f]{64}$",
@@ -10898,16 +12580,56 @@
             "type": "integer"
           },
           "tx_type": {
-            "description": "Transaction type name, e.g. `transfer`, `submit_task`, `token_transfer`.",
+            "description": "Rust transaction variant name emitted by the node, for example `Transfer`, `TokenTransfer`, or `SubmitTask`.",
             "type": "string"
           }
         },
+        "required": [
+          "tx_hash",
+          "status",
+          "source",
+          "terminal",
+          "known",
+          "mempool_stage",
+          "block_number",
+          "block_hash",
+          "block_timestamp_ms",
+          "tx_index",
+          "sender",
+          "tx_type",
+          "nonce",
+          "fee",
+          "amount",
+          "recipient",
+          "chain_id",
+          "gas_used",
+          "gas_limit",
+          "effective_gas_price",
+          "base_fee_per_gas",
+          "fee_charged",
+          "fee_base_fee_total",
+          "fee_burned",
+          "fee_treasury",
+          "fee_validator_base_fee",
+          "fee_validator_tip",
+          "fee_refunded"
+        ],
         "type": "object"
       },
       "TransactionStatus": {
-        "additionalProperties": true,
-        "description": "Transaction-specific fields (tx_type, from, to, amount, etc.) are added inline when the transaction is known; receipt fields (gas_used, events) are added when the transaction is confirmed.",
+        "additionalProperties": false,
+        "description": "Transaction status plus the canonical public transaction fields when known, receipt accounting when confirmed, rejection details when rejected, or prepare-buffer diagnostics when prepared. Private orderflow returns only the status envelope and redaction flags.",
         "properties": {
+          "amount": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "base_fee_per_gas": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "block_hash": {
             "pattern": "^[0-9a-f]{64}$",
             "type": [
@@ -10917,6 +12639,7 @@
           },
           "block_number": {
             "format": "int64",
+            "minimum": 0,
             "type": [
               "integer",
               "null"
@@ -10930,13 +12653,134 @@
               "null"
             ]
           },
+          "chain_id": {
+            "type": "string"
+          },
+          "effective_gas_price": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee": {
+            "description": "Maximum transaction fee in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_base_fee_total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_burned": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_charged": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_refunded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_treasury": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_base_fee": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fee_validator_tip": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_limit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "known": {
             "description": "True if the node has any record of this hash.",
             "type": "boolean"
           },
           "mempool_stage": {
-            "description": "Mempool sub-state (pending, queued) if applicable.",
+            "description": "Mempool or prepare-buffer sub-state when applicable.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nonce": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepare_buffer_position": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepare_buffer_size": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepare_target_base_fee_per_gas": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepare_target_block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepare_target_timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prepared_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "private_orderflow": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "recipient": {
+            "pattern": "^zn1[0-9a-f]{40}$",
             "type": "string"
+          },
+          "redacted": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "rejected_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rejected_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "rejection_reason": {
             "description": "Present on rejected transactions.",
@@ -10946,19 +12790,28 @@
             "description": "Present on rejected transactions.",
             "type": "string"
           },
+          "sender": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
           "source": {
             "enum": [
+              "admission_cache",
               "canonical_chain",
               "mempool",
-              "prepared",
+              "prepare_buffer",
+              "private_orderflow",
+              "rejection_index",
               "unknown"
             ],
             "type": "string"
           },
           "status": {
             "enum": [
+              "accepted",
               "pending",
               "queued",
+              "prepared",
               "confirmed",
               "rejected",
               "unknown"
@@ -10968,6 +12821,11 @@
           "terminal": {
             "description": "True if status will not change again. Safe to stop polling.",
             "type": "boolean"
+          },
+          "tx_data": {
+            "additionalProperties": true,
+            "description": "Decoded transaction-type-specific public payload. Omitted when the transaction has no data.",
+            "type": "object"
           },
           "tx_hash": {
             "pattern": "^[0-9a-f]{64}$",
@@ -10979,6 +12837,10 @@
               "integer",
               "null"
             ]
+          },
+          "tx_type": {
+            "description": "Rust transaction variant name emitted by the node, for example `Transfer`, `TokenTransfer`, or `SubmitTask`.",
+            "type": "string"
           }
         },
         "required": [
@@ -12202,7 +14064,7 @@
     },
     "/v1/agents/{address}/reputation-history": {
       "get": {
-        "description": "Returns a chronological list of reputation-affecting events for the agent: task completions, failures, ratings received, disputes raised and resolved. Each event includes its block number, transaction hash, and the rating or value-weighted score impact. Use this to audit a reputation score, not just read its current value.",
+        "description": "Returns a chronological list of reputation-affecting events for the agent: task completions, failures, ratings, agreements, and dispute outcomes. Each event records the reference, counterparty, value, timestamp, and before/after score. Use this to audit a reputation score, not just read its current value.",
         "operationId": "get_reputation_history",
         "parameters": [
           {
@@ -14316,7 +16178,7 @@
     },
     "/v1/contracts": {
       "get": {
-        "description": "Returns deployed contracts in deployment order with deployer, current version, and code hash.",
+        "description": "Returns immutable deployed contract records in deployment order with authenticated bytecode, ABI, verification, and storage metadata.",
         "operationId": "list_contracts",
         "parameters": [
           {
@@ -14761,7 +16623,7 @@
     },
     "/v1/contracts/routes": {
       "get": {
-        "description": "Contract routes are named aliases pointing to (contract_address, function) pairs. They let contracts expose stable named endpoints that callers can reference symbolically while the underlying contract upgrades.",
+        "description": "Contract routes are deployer-owned named aliases pointing to immutable contract releases. Callers combine a route with a function name at call time.",
         "operationId": "list_contract_routes",
         "parameters": [
           {
@@ -15064,7 +16926,7 @@
           },
           {}
         ],
-        "summary": "Resolve a named route to a (contract_address, function) pair.",
+        "summary": "Resolve a named route to an immutable contract release.",
         "tags": [
           "Contracts"
         ],
@@ -15079,7 +16941,7 @@
     },
     "/v1/contracts/{address}": {
       "get": {
-        "description": "Returns the contract's metadata: deployer address, current bytecode hash, deployment block, current version, contract balance (in micro-ZIN), and active flag. Bytecode itself is not returned; use the `/source` and `/abi` endpoints for verified materials.",
+        "description": "Returns the immutable contract record: deployer and bytecode identity, callable export metadata, authenticated ABI and source-verification state, storage accounting, and active flag. Bytecode itself is not returned.",
         "operationId": "get_contract",
         "parameters": [
           {
@@ -15179,7 +17041,7 @@
     },
     "/v1/contracts/{address}/abi": {
       "get": {
-        "description": "Returns the ABI registered for this contract's current version: function names, argument schemas, return shapes, and emitted event signatures. Returns 404 if no ABI has been published. Use this to construct typed `ContractCall` transactions.",
+        "description": "Returns the authenticated ABI published for this immutable contract: contract name/version and function parameter and return descriptors. Returns 404 if no ABI has been published. Use this to construct typed `ContractCall` transactions.",
         "operationId": "get_contract_abi",
         "parameters": [
           {
@@ -15545,7 +17407,7 @@
     },
     "/v1/contracts/{address}/source": {
       "get": {
-        "description": "Returns source files that were uploaded via the contract verification flow and have been confirmed to compile to the deployed bytecode hash. Returns 404 if no source has been verified. The build settings used to reproduce verification are included.",
+        "description": "Returns the authenticated canonical source provenance bundle and committed verification record for the deployed bytecode hash. Returns 404 if no source has been verified.",
         "operationId": "get_contract_source",
         "parameters": [
           {
@@ -17102,7 +18964,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_ReputationHistory"
+                  "$ref": "#/components/schemas/ApiResponse_RequesterReputationHistory"
                 }
               }
             },
@@ -17672,7 +19534,7 @@
     },
     "/v1/token-receipt/{token_id}": {
       "get": {
-        "description": "Returns the deterministic receipt produced when the token was created: creator address, block, deployment transaction hash, and initial supply. Useful for verifying provenance of a token referenced from off-chain materials.",
+        "description": "Returns the permanent attribution receipt and Merkle proof for a tool access token. The receipt remains available after the live access token is pruned.",
         "operationId": "get_token_receipt",
         "parameters": [
           {
@@ -17764,7 +19626,7 @@
           },
           {}
         ],
-        "summary": "Token-creation receipt by token ID.",
+        "summary": "Permanent tool access-token attribution receipt by token ID.",
         "tags": [
           "Other"
         ],
@@ -18236,7 +20098,7 @@
     },
     "/v1/tokens/{id}": {
       "get": {
-        "description": "Returns the token's metadata: name, symbol, decimals, total supply, max supply (0 = unlimited), mintable and burnable flags, creator and minter addresses, deployment block, and any free-form metadata blob.",
+        "description": "Returns the token's metadata: name, symbol, decimals, total supply, max supply (0 = unlimited), mintable and burnable flags, creator and mint-authority addresses, deployment block, and any free-form metadata blob.",
         "operationId": "get_token",
         "parameters": [
           {
@@ -18806,7 +20668,7 @@
     },
     "/v1/tokens/{id}/transactions": {
       "get": {
-        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. Each item includes the transaction hash, block, type, and the principals involved (from/to/owner/spender depending on type).",
+        "description": "Returns mints, transfers, burns, and approvals affecting the token, most-recent first. Use `limit` and the opaque `next_cursor` returned by the previous page to paginate. Each item includes the transaction hash, block, type, and the canonical sender/recipient plus decoded type-specific `tx_data`.",
         "operationId": "get_token_transactions",
         "parameters": [
           {
@@ -21497,7 +23359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_ToolList"
+                  "$ref": "#/components/schemas/ApiResponse_ToolOwnerList"
                 }
               }
             },
@@ -21783,7 +23645,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_ToolList"
+                  "$ref": "#/components/schemas/ApiResponse_ToolSearchList"
                 }
               }
             },
@@ -22104,8 +23966,8 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "signed_tx_hexes": {
-                    "description": "Array of hex-encoded signed transactions. Each is admitted independently.",
+                  "signed_transactions_hex": {
+                    "description": "Array of hex-encoded signed transactions. `signed_tx_hexes` and `transactions` remain accepted compatibility aliases. Each entry is admitted independently.",
                     "items": {
                       "pattern": "^[0-9a-fA-F]+$",
                       "type": "string"
@@ -22115,7 +23977,7 @@
                   }
                 },
                 "required": [
-                  "signed_tx_hexes"
+                  "signed_transactions_hex"
                 ],
                 "type": "object"
               }
