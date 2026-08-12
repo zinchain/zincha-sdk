@@ -519,6 +519,10 @@ pub struct ContractRecord {
     /// Total bytes currently stored in this contract's key-value storage.
     /// Computed from the contract's logical keys and values, not RocksDB overhead.
     pub storage_bytes: u64,
+    /// Number of live logical key-value slots in this contract's storage.
+    pub storage_slot_count: u64,
+    /// Monotonic namespace generation used to invalidate cleared storage.
+    pub storage_generation: u64,
     /// Storage reserve locked against dynamic contract KV growth (micro-ZIN).
     /// Increased/decreased as the contract's storage footprint changes.
     pub storage_reserve: u64,
@@ -554,6 +558,10 @@ struct ContractRecordWire {
     pub verified_source_storage_deposit: u64,
     #[serde(default)]
     pub storage_bytes: u64,
+    #[serde(default)]
+    pub storage_slot_count: u64,
+    #[serde(default)]
+    pub storage_generation: u64,
     #[serde(default)]
     pub storage_reserve: u64,
     #[serde(default)]
@@ -672,6 +680,8 @@ impl From<ContractRecordWire> for ContractRecord {
             storage_deposit: wire.storage_deposit,
             verified_source_storage_deposit: wire.verified_source_storage_deposit,
             storage_bytes: wire.storage_bytes,
+            storage_slot_count: wire.storage_slot_count,
+            storage_generation: wire.storage_generation,
             storage_reserve: wire.storage_reserve,
             storage_root: wire.storage_root,
         }
@@ -696,6 +706,8 @@ impl From<&ContractRecord> for ContractRecordWire {
             storage_deposit: record.storage_deposit,
             verified_source_storage_deposit: record.verified_source_storage_deposit,
             storage_bytes: record.storage_bytes,
+            storage_slot_count: record.storage_slot_count,
+            storage_generation: record.storage_generation,
             storage_reserve: record.storage_reserve,
             storage_root: record.storage_root,
         }
@@ -736,9 +748,128 @@ pub fn compute_contract_storage_root(storage: &BTreeMap<Vec<u8>, Vec<u8>>) -> Ha
         return Hash256::zero();
     }
 
-    let encoded = bincode::serialize(storage)
-        .unwrap_or_else(|err| panic!("contract storage root serialization failed: {err}"));
+    let entries = storage
+        .iter()
+        .map(|(key, value)| (bytes_to_nibbles(key), value.as_slice()))
+        .collect::<Vec<_>>();
+    contract_storage_subtree_root(&entries, 0)
+}
+
+fn contract_storage_subtree_root(entries: &[(Vec<u8>, &[u8])], offset: usize) -> Hash256 {
+    if entries.is_empty() {
+        return Hash256::zero();
+    }
+    if entries.len() == 1 {
+        return hash_contract_storage_leaf(&entries[0].0[offset..], entries[0].1);
+    }
+
+    let first_key = &entries[0].0;
+    let mut shared_prefix_len = first_key.len().saturating_sub(offset);
+    for (nibbles, _) in &entries[1..] {
+        shared_prefix_len = shared_prefix_len.min(common_prefix_length(
+            &first_key[offset..],
+            &nibbles[offset..],
+        ));
+        if shared_prefix_len == 0 {
+            break;
+        }
+    }
+    if shared_prefix_len > 0 {
+        return hash_contract_storage_extension(
+            &first_key[offset..offset + shared_prefix_len],
+            contract_storage_subtree_root(entries, offset + shared_prefix_len),
+        );
+    }
+
+    let (branch_value, mut entry_index) = if entries[0].0.len() == offset {
+        (Some(entries[0].1), 1)
+    } else {
+        (None, 0)
+    };
+    let mut children = [Hash256::zero(); 16];
+    while entry_index < entries.len() {
+        let child_index = entries[entry_index].0[offset] as usize;
+        let mut end = entry_index + 1;
+        while end < entries.len() && entries[end].0[offset] as usize == child_index {
+            end += 1;
+        }
+        children[child_index] =
+            contract_storage_subtree_root(&entries[entry_index..end], offset + 1);
+        entry_index = end;
+    }
+    hash_contract_storage_branch(&children, branch_value)
+}
+
+fn hash_contract_storage_leaf(key_end: &[u8], value: &[u8]) -> Hash256 {
+    let encoded_key = hex_prefix_encode(key_end, true);
+    let mut encoded = Vec::with_capacity(1 + 4 + encoded_key.len() + 4 + value.len());
+    encoded.push(0x01);
+    encoded.extend_from_slice(&(encoded_key.len() as u32).to_be_bytes());
+    encoded.extend_from_slice(&encoded_key);
+    encoded.extend_from_slice(&(value.len() as u32).to_be_bytes());
+    encoded.extend_from_slice(value);
     hash_bytes(&encoded)
+}
+
+fn hash_contract_storage_extension(prefix: &[u8], child: Hash256) -> Hash256 {
+    let encoded_prefix = hex_prefix_encode(prefix, false);
+    let mut encoded = Vec::with_capacity(1 + 4 + encoded_prefix.len() + 32);
+    encoded.push(0x02);
+    encoded.extend_from_slice(&(encoded_prefix.len() as u32).to_be_bytes());
+    encoded.extend_from_slice(&encoded_prefix);
+    encoded.extend_from_slice(child.as_bytes());
+    hash_bytes(&encoded)
+}
+
+fn hash_contract_storage_branch(children: &[Hash256; 16], value: Option<&[u8]>) -> Hash256 {
+    let mut encoded = Vec::with_capacity(1 + 16 * 32 + 5 + value.map_or(0, <[u8]>::len));
+    encoded.push(0x03);
+    for child in children {
+        encoded.extend_from_slice(child.as_bytes());
+    }
+    match value {
+        Some(value) => {
+            encoded.push(0x01);
+            encoded.extend_from_slice(&(value.len() as u32).to_be_bytes());
+            encoded.extend_from_slice(value);
+        }
+        None => encoded.push(0x00),
+    }
+    hash_bytes(&encoded)
+}
+
+fn bytes_to_nibbles(bytes: &[u8]) -> Vec<u8> {
+    let mut nibbles = Vec::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        nibbles.push(byte >> 4);
+        nibbles.push(byte & 0x0f);
+    }
+    nibbles
+}
+
+fn common_prefix_length(left: &[u8], right: &[u8]) -> usize {
+    left.iter()
+        .zip(right.iter())
+        .take_while(|(left, right)| left == right)
+        .count()
+}
+
+fn hex_prefix_encode(nibbles: &[u8], is_leaf: bool) -> Vec<u8> {
+    let odd = nibbles.len() % 2 != 0;
+    let flag = if is_leaf { 2 } else { 0 } + usize::from(odd);
+    let mut encoded = Vec::with_capacity(1 + (nibbles.len() + 1) / 2);
+    if odd {
+        encoded.push(((flag as u8) << 4) | nibbles[0]);
+        for pair in nibbles[1..].chunks(2) {
+            encoded.push((pair[0] << 4) | pair[1]);
+        }
+    } else {
+        encoded.push((flag as u8) << 4);
+        for pair in nibbles.chunks(2) {
+            encoded.push((pair[0] << 4) | pair[1]);
+        }
+    }
+    encoded
 }
 
 pub fn compute_contract_storage_root_from_hash_map(storage: &HashMap<Vec<u8>, Vec<u8>>) -> Hash256 {
@@ -779,6 +910,14 @@ pub fn verify_contract_storage_projection(
         return Err(format!(
             "contract {} storage_bytes mismatch: record commits {} but projection contains {}",
             record.address, record.storage_bytes, actual_bytes
+        ));
+    }
+
+    let actual_slot_count = storage.map_or(0, |entries| entries.len() as u64);
+    if record.storage_slot_count != actual_slot_count {
+        return Err(format!(
+            "contract {} storage_slot_count mismatch: record commits {} but projection contains {}",
+            record.address, record.storage_slot_count, actual_slot_count
         ));
     }
 
@@ -1321,6 +1460,8 @@ mod tests {
             storage_deposit: 0,
             verified_source_storage_deposit: 0,
             storage_bytes: 0,
+            storage_slot_count: 0,
+            storage_generation: 0,
             storage_reserve: 0,
             storage_root: Hash256::zero(),
         }
@@ -1376,6 +1517,7 @@ mod tests {
         storage.insert(b"k".to_vec(), b"v".to_vec());
         record.storage_root = compute_contract_storage_root(&storage);
         record.storage_bytes = contract_storage_total_bytes(&storage);
+        record.storage_slot_count = 1;
 
         verify_contract_storage_projection(&record, Some(&storage))
             .expect("matching storage projection must validate");
@@ -1387,6 +1529,75 @@ mod tests {
             error.contains("storage_root mismatch"),
             "unexpected error: {error}"
         );
+    }
+
+    #[test]
+    fn test_verify_contract_storage_projection_rejects_slot_count_mismatch() {
+        let mut record = test_contract_record();
+        let storage = BTreeMap::from([(b"k".to_vec(), b"v".to_vec())]);
+        record.storage_root = compute_contract_storage_root(&storage);
+        record.storage_bytes = contract_storage_total_bytes(&storage);
+
+        let error = verify_contract_storage_projection(&record, Some(&storage))
+            .expect_err("mismatched storage slot count must fail");
+        assert!(error.contains("storage_slot_count mismatch"));
+    }
+
+    #[test]
+    fn test_contract_storage_roots_match_node_patricia_trie_vectors() {
+        let cases = [
+            (
+                BTreeMap::new(),
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            ),
+            (
+                BTreeMap::from([(b"k".to_vec(), b"v".to_vec())]),
+                "e47ed5b5a57e80383ae9512b4aad4bc942f08ae6eccb18c813bcdc3430c3a700",
+            ),
+            (
+                BTreeMap::from([
+                    (b"alpha".to_vec(), b"one".to_vec()),
+                    (b"alphabet".to_vec(), b"two".to_vec()),
+                ]),
+                "1a3cd23761926a3e47d1e90071da4188f60d0db45a695c046ae77a8287ac26a4",
+            ),
+            (
+                BTreeMap::from([
+                    (b"a".to_vec(), b"prefix".to_vec()),
+                    (b"aa".to_vec(), b"child".to_vec()),
+                    (b"b".to_vec(), b"branch".to_vec()),
+                ]),
+                "c16c21f76bfad0bd24ca3e781a52ac3f43ac06396b8adc32851c29796bdf4efb",
+            ),
+            (
+                BTreeMap::from([
+                    (vec![0x00, 0xff], vec![0x10]),
+                    (vec![0x10, 0x00], vec![0x20, 0x21]),
+                    (vec![0xff], vec![]),
+                ]),
+                "33edece428639d8da8f286f49470f29d1641ce56e2e2483362d9940bf63dd625",
+            ),
+        ];
+
+        for (storage, expected) in cases {
+            assert_eq!(compute_contract_storage_root(&storage).to_hex(), expected);
+        }
+    }
+
+    #[test]
+    fn test_contract_record_roundtrips_storage_ownership_fields() {
+        let mut record = test_contract_record();
+        record.storage_slot_count = 7;
+        record.storage_generation = 3;
+
+        let encoded = serde_json::to_value(&record).expect("serialize contract record");
+        assert_eq!(encoded["storage_slot_count"], 7);
+        assert_eq!(encoded["storage_generation"], 3);
+
+        let decoded: ContractRecord =
+            serde_json::from_value(encoded).expect("deserialize contract record");
+        assert_eq!(decoded.storage_slot_count, 7);
+        assert_eq!(decoded.storage_generation, 3);
     }
 
     #[test]
@@ -1599,6 +1810,8 @@ mod tests {
             storage_deposit: u64,
             verified_source_storage_deposit: u64,
             storage_bytes: u64,
+            storage_slot_count: u64,
+            storage_generation: u64,
             storage_reserve: u64,
             storage_root: Hash256,
         }
@@ -1623,6 +1836,8 @@ mod tests {
             storage_deposit: 0,
             verified_source_storage_deposit: 0,
             storage_bytes: 0,
+            storage_slot_count: 0,
+            storage_generation: 0,
             storage_reserve: 0,
             storage_root: Hash256::zero(),
         })
