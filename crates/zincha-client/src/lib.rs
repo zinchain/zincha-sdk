@@ -896,6 +896,11 @@ pub struct SubmitTransactionRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitBatchRequest {
+    #[serde(
+        rename = "signed_transactions_hex",
+        alias = "signed_tx_hexes",
+        alias = "transactions"
+    )]
     pub signed_txs_hex: Vec<String>,
 }
 
@@ -914,24 +919,44 @@ pub struct ProtectedSubmitOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderflowBundleRequest {
+    #[serde(
+        rename = "signed_transactions_hex",
+        alias = "signed_tx_hexes",
+        alias = "transactions"
+    )]
     pub signed_txs_hex: Vec<String>,
-    #[serde(default)]
+    #[serde(default = "default_orderflow_bundle_atomic")]
     pub atomic: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expiration_height: Option<u64>,
+    pub expiration_height: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_total_fee: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_priority_fee_per_gas: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct OrderflowBundleOptions {
     pub bearer_token: Option<String>,
     pub atomic: bool,
-    pub expiration_height: Option<u64>,
+    pub expiration_height: u64,
     pub max_total_fee: Option<u64>,
     pub max_priority_fee_per_gas: Option<u64>,
+}
+
+impl OrderflowBundleOptions {
+    pub fn new(expiration_height: u64) -> Self {
+        Self {
+            bearer_token: None,
+            atomic: true,
+            expiration_height,
+            max_total_fee: None,
+            max_priority_fee_per_gas: None,
+        }
+    }
+}
+
+fn default_orderflow_bundle_atomic() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1154,4 +1179,63 @@ fn is_pending_transaction_status(value: &Value) -> bool {
         status,
         "unknown" | "pending" | "accepted" | "queued" | "mempool" | "submitted"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batch_request_uses_canonical_transaction_field() {
+        let value = serde_json::to_value(SubmitBatchRequest {
+            signed_txs_hex: vec!["aabb".to_string()],
+        })
+        .expect("serialize batch request");
+
+        assert_eq!(value, json!({"signed_transactions_hex": ["aabb"]}));
+    }
+
+    #[test]
+    fn orderflow_bundle_request_matches_node_contract() {
+        let value = serde_json::to_value(OrderflowBundleRequest {
+            signed_txs_hex: vec!["aabb".to_string(), "ccdd".to_string()],
+            atomic: true,
+            expiration_height: 42,
+            max_total_fee: Some(100),
+            max_priority_fee_per_gas: None,
+        })
+        .expect("serialize orderflow bundle request");
+
+        assert_eq!(
+            value,
+            json!({
+                "signed_transactions_hex": ["aabb", "ccdd"],
+                "atomic": true,
+                "expiration_height": 42,
+                "max_total_fee": 100
+            })
+        );
+    }
+
+    #[test]
+    fn orderflow_bundle_options_default_to_atomic_submission() {
+        let options = OrderflowBundleOptions::new(42);
+
+        assert!(options.atomic);
+        assert_eq!(options.expiration_height, 42);
+        assert!(options.bearer_token.is_none());
+        assert!(options.max_total_fee.is_none());
+        assert!(options.max_priority_fee_per_gas.is_none());
+    }
+
+    #[test]
+    fn orderflow_bundle_request_defaults_to_atomic_on_decode() {
+        let request: OrderflowBundleRequest = serde_json::from_value(json!({
+            "signed_transactions_hex": ["aabb"],
+            "expiration_height": 42
+        }))
+        .expect("deserialize orderflow bundle request");
+
+        assert!(request.atomic);
+    }
 }

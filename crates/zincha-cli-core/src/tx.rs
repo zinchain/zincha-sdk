@@ -123,7 +123,7 @@ pub enum TxCommands {
         #[arg(long, default_value_t = true)]
         atomic: bool,
         #[arg(long)]
-        expiration_height: Option<u64>,
+        expiration_height: u64,
         #[arg(long)]
         max_total_fee: Option<u64>,
         #[arg(long)]
