@@ -645,6 +645,30 @@
         ],
         "type": "object"
       },
+      "ApiResponse_ArbitratorDisputeList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArbitratorDisputeList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_ArbitratorList": {
         "properties": {
           "data": {
@@ -2120,6 +2144,182 @@
         ],
         "type": "object"
       },
+      "ArbitratorAgreementDispute": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArbitratorDisputeCommon"
+          },
+          {
+            "properties": {
+              "agreement_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "disputed_milestone_index": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "escrow_remaining": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "agreement",
+                "type": "string"
+              },
+              "parties": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "proposer": {
+                "type": "string"
+              },
+              "service_provider": {
+                "type": "string"
+              },
+              "terms": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "agreement_id",
+              "proposer",
+              "service_provider",
+              "parties",
+              "escrow_remaining",
+              "disputed_milestone_index",
+              "terms"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ArbitratorDispute": {
+        "discriminator": {
+          "mapping": {
+            "agreement": "#/components/schemas/ArbitratorAgreementDispute",
+            "task": "#/components/schemas/ArbitratorTaskDispute",
+            "tool_job": "#/components/schemas/ArbitratorToolJobDispute",
+            "tool_usage_session": "#/components/schemas/ArbitratorToolUsageDispute"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ArbitratorAgreementDispute"
+          },
+          {
+            "$ref": "#/components/schemas/ArbitratorTaskDispute"
+          },
+          {
+            "$ref": "#/components/schemas/ArbitratorToolJobDispute"
+          },
+          {
+            "$ref": "#/components/schemas/ArbitratorToolUsageDispute"
+          }
+        ]
+      },
+      "ArbitratorDisputeCommon": {
+        "properties": {
+          "arbitration_deadline_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "arbitration_reassignments": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "arbitrator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "detail_path": {
+            "description": "Participant-authenticated endpoint for the complete underlying record.",
+            "type": "string"
+          },
+          "dispute_reason": {
+            "description": "Private dispute reason visible only through this participant-scoped endpoint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disputed_at": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "agreement",
+              "task",
+              "tool_job",
+              "tool_usage_session"
+            ],
+            "type": "string"
+          },
+          "prior_arbitrators": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "resource_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "disputed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "resource_id",
+          "detail_path",
+          "status",
+          "arbitrator",
+          "disputed_at",
+          "arbitration_deadline_at",
+          "arbitration_reassignments",
+          "prior_arbitrators",
+          "dispute_reason"
+        ],
+        "type": "object"
+      },
+      "ArbitratorDisputeList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArbitratorDispute"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/CursorPagination"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
       "ArbitratorList": {
         "properties": {
           "items": {
@@ -2137,6 +2337,190 @@
           "pagination"
         ],
         "type": "object"
+      },
+      "ArbitratorTaskDispute": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArbitratorDisputeCommon"
+          },
+          {
+            "properties": {
+              "agreed_fee": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "const": "task",
+                "type": "string"
+              },
+              "matched_agent": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "max_fee": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "requester": {
+                "type": "string"
+              },
+              "result_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "task_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id",
+              "requester",
+              "matched_agent",
+              "max_fee",
+              "agreed_fee",
+              "result_hash",
+              "description"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ArbitratorToolJobDispute": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArbitratorDisputeCommon"
+          },
+          {
+            "properties": {
+              "amount_escrowed": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "current_milestone_index": {
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "kind": {
+                "const": "tool_job",
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "requester": {
+                "type": "string"
+              },
+              "result_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tool_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "job_id",
+              "tool_id",
+              "requester",
+              "provider",
+              "amount_escrowed",
+              "result_hash",
+              "current_milestone_index"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ArbitratorToolUsageDispute": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArbitratorDisputeCommon"
+          },
+          {
+            "properties": {
+              "amount_reserved": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "billed_amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "kind": {
+                "const": "tool_usage_session",
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "reported_units": {
+                "format": "int64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "requester": {
+                "type": "string"
+              },
+              "result_hash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "session_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "tool_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "tool_id",
+              "requester",
+              "provider",
+              "amount_reserved",
+              "reported_units",
+              "billed_amount",
+              "result_hash"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "ArchiveHistoryUnavailableResponse": {
         "additionalProperties": false,
@@ -12477,6 +12861,111 @@
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/arbitrators/{address}/disputes": {
+      "get": {
+        "description": "Returns active agreement, task, escrowed tool-job, and metered tool-usage disputes assigned to the signed path address. Items are ordered by earliest arbitration deadline, then dispute timestamp, resource kind, and resource id. Each compact item includes a typed detail path; use that participant endpoint when the arbitrator needs the full underlying record.",
+        "operationId": "arbitrator_disputes",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationCursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ArbitratorDisputeList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Cursor-paged active dispute inbox for an arbitrator.",
+        "tags": [
+          "Other"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
       }
     },
     "/v1/blocks/latest": {

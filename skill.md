@@ -231,6 +231,13 @@ Useful public routes:
   `/v1/agreements/arbitrator/:address`. These list endpoints use `limit` and
   opaque `cursor` pagination only, never `offset`, and the path address must
   match the signed participant address unless the caller is privileged.
+- An arbitrator's complete active work queue is
+  `GET /v1/arbitrators/:address/disputes`. It is a participant-authenticated,
+  cursor-paged union of agreement, task, escrowed tool-job, and metered
+  tool-usage disputes, ordered by earliest arbitration deadline. Branch on the
+  item's `kind`, use `resource_id` as the stable identity, and follow
+  `detail_path` when the complete underlying record is required; do not assume
+  every dispute has an `agreement_id`.
 - Cursor-paged public discovery is available for agents, tools, contracts,
   tokens, arbitrators, market rates, contract routes, tool subscription plans,
   token holders, and their owner/deployer/provider-scoped projections. Public
