@@ -49,18 +49,33 @@ export interface ChainInfo {
   next_base_fee: number;
   contract_platform_profile_version: number;
   contract_platform_profile_id: Hex;
+  storage_mode: "archive" | "snapshot_fast_sync";
+  archive_mode: boolean;
+  historical_reads_available: boolean;
+  history_available_from: number | null;
+  history_available_to: number | null;
+  archive_backfill_complete: boolean;
 }
 
 export interface BalanceResponse {
   address: AddressString;
   balance_micro_zin: number;
   balance_zin: number;
+  state_height: number;
+  state_hash: Hex;
+  state_root: Hex;
+  consistency: "committed";
 }
 
 export interface NonceResponse {
   address: AddressString;
+  committed_nonce: number;
   nonce: number;
   next_nonce: number;
+  state_height: number;
+  state_hash: Hex;
+  state_root: Hex;
+  consistency: "committed";
 }
 
 export interface CursorPageQuery {
@@ -105,6 +120,8 @@ export interface MarketRate {
   median_fee: number;
   min_fee: number;
   max_fee: number;
+  avg_fee_zin?: number;
+  median_fee_zin?: number;
 }
 
 export interface MarketRateListResponse {
@@ -156,14 +173,15 @@ export interface FaucetRequest {
 }
 
 export interface FaucetResponse extends SubmitTransactionResponse {
+  status: "pending";
   recipient: AddressString;
   amount_micro_zin: number;
   fee_micro_zin: number;
   faucet_address: AddressString;
   address_claimed_today_micro_zin: number;
   global_distributed_today_micro_zin: number;
-  global_reserved_cost_today_micro_zin?: number;
-  global_reserve_balance_micro_zin?: number;
+  global_reserved_cost_today_micro_zin: number;
+  global_reserve_balance_micro_zin: number;
   limits: {
     address_cooldown_secs: number;
     address_daily_limit_micro_zin: number;
@@ -173,8 +191,22 @@ export interface FaucetResponse extends SubmitTransactionResponse {
 
 export interface TransactionStatus {
   tx_hash: Hex;
-  status: string;
-  source: string;
+  status:
+    | "accepted"
+    | "pending"
+    | "queued"
+    | "prepared"
+    | "confirmed"
+    | "rejected"
+    | "unknown";
+  source:
+    | "admission_cache"
+    | "canonical_chain"
+    | "mempool"
+    | "prepare_buffer"
+    | "private_orderflow"
+    | "rejection_index"
+    | "unknown";
   terminal: boolean;
   known: boolean;
   mempool_stage?: string | null;
@@ -189,9 +221,45 @@ export interface TransactionStatus {
   amount?: number;
   recipient?: AddressString;
   chain_id?: string;
+  tx_data?: Record<string, unknown>;
   gas_used?: number;
+  gas_limit?: number;
+  effective_gas_price?: number;
+  base_fee_per_gas?: number;
   fee_charged?: number;
-  error?: string | null;
+  fee_base_fee_total?: number;
+  fee_burned?: number;
+  fee_treasury?: number;
+  fee_validator_base_fee?: number;
+  fee_validator_tip?: number;
+  fee_refunded?: number;
+  rejection_reason?: string;
+  rejection_stage?: string;
+  rejected_at_ms?: number;
+  rejected_at_block?: number;
+  prepare_buffer_position?: number;
+  prepare_buffer_size?: number;
+  prepared_at_ms?: number;
+  prepare_target_block_number?: number;
+  prepare_target_timestamp_ms?: number;
+  prepare_target_base_fee_per_gas?: number;
+  private_orderflow?: true;
+  redacted?: true;
+}
+
+export interface SubmitBatchItemResult {
+  index: number;
+  status: "pending" | "rejected";
+  tx_hash: Hex | null;
+  error: string | null;
+}
+
+export interface SubmitBatchResult {
+  status: "batch-processed";
+  accepted_count: number;
+  rejected_count: number;
+  tx_hashes: Hex[];
+  results: SubmitBatchItemResult[];
 }
 
 export interface RequestOptions {

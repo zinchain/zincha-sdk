@@ -151,6 +151,7 @@ import type {
   ReleaseName,
   RequestOptions,
   SignedTransaction,
+  SubmitBatchResult,
   SubmitTransactionResponse,
   TransactionStatus,
   TransactionHistoryQuery,
@@ -369,8 +370,8 @@ export class ZinchaClient {
     return this.submitTransactionHex(signedTransactionHex(tx));
   }
 
-  submitTransactionBatch(signedTxHexes: Hex[]): Promise<unknown> {
-    return this.post("/v1/tx/submit/batch", {
+  submitTransactionBatch(signedTxHexes: Hex[]): Promise<SubmitBatchResult> {
+    return this.post<SubmitBatchResult>("/v1/tx/submit/batch", {
       signed_transactions_hex: signedTxHexes.map(normalizeHexEven),
     });
   }

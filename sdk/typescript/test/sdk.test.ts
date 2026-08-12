@@ -189,6 +189,37 @@ test("client unwraps API responses and surfaces API errors", async () => {
   );
 });
 
+test("batch submission uses the canonical request and typed result", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const transactionHash = "22".repeat(32);
+  const client = new ZinchaClient({
+    baseUrl: "http://node.test/",
+    fetch: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return jsonResponse(200, {
+        success: true,
+        data: {
+          status: "batch-processed",
+          accepted_count: 1,
+          rejected_count: 0,
+          tx_hashes: [transactionHash],
+          results: [{ index: 0, status: "pending", tx_hash: transactionHash, error: null }],
+        },
+        error: null,
+      });
+    },
+  });
+
+  const result = await client.submitTransactionBatch(["aabb"]);
+
+  assert.equal(result.status, "batch-processed");
+  assert.equal(result.accepted_count, 1);
+  assert.equal(calls[0].url, "http://node.test/v1/tx/submit/batch");
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)), {
+    signed_transactions_hex: ["aabb"],
+  });
+});
+
 test("embed helper calls configured embed service and validates returned vector", async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const client = new ZinchaClient({
