@@ -3236,7 +3236,7 @@
         "type": "object"
       },
       "BlockHeader": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "Block header. Field set mirrors the BlockHeader struct in src/primitives/block.rs.",
         "properties": {
           "base_fee_per_gas": {
@@ -3249,28 +3249,126 @@
             "minimum": 0,
             "type": "integer"
           },
-          "previous_block_hash": {
+          "canonical_event_root": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "proposer": {
+          "chain_id": {
             "type": "string"
           },
-          "receipt_root": {
+          "computation_proof": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
+          },
+          "contract_event_count": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "contract_event_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "extra_data": {
+            "items": {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "finality_evidence_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "gas_limit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gas_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "housekeeping_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "justify_qc": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/QuorumCertificate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "pouc_evidence_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "state_commitment": {
+            "$ref": "#/components/schemas/StateCommitment"
           },
           "state_root": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "timestamp_ms": {
-            "format": "int64",
+          "system_operation_count": {
+            "format": "int32",
+            "minimum": 0,
             "type": "integer"
+          },
+          "system_operation_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "timeout_certificate": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TimeoutCertificate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tool_receipt_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "transaction_receipt_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
           },
           "transactions_root": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
+          },
+          "tx_count": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "validator": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
           },
           "view": {
             "format": "int64",
@@ -3278,6 +3376,36 @@
             "type": "integer"
           }
         },
+        "required": [
+          "block_number",
+          "view",
+          "parent_hash",
+          "justify_qc",
+          "timeout_certificate",
+          "transactions_root",
+          "state_root",
+          "state_commitment",
+          "validator",
+          "timestamp",
+          "housekeeping_root",
+          "pouc_evidence_root",
+          "finality_evidence_root",
+          "computation_proof",
+          "gas_used",
+          "gas_limit",
+          "tx_count",
+          "chain_id",
+          "version",
+          "extra_data",
+          "base_fee_per_gas",
+          "tool_receipt_root",
+          "transaction_receipt_root",
+          "contract_event_root",
+          "contract_event_count",
+          "canonical_event_root",
+          "system_operation_root",
+          "system_operation_count"
+        ],
         "type": "object"
       },
       "BlockTransaction": {
@@ -3825,14 +3953,19 @@
         "type": "object"
       },
       "ChainStats": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "Aggregate chain statistics across all tracked resources.",
         "properties": {
-          "total_active_tools": {
-            "description": "Tools currently in the marketplace and accepting invocations.",
+          "block_height": {
+            "description": "Current canonical block height.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "latest_block_hash": {
+            "description": "Hash of the current canonical block.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
           },
           "total_agents": {
             "description": "Total registered agents.",
@@ -3840,37 +3973,54 @@
             "minimum": 0,
             "type": "integer"
           },
-          "total_stake_micro_zin": {
-            "description": "Sum of validator stake bonded across the active set, in micro-ZIN.",
+          "total_agreements": {
+            "description": "Total agreements tracked by canonical state.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "total_supply_micro_zin": {
-            "description": "Total ZIN in circulation, in micro-ZIN.",
+          "total_contracts": {
+            "description": "Total deployed contracts.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "total_tasks_fulfilled": {
-            "description": "Cumulative count of tasks that have completed successfully.",
+          "total_tasks": {
+            "description": "Total tasks tracked by canonical state.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "total_transactions": {
-            "description": "Cumulative count of transactions accepted into a finalized block.",
+          "total_tokens": {
+            "description": "Total token definitions.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "total_validators": {
-            "description": "Validators in the active set.",
+          "total_tools": {
+            "description": "Total registered tools.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "treasury_balance": {
+            "description": "Current treasury balance in micro-ZIN.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           }
         },
+        "required": [
+          "block_height",
+          "latest_block_hash",
+          "total_agents",
+          "total_tasks",
+          "total_agreements",
+          "total_tools",
+          "total_contracts",
+          "total_tokens",
+          "treasury_balance"
+        ],
         "type": "object"
       },
       "Contract": {
@@ -5665,6 +5815,59 @@
         },
         "type": "object"
       },
+      "FinalityVote": {
+        "additionalProperties": false,
+        "properties": {
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "chain_id": {
+            "type": "string"
+          },
+          "public_key": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature": {
+            "pattern": "^[0-9a-f]{128}$",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "validator": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "view": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "validator",
+          "public_key",
+          "chain_id",
+          "block_hash",
+          "block_number",
+          "view",
+          "timestamp",
+          "signature"
+        ],
+        "type": "object"
+      },
       "HistoricalValidationHealthStatus": {
         "additionalProperties": false,
         "properties": {
@@ -7079,6 +7282,50 @@
           "last_self_validation_block",
           "last_self_validation_gas_header",
           "last_self_validation_gas_computed"
+        ],
+        "type": "object"
+      },
+      "QuorumCertificate": {
+        "additionalProperties": false,
+        "properties": {
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_power": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/FinalityVote"
+            },
+            "type": "array"
+          },
+          "voting_power": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_hash",
+          "block_number",
+          "view",
+          "votes",
+          "voting_power",
+          "total_power"
         ],
         "type": "object"
       },
@@ -8668,6 +8915,47 @@
         ],
         "type": "object"
       },
+      "StateCommitment": {
+        "additionalProperties": false,
+        "properties": {
+          "account_roots": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "global_root": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "num_partitions": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shard_roots": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "num_partitions",
+          "account_roots",
+          "shard_roots",
+          "global_root"
+        ],
+        "type": "object"
+      },
       "SubmitBatchResult": {
         "properties": {
           "results": {
@@ -9339,6 +9627,103 @@
         "required": [
           "items",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "TimeoutCertificate": {
+        "additionalProperties": false,
+        "properties": {
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "committee_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "total_power": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/TimeoutVote"
+            },
+            "type": "array"
+          },
+          "voting_power": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_number",
+          "view",
+          "committee_hash",
+          "votes",
+          "voting_power",
+          "total_power"
+        ],
+        "type": "object"
+      },
+      "TimeoutVote": {
+        "additionalProperties": false,
+        "properties": {
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "chain_id": {
+            "type": "string"
+          },
+          "committee_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "public_key": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature": {
+            "pattern": "^[0-9a-f]{128}$",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "validator": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "view": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "validator",
+          "public_key",
+          "chain_id",
+          "block_number",
+          "view",
+          "committee_hash",
+          "timestamp",
+          "signature"
         ],
         "type": "object"
       },
