@@ -2451,7 +2451,8 @@
         "type": "object"
       },
       "Arbitrator": {
-        "additionalProperties": true,
+        "additionalProperties": false,
+        "description": "The canonical public profile returned by both arbitrator list and detail endpoints.",
         "properties": {
           "active": {
             "type": "boolean"
@@ -2459,7 +2460,10 @@
           "address": {
             "type": "string"
           },
-          "defendant_resolutions": {
+          "description": {
+            "type": "string"
+          },
+          "disputes_missed": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2469,18 +2473,35 @@
             "minimum": 0,
             "type": "integer"
           },
-          "fee_basis_points": {
-            "description": "Fee taken from resolved escrow at resolution time, in basis points (0-10000).",
-            "maximum": 10000,
+          "fee_bps": {
+            "description": "Fee taken from resolved escrow at resolution time, in basis points (0-1000).",
+            "maximum": 1000,
             "minimum": 0,
             "type": "integer"
           },
-          "plaintiff_resolutions": {
+          "fee_pct": {
+            "description": "Human-readable fee percentage.",
+            "format": "double",
+            "maximum": 10,
+            "minimum": 0,
+            "type": "number"
+          },
+          "last_active": {
+            "description": "Last activity timestamp in Unix milliseconds.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "registered_at_block": {
+          "name": {
+            "type": "string"
+          },
+          "registered_at": {
+            "description": "Registration timestamp in Unix milliseconds.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rulings_upheld": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2490,18 +2511,62 @@
             "format": "double",
             "type": "number"
           },
-          "stake_micro_zin": {
+          "specializations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "stake": {
+            "description": "Slashable arbitrator collateral in micro-ZIN.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "stake_zin": {
+            "description": "Human-readable arbitrator collateral in ZIN.",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "storage_deposit": {
+            "description": "Refundable storage deposit in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_fees_earned": {
+            "description": "Cumulative arbitration fees earned in micro-ZIN.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_fees_zin": {
+            "description": "Human-readable cumulative arbitration fees in ZIN.",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
           }
         },
         "required": [
           "address",
-          "stake_micro_zin",
-          "fee_basis_points",
+          "name",
+          "description",
+          "stake",
+          "stake_zin",
+          "storage_deposit",
+          "fee_bps",
+          "fee_pct",
+          "specializations",
+          "active",
           "selection_score",
-          "active"
+          "disputes_resolved",
+          "rulings_upheld",
+          "disputes_missed",
+          "total_fees_earned",
+          "total_fees_zin",
+          "registered_at",
+          "last_active"
         ],
         "type": "object"
       },
@@ -15012,7 +15077,7 @@
     },
     "/v1/arbitrators/{address}": {
       "get": {
-        "description": "Returns the arbitrator's stake amount, fee (basis points deducted from resolved escrow), selection score, total disputes resolved, plaintiff vs defendant resolution split, and active flag.",
+        "description": "Returns the arbitrator's stake amount, fee (basis points deducted from resolved escrow), selection score, resolution history, activity timestamps, and active flag.",
         "operationId": "get_arbitrator",
         "parameters": [
           {
