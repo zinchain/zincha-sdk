@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-08-02
+**Version:** 2026-08-13
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
