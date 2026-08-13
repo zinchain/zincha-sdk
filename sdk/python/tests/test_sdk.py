@@ -1895,6 +1895,7 @@ class GoldenVectorTests(unittest.TestCase):
             to=golden["transfer"]["input"]["to"],
             amount=golden["transfer"]["input"]["amount"],
         )
+        self.assertEqual(transfer.transaction.recipient, golden["transfer"]["input"]["to"])
         self.assertEqual(signed_transaction_hex(transfer), golden["transfer"]["transaction"]["signed_tx_hex"])
 
         approve = client.build_approve_token(
@@ -1904,6 +1905,7 @@ class GoldenVectorTests(unittest.TestCase):
             spender=golden["approve"]["input"]["spender"],
             amount=golden["approve"]["input"]["amount"],
         )
+        self.assertEqual(approve.transaction.recipient, golden["approve"]["input"]["spender"])
         self.assertEqual(signed_transaction_hex(approve), golden["approve"]["transaction"]["signed_tx_hex"])
 
         mint = client.build_mint_token(
@@ -1913,6 +1915,7 @@ class GoldenVectorTests(unittest.TestCase):
             to=golden["mint"]["input"]["to"],
             amount=golden["mint"]["input"]["amount"],
         )
+        self.assertEqual(mint.transaction.recipient, golden["mint"]["input"]["to"])
         self.assertEqual(signed_transaction_hex(mint), golden["mint"]["transaction"]["signed_tx_hex"])
 
         burn = client.build_burn_token(

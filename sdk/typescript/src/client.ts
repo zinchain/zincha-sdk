@@ -688,7 +688,13 @@ export class ZinchaClient {
 
   /** Build, sign, and return a `token_transfer` transaction. */
   async buildTransferToken(keypair: Keypair, input: TokenTransferInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "token_transfer", input, encodeTokenTransferData(input));
+    return this.buildTypedTransaction(
+      keypair,
+      "token_transfer",
+      input,
+      encodeTokenTransferData(input),
+      input.to,
+    );
   }
 
   /** Convenience: build + submit a `token_transfer` transaction. */
@@ -698,7 +704,13 @@ export class ZinchaClient {
 
   /** Build, sign, and return a `token_approve` transaction. */
   async buildApproveToken(keypair: Keypair, input: TokenApproveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "token_approve", input, encodeTokenApproveData(input));
+    return this.buildTypedTransaction(
+      keypair,
+      "token_approve",
+      input,
+      encodeTokenApproveData(input),
+      input.spender,
+    );
   }
 
   /** Convenience: build + submit a `token_approve` transaction. */
@@ -708,7 +720,13 @@ export class ZinchaClient {
 
   /** Build, sign, and return a `token_mint` transaction. */
   async buildMintToken(keypair: Keypair, input: TokenMintInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "token_mint", input, encodeTokenMintData(input));
+    return this.buildTypedTransaction(
+      keypair,
+      "token_mint",
+      input,
+      encodeTokenMintData(input),
+      input.to,
+    );
   }
 
   /** Convenience: build + submit a `token_mint` transaction. */
@@ -1187,6 +1205,7 @@ export class ZinchaClient {
       amountMicroZin?: BigNumberish;
     },
     data: Uint8Array,
+    recipient?: string,
   ): Promise<SignedTransaction> {
     const validityFields = [
       input.referenceBlockHeight,
@@ -1208,6 +1227,7 @@ export class ZinchaClient {
     let tx = createSignableTransaction({
       txType,
       sender: keypair.address(),
+      recipient,
       data,
       nonce,
       chainId,

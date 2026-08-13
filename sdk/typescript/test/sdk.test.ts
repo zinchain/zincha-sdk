@@ -1779,6 +1779,7 @@ test("token builders produce Rust-compatible signed transactions", async () => {
     to: golden.transfer.input.to,
     amount: golden.transfer.input.amount,
   });
+  assert.equal(transfer.transaction.recipient, golden.transfer.input.to);
   assert.equal(signedTransactionHex(transfer), golden.transfer.transaction.signed_tx_hex);
 
   const approve = await client.buildApproveToken(keypair, {
@@ -1787,6 +1788,7 @@ test("token builders produce Rust-compatible signed transactions", async () => {
     spender: golden.approve.input.spender,
     amount: golden.approve.input.amount,
   });
+  assert.equal(approve.transaction.recipient, golden.approve.input.spender);
   assert.equal(signedTransactionHex(approve), golden.approve.transaction.signed_tx_hex);
 
   const mint = await client.buildMintToken(keypair, {
@@ -1795,6 +1797,7 @@ test("token builders produce Rust-compatible signed transactions", async () => {
     to: golden.mint.input.to,
     amount: golden.mint.input.amount,
   });
+  assert.equal(mint.transaction.recipient, golden.mint.input.to);
   assert.equal(signedTransactionHex(mint), golden.mint.transaction.signed_tx_hex);
 
   const burn = await client.buildBurnToken(keypair, {

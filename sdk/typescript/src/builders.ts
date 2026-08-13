@@ -1628,6 +1628,7 @@ export function encodeCapabilityDeprecateData(input: CapabilityDeprecateInput): 
 export function createSignableTransaction(input: {
   txType: TxTypeName;
   sender: AddressString | string;
+  recipient?: AddressString | string;
   data: Uint8Array;
   nonce: BigNumberish;
   chainId: string;
@@ -1642,6 +1643,7 @@ export function createSignableTransaction(input: {
   return createTransaction({
     txType: input.txType,
     sender: normalizeAddress(input.sender),
+    recipient: input.recipient,
     nonce: asU64(input.nonce, "nonce"),
     chainId: input.chainId,
     amount: input.amountMicroZin,

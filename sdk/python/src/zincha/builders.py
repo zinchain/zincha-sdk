@@ -1353,6 +1353,7 @@ def create_signable_transaction(
     *,
     tx_type: str,
     sender: str,
+    recipient: Optional[str] = None,
     data: bytes,
     nonce: BigNumberish,
     chain_id: str,
@@ -1368,6 +1369,7 @@ def create_signable_transaction(
     return create_transaction(
         tx_type=tx_type,
         sender=normalize_address(sender),
+        recipient=recipient,
         nonce=as_u64(nonce, "nonce"),
         chain_id=chain_id,
         amount=amount_micro_zin,
