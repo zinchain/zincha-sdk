@@ -15720,7 +15720,7 @@
     },
     "/v1/capabilities/search": {
       "get": {
-        "description": "Searches canonical slugs, aliases, display names, descriptions, keywords, examples, and related skills using deterministic cursor order. Every query token must match the indexed entry. Empty or one-character searches return catalog entries for browsing.",
+        "description": "Searches canonical slugs, aliases, display names, descriptions, keywords, examples, and related skills using deterministic relevance-ranked cursor order. Canonical-slug matches rank above aliases, display names, keywords, taxonomy, descriptions, examples, and related skills. Every query token must match the indexed entry. Empty or one-character searches return catalog entries for browsing.",
         "operationId": "search_capabilities",
         "parameters": [
           {

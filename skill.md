@@ -201,6 +201,8 @@ Useful public routes:
   task transactions may also use custom capability strings that are not present
   in the catalog. Aliases are accepted on catalog-specific endpoints and
   resolve to canonical catalog slugs so discovery indexes do not fragment.
+  Search results use deterministic relevance-ranked cursors; canonical slug
+  matches rank ahead of descriptive, example, and related-capability matches.
   Propose a new catalog slug when a custom capability should become curated
   public metadata; pending entries are immediately visible, while curator
   approval promotes them to active.
