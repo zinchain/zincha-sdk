@@ -3,7 +3,10 @@
 The TypeScript SDK is release-aware and uses the Rust node protocol as the
 source of truth for transaction serialization, hashes, and signatures.
 
-It currently has no external runtime dependencies and targets Node.js 20+.
+It is isomorphic — the same code runs in Node.js 20+, browsers, and the
+MetaMask Snaps sandbox — with two audited pure-JS runtime dependencies
+(`@noble/curves`, `@noble/hashes`). Any `TransactionSigner` (an in-process
+`Keypair`, or an external wallet such as the Zincha MetaMask Snap) can sign.
 
 ## Transfer + read
 

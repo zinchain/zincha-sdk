@@ -32,7 +32,9 @@ cargo run -p zincha-cli -- info --api-url http://127.0.0.1:9944
 
 ```bash
 cd sdk/typescript
+npm install     # @noble/curves + @noble/hashes
 npm test
+npm run build   # compiled ESM + types in dist/
 ```
 
 ## Python

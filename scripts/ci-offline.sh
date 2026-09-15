@@ -29,11 +29,18 @@ echo "==> TypeScript SDK tests"
         echo "The tests use node --experimental-strip-types to execute .ts files directly." >&2
         exit 1
     fi
-    if command -v npm >/dev/null 2>&1; then
-        npm test
-    else
-        node --experimental-strip-types --test test/*.test.ts
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "npm is required for TypeScript SDK tests (the SDK depends on @noble/curves and @noble/hashes)." >&2
+        exit 1
     fi
+    # The SDK has two small runtime dependencies (@noble/curves, @noble/hashes).
+    # Install them once; subsequent runs are offline.
+    if [ ! -d node_modules ]; then
+        npm install --no-audit --no-fund
+    fi
+    npm test
+    npm run typecheck
+    npm run build
 )
 
 echo "==> Public artifact checks"
