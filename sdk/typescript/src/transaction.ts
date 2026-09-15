@@ -1,10 +1,12 @@
 import { BincodeWriter, asU64 } from "./bincode.ts";
 import {
+  addressFromPublicKey,
   bytesToHex,
   hexToBytes,
   normalizeAddress,
   rawAddressHex,
   sha256,
+  verifySignature,
 } from "./crypto.ts";
 import type {
   AddressString,
@@ -12,6 +14,8 @@ import type {
   Hex,
   SignedTransaction,
   Transaction,
+  TransactionJson,
+  TransactionSigner,
   TransferInput,
   TxTypeName,
 } from "./types.ts";
@@ -94,12 +98,12 @@ export const TX_TYPE_WIRE_CODES: Record<TxTypeName, number> = {
 };
 
 export function createTransferTransaction(
-  keypair: Keypair,
+  signer: Pick<TransactionSigner, "address">,
   input: TransferInput & { chainId: string; nonce: BigNumberish },
 ): Transaction {
   return {
     txType: "transfer",
-    sender: keypair.address(),
+    sender: signer.address(),
     recipient: normalizeAddress(input.recipient),
     amount: asU64(input.amountMicroZin, "amountMicroZin"),
     fee: asU64(input.feeMicroZin ?? 0n, "feeMicroZin"),
@@ -204,6 +208,131 @@ export function signTransaction(tx: Transaction, keypair: Keypair): SignedTransa
     publicKey: keypair.publicKeyHex(),
     hash,
   };
+}
+
+/**
+ * Sign a transaction with any `TransactionSigner` (in-process `Keypair` or an
+ * external wallet such as the MetaMask Snap adapter).
+ *
+ * If the signer implements `signTransaction`, the full structured transaction
+ * is handed to it so the wallet can display every field before signing; the
+ * result is then verified here (same canonical bytes, same hash, key bound to
+ * the sender, valid signature) so a misbehaving wallet cannot substitute a
+ * different transaction. Otherwise the 32-byte transaction hash is signed
+ * directly, exactly like `signTransaction`.
+ */
+export async function signTransactionWith(
+  tx: Transaction,
+  signer: TransactionSigner,
+): Promise<SignedTransaction> {
+  if (tx.sender !== signer.address()) {
+    throw new Error("transaction sender does not match signing key address");
+  }
+  const hash = hashTransaction(tx);
+  if (signer.signTransaction) {
+    const signed = await signer.signTransaction(tx);
+    assertSignedTransactionMatches(signed, tx, hash);
+    return signed;
+  }
+  const signature = await signer.sign(hexToBytes(hash, 32));
+  const signed: SignedTransaction = {
+    transaction: tx,
+    signature: bytesToHex(signature),
+    publicKey: signer.publicKeyHex(),
+    hash,
+  };
+  assertSignedTransactionMatches(signed, tx, hash);
+  return signed;
+}
+
+function assertSignedTransactionMatches(
+  signed: SignedTransaction,
+  expected: Transaction,
+  expectedHash: Hex,
+): void {
+  const expectedBytes = serializeTransaction(expected);
+  const actualBytes = serializeTransaction(signed.transaction);
+  if (bytesToHex(actualBytes) !== bytesToHex(expectedBytes)) {
+    throw new Error("signer returned a different transaction than requested");
+  }
+  if (normalizeHash(signed.hash) !== expectedHash) {
+    throw new Error("signer returned a transaction hash that does not match the transaction");
+  }
+  if (!verifySignedTransactionSignature(signed)) {
+    throw new Error("signer returned an invalid signature");
+  }
+}
+
+/**
+ * Verify a signed transaction using only its embedded public key: the key
+ * must derive the sender address, the hash must match the canonical bytes,
+ * and the Ed25519 signature must be valid over that hash.
+ */
+export function verifySignedTransactionSignature(tx: SignedTransaction): boolean {
+  try {
+    const publicKey = hexToBytes(tx.publicKey, 32);
+    if (addressFromPublicKey(publicKey) !== normalizeAddress(tx.transaction.sender)) {
+      return false;
+    }
+    const hash = hashTransaction(tx.transaction);
+    if (hash !== normalizeHash(tx.hash)) {
+      return false;
+    }
+    return verifySignature(publicKey, hexToBytes(hash, 32), hexToBytes(tx.signature, 64));
+  } catch {
+    return false;
+  }
+}
+
+/** JSON-safe encoding of a transaction (for RPC transport to external wallets). */
+export function transactionToJson(tx: Transaction): TransactionJson {
+  return {
+    txType: tx.txType,
+    sender: normalizeAddress(tx.sender),
+    recipient: normalizeAddress(tx.recipient),
+    amount: tx.amount.toString(),
+    fee: tx.fee.toString(),
+    maxPriorityFeePerGas: tx.maxPriorityFeePerGas.toString(),
+    nonce: tx.nonce.toString(),
+    timestamp: tx.timestamp.toString(),
+    referenceBlockHeight: tx.referenceBlockHeight.toString(),
+    referenceBlockHash: normalizeHash(tx.referenceBlockHash),
+    maxValidBlockHeight: tx.maxValidBlockHeight.toString(),
+    data: bytesToHex(tx.data),
+    chainId: tx.chainId,
+  };
+}
+
+/** Strict inverse of `transactionToJson`; every field is validated. */
+export function transactionFromJson(json: TransactionJson): Transaction {
+  if (typeof json !== "object" || json === null) {
+    throw new Error("transaction json must be an object");
+  }
+  if (typeof json.chainId !== "string" || json.chainId.length === 0 || json.chainId.length > 64) {
+    throw new Error("invalid chainId");
+  }
+  return createTransaction({
+    txType: json.txType,
+    sender: json.sender,
+    recipient: json.recipient,
+    amount: decimalString(json.amount, "amount"),
+    fee: decimalString(json.fee, "fee"),
+    maxPriorityFeePerGas: decimalString(json.maxPriorityFeePerGas, "maxPriorityFeePerGas"),
+    nonce: decimalString(json.nonce, "nonce"),
+    timestampMs: decimalString(json.timestamp, "timestamp"),
+    referenceBlockHeight: decimalString(json.referenceBlockHeight, "referenceBlockHeight"),
+    referenceBlockHash: json.referenceBlockHash,
+    maxValidBlockHeight: decimalString(json.maxValidBlockHeight, "maxValidBlockHeight"),
+    data: hexToBytes(typeof json.data === "string" ? json.data : ""),
+    chainId: json.chainId,
+  });
+}
+
+function decimalString(value: unknown, field: string): bigint {
+  if (typeof value !== "string" || !/^\d{1,20}$/.test(value)) {
+    throw new Error(`${field} must be a decimal string`);
+  }
+  return asU64(BigInt(value), field);
 }
 
 export function serializeSignedTransaction(tx: SignedTransaction): Uint8Array {

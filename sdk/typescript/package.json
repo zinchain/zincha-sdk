@@ -1,15 +1,17 @@
 {
   "name": "@zincha/client",
-  "version": "0.1.0",
-  "description": "TypeScript client SDK for ZINCHA",
+  "version": "0.2.0",
+  "description": "Isomorphic TypeScript client SDK for ZINCHA (Node, browser, MetaMask Snaps)",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
+    "dist",
     "src",
     "README.md"
   ],
@@ -17,12 +19,21 @@
     "node": ">=22.6"
   },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "typecheck": "tsc -p tsconfig.typecheck.json"
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.7.3"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0"
   }
 }

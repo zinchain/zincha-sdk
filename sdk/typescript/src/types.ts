@@ -276,13 +276,45 @@ export interface SignedRequestSigner {
   sign(message: Uint8Array): Uint8Array;
 }
 
+/**
+ * Any account that can authorize Zincha operations — an in-process `Keypair`
+ * or an external wallet (browser extension, MetaMask Snap, hardware signer).
+ *
+ * `sign` may be asynchronous. `signTransaction` is optional: wallets that must
+ * display a transaction to the user before signing implement it, and the SDK
+ * routes every transaction through it (never through a raw hash) when present.
+ */
+export interface TransactionSigner {
+  address(): AddressString;
+  publicKeyHex(): Hex;
+  sign(message: Uint8Array): Uint8Array | Promise<Uint8Array>;
+  signTransaction?(tx: Transaction): Promise<SignedTransaction>;
+}
+
+/** JSON-safe `Transaction` (u64 fields as decimal strings, bytes as hex). */
+export interface TransactionJson {
+  txType: TxTypeName;
+  sender: AddressString;
+  recipient: AddressString;
+  amount: string;
+  fee: string;
+  maxPriorityFeePerGas: string;
+  nonce: string;
+  timestamp: string;
+  referenceBlockHeight: string;
+  referenceBlockHash: Hex;
+  maxValidBlockHeight: string;
+  data: Hex;
+  chainId: string;
+}
+
 export interface ZinchaClientOptions {
   baseUrl?: string;
   faucetUrl?: string;
   websocketUrl?: string;
   release?: ReleaseName | string;
   bearerToken?: string;
-  signer?: SignedRequestSigner;
+  signer?: TransactionSigner;
   embedUrl?: string;
   fetch?: typeof fetch;
 }

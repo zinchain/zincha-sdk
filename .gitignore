@@ -24,3 +24,6 @@ Thumbs.db
 *.log
 /coverage/
 lcov.info
+
+# Compiled SDK output
+**/dist/

@@ -1,10 +1,10 @@
-import { bytesToHex, hexToBytes, normalizeAddress, signedRequestHeaders } from "./crypto.ts";
+import { bytesToHex, hexToBytes, normalizeAddress, signedRequestHeadersAsync } from "./crypto.ts";
 import { isMainnetRelease, parseReleaseName, releaseSpec } from "./release.ts";
 import {
   createTransferTransaction,
   estimateTransferFeeMicroZin,
   signedTransactionHex,
-  signTransaction,
+  signTransactionWith,
   withValidityWindow,
 } from "./transaction.ts";
 import {
@@ -159,7 +159,7 @@ import type {
   TxTypeName,
   ZinchaClientOptions,
 } from "./types.ts";
-import { Keypair } from "./crypto.ts";
+import type { TransactionSigner } from "./types.ts";
 
 export class ZinchaApiError extends Error {
   readonly status: number;
@@ -230,7 +230,7 @@ export class ZinchaClient {
       if (!this.signer) {
         throw new Error("signed request requires a client signer");
       }
-      Object.assign(headers, signedRequestHeaders(this.signer, {
+      Object.assign(headers, await signedRequestHeadersAsync(this.signer, {
         method,
         requestTarget,
         body: body ?? "",
@@ -376,7 +376,7 @@ export class ZinchaClient {
     });
   }
 
-  async buildTransfer(keypair: Keypair, input: TransferInput): Promise<SignedTransaction> {
+  async buildTransfer(signer: TransactionSigner, input: TransferInput): Promise<SignedTransaction> {
     const validityFields = [
       input.referenceBlockHeight,
       input.referenceBlockHash,
@@ -391,13 +391,13 @@ export class ZinchaClient {
       || input.feeMicroZin === undefined
       || needsValidityWindow;
     const chainInfo = needsChainInfo ? await this.chainInfo() : undefined;
-    const nonce = input.nonce ?? (await this.nonce(keypair.address())).next_nonce;
+    const nonce = input.nonce ?? (await this.nonce(signer.address())).next_nonce;
     const chainId = input.chainId ?? chainInfo?.chain_id;
     if (!chainId) {
       throw new Error("chainId is required when chain info is not available");
     }
     const fee = input.feeMicroZin ?? estimateTransferFeeMicroZin(chainInfo?.next_base_fee ?? 0);
-    let tx = createTransferTransaction(keypair, {
+    let tx = createTransferTransaction(signer, {
       ...input,
       chainId,
       nonce,
@@ -418,11 +418,11 @@ export class ZinchaClient {
         ttl,
       );
     }
-    return signTransaction(tx, keypair);
+    return signTransactionWith(tx, signer);
   }
 
-  async transferAndSubmit(keypair: Keypair, input: TransferInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildTransfer(keypair, input));
+  async transferAndSubmit(signer: TransactionSigner, input: TransferInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildTransfer(signer, input));
   }
 
   /**
@@ -430,76 +430,76 @@ export class ZinchaClient {
    * `chain_id` and `nonce` from the node when omitted, and pins the
    * transaction's validity window to the chain's current reference block.
    */
-  async buildRegisterAgent(keypair: Keypair, input: RegisterAgentInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agent_register", input, encodeAgentRegisterData(input));
+  async buildRegisterAgent(signer: TransactionSigner, input: RegisterAgentInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agent_register", input, encodeAgentRegisterData(input));
   }
 
   /** Convenience: build + submit an `agent_register` transaction. */
-  async registerAgentAndSubmit(keypair: Keypair, input: RegisterAgentInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildRegisterAgent(keypair, input));
+  async registerAgentAndSubmit(signer: TransactionSigner, input: RegisterAgentInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildRegisterAgent(signer, input));
   }
 
   /** Build, sign, and return an `agent_update` transaction. */
-  async buildUpdateAgent(keypair: Keypair, input: AgentUpdateInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agent_update", input, encodeAgentUpdateData(input));
+  async buildUpdateAgent(signer: TransactionSigner, input: AgentUpdateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agent_update", input, encodeAgentUpdateData(input));
   }
 
   /** Convenience: build + submit an `agent_update` transaction. */
-  async updateAgentAndSubmit(keypair: Keypair, input: AgentUpdateInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateAgent(keypair, input));
+  async updateAgentAndSubmit(signer: TransactionSigner, input: AgentUpdateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildUpdateAgent(signer, input));
   }
 
   /** Build, sign, and return an `agent_deregister` transaction. */
-  async buildDeregisterAgent(keypair: Keypair, input: AgentDeregisterInput = {}): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agent_deregister", input, encodeAgentDeregisterData(input));
+  async buildDeregisterAgent(signer: TransactionSigner, input: AgentDeregisterInput = {}): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agent_deregister", input, encodeAgentDeregisterData(input));
   }
 
   /** Convenience: build + submit an `agent_deregister` transaction. */
   async deregisterAgentAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgentDeregisterInput = {},
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDeregisterAgent(keypair, input));
+    return this.submitSignedTransaction(await this.buildDeregisterAgent(signer, input));
   }
 
   /** Build, sign, and return a `capability_propose` transaction. */
-  async buildProposeCapability(keypair: Keypair, input: CapabilityProposeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "capability_propose", input, encodeCapabilityProposeData(input));
+  async buildProposeCapability(signer: TransactionSigner, input: CapabilityProposeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "capability_propose", input, encodeCapabilityProposeData(input));
   }
 
   /** Convenience: build + submit a `capability_propose` transaction. */
-  async proposeCapabilityAndSubmit(keypair: Keypair, input: CapabilityProposeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildProposeCapability(keypair, input));
+  async proposeCapabilityAndSubmit(signer: TransactionSigner, input: CapabilityProposeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildProposeCapability(signer, input));
   }
 
   /** Build, sign, and return a curator-only `capability_approve` transaction. */
-  async buildApproveCapability(keypair: Keypair, input: CapabilityApproveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "capability_approve", input, encodeCapabilityApproveData(input));
+  async buildApproveCapability(signer: TransactionSigner, input: CapabilityApproveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "capability_approve", input, encodeCapabilityApproveData(input));
   }
 
   /** Convenience: build + submit a curator-only `capability_approve` transaction. */
-  async approveCapabilityAndSubmit(keypair: Keypair, input: CapabilityApproveInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildApproveCapability(keypair, input));
+  async approveCapabilityAndSubmit(signer: TransactionSigner, input: CapabilityApproveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildApproveCapability(signer, input));
   }
 
   /** Build, sign, and return a curator-only `capability_reject` transaction. */
-  async buildRejectCapability(keypair: Keypair, input: CapabilityRejectInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "capability_reject", input, encodeCapabilityRejectData(input));
+  async buildRejectCapability(signer: TransactionSigner, input: CapabilityRejectInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "capability_reject", input, encodeCapabilityRejectData(input));
   }
 
   /** Convenience: build + submit a curator-only `capability_reject` transaction. */
-  async rejectCapabilityAndSubmit(keypair: Keypair, input: CapabilityRejectInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildRejectCapability(keypair, input));
+  async rejectCapabilityAndSubmit(signer: TransactionSigner, input: CapabilityRejectInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildRejectCapability(signer, input));
   }
 
   /** Build, sign, and return a curator-only `capability_deprecate` transaction. */
-  async buildDeprecateCapability(keypair: Keypair, input: CapabilityDeprecateInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "capability_deprecate", input, encodeCapabilityDeprecateData(input));
+  async buildDeprecateCapability(signer: TransactionSigner, input: CapabilityDeprecateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "capability_deprecate", input, encodeCapabilityDeprecateData(input));
   }
 
   /** Convenience: build + submit a curator-only `capability_deprecate` transaction. */
-  async deprecateCapabilityAndSubmit(keypair: Keypair, input: CapabilityDeprecateInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDeprecateCapability(keypair, input));
+  async deprecateCapabilityAndSubmit(signer: TransactionSigner, input: CapabilityDeprecateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDeprecateCapability(signer, input));
   }
 
   /**
@@ -507,78 +507,78 @@ export class ZinchaClient {
    * `chain_id` and `nonce` from the node when omitted, and pins the
    * transaction's validity window to the chain's current reference block.
    */
-  async buildSubmitTask(keypair: Keypair, input: SubmitTaskInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_submit", input, encodeTaskSubmitData(input));
+  async buildSubmitTask(signer: TransactionSigner, input: SubmitTaskInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_submit", input, encodeTaskSubmitData(input));
   }
 
   /** Convenience: build + submit a `task_submit` transaction. */
-  async submitTaskAndSubmit(keypair: Keypair, input: SubmitTaskInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildSubmitTask(keypair, input));
+  async submitTaskAndSubmit(signer: TransactionSigner, input: SubmitTaskInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildSubmitTask(signer, input));
   }
 
   /** Build, sign, and return a `task_fulfill` transaction. */
-  async buildFulfillTask(keypair: Keypair, input: TaskFulfillInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_fulfill", input, encodeTaskFulfillData(input));
+  async buildFulfillTask(signer: TransactionSigner, input: TaskFulfillInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_fulfill", input, encodeTaskFulfillData(input));
   }
 
   /** Convenience: build + submit a `task_fulfill` transaction. */
-  async fulfillTaskAndSubmit(keypair: Keypair, input: TaskFulfillInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildFulfillTask(keypair, input));
+  async fulfillTaskAndSubmit(signer: TransactionSigner, input: TaskFulfillInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildFulfillTask(signer, input));
   }
 
   /** Build, sign, and return a `task_accept` transaction. */
-  async buildAcceptTask(keypair: Keypair, input: TaskAcceptInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_accept", input, encodeTaskAcceptData(input));
+  async buildAcceptTask(signer: TransactionSigner, input: TaskAcceptInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_accept", input, encodeTaskAcceptData(input));
   }
 
   /** Convenience: build + submit a `task_accept` transaction. */
-  async acceptTaskAndSubmit(keypair: Keypair, input: TaskAcceptInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildAcceptTask(keypair, input));
+  async acceptTaskAndSubmit(signer: TransactionSigner, input: TaskAcceptInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildAcceptTask(signer, input));
   }
 
   /** Build, sign, and return a `task_dispute` transaction. */
-  async buildDisputeTask(keypair: Keypair, input: TaskDisputeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_dispute", input, encodeTaskDisputeData(input));
+  async buildDisputeTask(signer: TransactionSigner, input: TaskDisputeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_dispute", input, encodeTaskDisputeData(input));
   }
 
   /** Convenience: build + submit a `task_dispute` transaction. */
-  async disputeTaskAndSubmit(keypair: Keypair, input: TaskDisputeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDisputeTask(keypair, input));
+  async disputeTaskAndSubmit(signer: TransactionSigner, input: TaskDisputeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDisputeTask(signer, input));
   }
 
   /** Build, sign, and return a `task_resolve` transaction. */
-  async buildResolveTask(keypair: Keypair, input: TaskResolveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_resolve", input, encodeTaskResolveData(input));
+  async buildResolveTask(signer: TransactionSigner, input: TaskResolveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_resolve", input, encodeTaskResolveData(input));
   }
 
   /** Convenience: build + submit a `task_resolve` transaction. */
-  async resolveTaskAndSubmit(keypair: Keypair, input: TaskResolveInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildResolveTask(keypair, input));
+  async resolveTaskAndSubmit(signer: TransactionSigner, input: TaskResolveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildResolveTask(signer, input));
   }
 
   /** Build, sign, and return a `task_finalize` transaction. */
-  async buildFinalizeTask(keypair: Keypair, input: TaskFinalizeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_finalize", input, encodeTaskFinalizeData(input));
+  async buildFinalizeTask(signer: TransactionSigner, input: TaskFinalizeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_finalize", input, encodeTaskFinalizeData(input));
   }
 
   /** Convenience: build + submit a `task_finalize` transaction. */
-  async finalizeTaskAndSubmit(keypair: Keypair, input: TaskFinalizeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildFinalizeTask(keypair, input));
+  async finalizeTaskAndSubmit(signer: TransactionSigner, input: TaskFinalizeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildFinalizeTask(signer, input));
   }
 
   /** Build, sign, and return a `task_cancel` transaction. */
-  async buildCancelTask(keypair: Keypair, input: TaskCancelInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "task_cancel", input, encodeTaskCancelData(input));
+  async buildCancelTask(signer: TransactionSigner, input: TaskCancelInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "task_cancel", input, encodeTaskCancelData(input));
   }
 
   /** Convenience: build + submit a `task_cancel` transaction. */
-  async cancelTaskAndSubmit(keypair: Keypair, input: TaskCancelInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCancelTask(keypair, input));
+  async cancelTaskAndSubmit(signer: TransactionSigner, input: TaskCancelInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildCancelTask(signer, input));
   }
 
   /** Build, sign, and return an escrow-funded `agreement_create` transaction. */
-  async buildCreateAgreement(keypair: Keypair, input: AgreementCreateInput): Promise<SignedTransaction> {
-    const proposer = normalizeAddress(keypair.address());
+  async buildCreateAgreement(signer: TransactionSigner, input: AgreementCreateInput): Promise<SignedTransaction> {
+    const proposer = normalizeAddress(signer.address());
     if (!input.parties.some((party) => normalizeAddress(party) === proposer)) {
       throw new Error("agreement proposer must be included in parties");
     }
@@ -596,7 +596,7 @@ export class ZinchaClient {
       }
     }
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "agreement_create",
       { ...input, amountMicroZin: input.escrowAmount },
       encodeAgreementCreateData(input),
@@ -605,91 +605,91 @@ export class ZinchaClient {
 
   /** Convenience: build + submit an `agreement_create` transaction. */
   async createAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementCreateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCreateAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildCreateAgreement(signer, input));
   }
 
-  async buildAcceptAgreement(keypair: Keypair, input: AgreementAcceptInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agreement_accept", input, encodeAgreementAcceptData(input));
+  async buildAcceptAgreement(signer: TransactionSigner, input: AgreementAcceptInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agreement_accept", input, encodeAgreementAcceptData(input));
   }
 
   async acceptAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementAcceptInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildAcceptAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildAcceptAgreement(signer, input));
   }
 
-  async buildExecuteAgreement(keypair: Keypair, input: AgreementExecuteInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agreement_execute", input, encodeAgreementExecuteData(input));
+  async buildExecuteAgreement(signer: TransactionSigner, input: AgreementExecuteInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agreement_execute", input, encodeAgreementExecuteData(input));
   }
 
   async executeAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementExecuteInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildExecuteAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildExecuteAgreement(signer, input));
   }
 
-  async buildDisputeAgreement(keypair: Keypair, input: AgreementDisputeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agreement_dispute", input, encodeAgreementDisputeData(input));
+  async buildDisputeAgreement(signer: TransactionSigner, input: AgreementDisputeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agreement_dispute", input, encodeAgreementDisputeData(input));
   }
 
   async disputeAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementDisputeInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDisputeAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildDisputeAgreement(signer, input));
   }
 
-  async buildResolveAgreement(keypair: Keypair, input: AgreementResolveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agreement_resolve", input, encodeAgreementResolveData(input));
+  async buildResolveAgreement(signer: TransactionSigner, input: AgreementResolveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agreement_resolve", input, encodeAgreementResolveData(input));
   }
 
   async resolveAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementResolveInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildResolveAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildResolveAgreement(signer, input));
   }
 
-  async buildCancelAgreement(keypair: Keypair, input: AgreementCancelInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "agreement_cancel", input, encodeAgreementCancelData(input));
+  async buildCancelAgreement(signer: TransactionSigner, input: AgreementCancelInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "agreement_cancel", input, encodeAgreementCancelData(input));
   }
 
   async cancelAgreementAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: AgreementCancelInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCancelAgreement(keypair, input));
+    return this.submitSignedTransaction(await this.buildCancelAgreement(signer, input));
   }
 
   /** Build, sign, and return a `reputation_update` transaction. */
-  async buildUpdateReputation(keypair: Keypair, input: ReputationUpdateInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "reputation_update", input, encodeReputationUpdateData(input));
+  async buildUpdateReputation(signer: TransactionSigner, input: ReputationUpdateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "reputation_update", input, encodeReputationUpdateData(input));
   }
 
   /** Convenience: build + submit a `reputation_update` transaction. */
-  async updateReputationAndSubmit(keypair: Keypair, input: ReputationUpdateInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateReputation(keypair, input));
+  async updateReputationAndSubmit(signer: TransactionSigner, input: ReputationUpdateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildUpdateReputation(signer, input));
   }
 
   /** Build, sign, and return a `token_create` transaction. */
-  async buildCreateToken(keypair: Keypair, input: TokenCreateInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "token_create", input, encodeTokenCreateData(input));
+  async buildCreateToken(signer: TransactionSigner, input: TokenCreateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "token_create", input, encodeTokenCreateData(input));
   }
 
   /** Convenience: build + submit a `token_create` transaction. */
-  async createTokenAndSubmit(keypair: Keypair, input: TokenCreateInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCreateToken(keypair, input));
+  async createTokenAndSubmit(signer: TransactionSigner, input: TokenCreateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildCreateToken(signer, input));
   }
 
   /** Build, sign, and return a `token_transfer` transaction. */
-  async buildTransferToken(keypair: Keypair, input: TokenTransferInput): Promise<SignedTransaction> {
+  async buildTransferToken(signer: TransactionSigner, input: TokenTransferInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "token_transfer",
       input,
       encodeTokenTransferData(input),
@@ -698,14 +698,14 @@ export class ZinchaClient {
   }
 
   /** Convenience: build + submit a `token_transfer` transaction. */
-  async transferTokenAndSubmit(keypair: Keypair, input: TokenTransferInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildTransferToken(keypair, input));
+  async transferTokenAndSubmit(signer: TransactionSigner, input: TokenTransferInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildTransferToken(signer, input));
   }
 
   /** Build, sign, and return a `token_approve` transaction. */
-  async buildApproveToken(keypair: Keypair, input: TokenApproveInput): Promise<SignedTransaction> {
+  async buildApproveToken(signer: TransactionSigner, input: TokenApproveInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "token_approve",
       input,
       encodeTokenApproveData(input),
@@ -714,14 +714,14 @@ export class ZinchaClient {
   }
 
   /** Convenience: build + submit a `token_approve` transaction. */
-  async approveTokenAndSubmit(keypair: Keypair, input: TokenApproveInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildApproveToken(keypair, input));
+  async approveTokenAndSubmit(signer: TransactionSigner, input: TokenApproveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildApproveToken(signer, input));
   }
 
   /** Build, sign, and return a `token_mint` transaction. */
-  async buildMintToken(keypair: Keypair, input: TokenMintInput): Promise<SignedTransaction> {
+  async buildMintToken(signer: TransactionSigner, input: TokenMintInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "token_mint",
       input,
       encodeTokenMintData(input),
@@ -730,146 +730,146 @@ export class ZinchaClient {
   }
 
   /** Convenience: build + submit a `token_mint` transaction. */
-  async mintTokenAndSubmit(keypair: Keypair, input: TokenMintInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildMintToken(keypair, input));
+  async mintTokenAndSubmit(signer: TransactionSigner, input: TokenMintInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildMintToken(signer, input));
   }
 
   /** Build, sign, and return a `token_burn` transaction. */
-  async buildBurnToken(keypair: Keypair, input: TokenBurnInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "token_burn", input, encodeTokenBurnData(input));
+  async buildBurnToken(signer: TransactionSigner, input: TokenBurnInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "token_burn", input, encodeTokenBurnData(input));
   }
 
   /** Convenience: build + submit a `token_burn` transaction. */
-  async burnTokenAndSubmit(keypair: Keypair, input: TokenBurnInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildBurnToken(keypair, input));
+  async burnTokenAndSubmit(signer: TransactionSigner, input: TokenBurnInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildBurnToken(signer, input));
   }
 
   /** Build, sign, and return a `tool_register` transaction. */
-  async buildRegisterTool(keypair: Keypair, input: ToolRegisterInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_register", input, encodeToolRegisterData(input));
+  async buildRegisterTool(signer: TransactionSigner, input: ToolRegisterInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_register", input, encodeToolRegisterData(input));
   }
 
   /** Convenience: build + submit a `tool_register` transaction. */
-  async registerToolAndSubmit(keypair: Keypair, input: ToolRegisterInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildRegisterTool(keypair, input));
+  async registerToolAndSubmit(signer: TransactionSigner, input: ToolRegisterInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildRegisterTool(signer, input));
   }
 
   /** Build, sign, and return a `tool_update` transaction. */
-  async buildUpdateTool(keypair: Keypair, input: ToolUpdateInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_update", input, encodeToolUpdateData(input));
+  async buildUpdateTool(signer: TransactionSigner, input: ToolUpdateInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_update", input, encodeToolUpdateData(input));
   }
 
   /** Convenience: build + submit a `tool_update` transaction. */
-  async updateToolAndSubmit(keypair: Keypair, input: ToolUpdateInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateTool(keypair, input));
+  async updateToolAndSubmit(signer: TransactionSigner, input: ToolUpdateInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildUpdateTool(signer, input));
   }
 
   /** Build, sign, and return a `tool_invoke` transaction. */
-  async buildInvokeTool(keypair: Keypair, input: ToolInvokeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_invoke", input, encodeToolInvokeData(input));
+  async buildInvokeTool(signer: TransactionSigner, input: ToolInvokeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_invoke", input, encodeToolInvokeData(input));
   }
 
   /** Convenience: build + submit a `tool_invoke` transaction. */
-  async invokeToolAndSubmit(keypair: Keypair, input: ToolInvokeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildInvokeTool(keypair, input));
+  async invokeToolAndSubmit(signer: TransactionSigner, input: ToolInvokeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildInvokeTool(signer, input));
   }
 
   /** Build, sign, and return a `tool_deregister` transaction. */
-  async buildDeregisterTool(keypair: Keypair, input: ToolDeregisterInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_deregister", input, encodeToolDeregisterData(input));
+  async buildDeregisterTool(signer: TransactionSigner, input: ToolDeregisterInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_deregister", input, encodeToolDeregisterData(input));
   }
 
   /** Convenience: build + submit a `tool_deregister` transaction. */
-  async deregisterToolAndSubmit(keypair: Keypair, input: ToolDeregisterInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDeregisterTool(keypair, input));
+  async deregisterToolAndSubmit(signer: TransactionSigner, input: ToolDeregisterInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDeregisterTool(signer, input));
   }
 
-  async buildSubmitToolResult(keypair: Keypair, input: ToolResultSubmitInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_result_submit", input, encodeToolResultSubmitData(input));
+  async buildSubmitToolResult(signer: TransactionSigner, input: ToolResultSubmitInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_result_submit", input, encodeToolResultSubmitData(input));
   }
 
-  async submitToolResultAndSubmit(keypair: Keypair, input: ToolResultSubmitInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildSubmitToolResult(keypair, input));
+  async submitToolResultAndSubmit(signer: TransactionSigner, input: ToolResultSubmitInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildSubmitToolResult(signer, input));
   }
 
-  async buildAcceptToolResult(keypair: Keypair, input: ToolResultAcceptInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_result_accept", input, encodeToolResultAcceptData(input));
+  async buildAcceptToolResult(signer: TransactionSigner, input: ToolResultAcceptInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_result_accept", input, encodeToolResultAcceptData(input));
   }
 
-  async acceptToolResultAndSubmit(keypair: Keypair, input: ToolResultAcceptInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildAcceptToolResult(keypair, input));
+  async acceptToolResultAndSubmit(signer: TransactionSigner, input: ToolResultAcceptInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildAcceptToolResult(signer, input));
   }
 
-  async buildDisputeToolResult(keypair: Keypair, input: ToolResultDisputeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_result_dispute", input, encodeToolResultDisputeData(input));
+  async buildDisputeToolResult(signer: TransactionSigner, input: ToolResultDisputeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_result_dispute", input, encodeToolResultDisputeData(input));
   }
 
-  async disputeToolResultAndSubmit(keypair: Keypair, input: ToolResultDisputeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDisputeToolResult(keypair, input));
+  async disputeToolResultAndSubmit(signer: TransactionSigner, input: ToolResultDisputeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDisputeToolResult(signer, input));
   }
 
-  async buildResolveToolResult(keypair: Keypair, input: ToolResultResolveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_result_resolve", input, encodeToolResultResolveData(input));
+  async buildResolveToolResult(signer: TransactionSigner, input: ToolResultResolveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_result_resolve", input, encodeToolResultResolveData(input));
   }
 
-  async resolveToolResultAndSubmit(keypair: Keypair, input: ToolResultResolveInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildResolveToolResult(keypair, input));
+  async resolveToolResultAndSubmit(signer: TransactionSigner, input: ToolResultResolveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildResolveToolResult(signer, input));
   }
 
-  async buildExpireToolJob(keypair: Keypair, input: ToolJobExpireInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_job_expire", input, encodeToolJobExpireData(input));
+  async buildExpireToolJob(signer: TransactionSigner, input: ToolJobExpireInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_job_expire", input, encodeToolJobExpireData(input));
   }
 
-  async expireToolJobAndSubmit(keypair: Keypair, input: ToolJobExpireInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildExpireToolJob(keypair, input));
+  async expireToolJobAndSubmit(signer: TransactionSigner, input: ToolJobExpireInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildExpireToolJob(signer, input));
   }
 
-  async buildReportToolUsage(keypair: Keypair, input: ToolUsageReportInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_usage_report", input, encodeToolUsageReportData(input));
+  async buildReportToolUsage(signer: TransactionSigner, input: ToolUsageReportInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_usage_report", input, encodeToolUsageReportData(input));
   }
 
-  async reportToolUsageAndSubmit(keypair: Keypair, input: ToolUsageReportInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildReportToolUsage(keypair, input));
+  async reportToolUsageAndSubmit(signer: TransactionSigner, input: ToolUsageReportInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildReportToolUsage(signer, input));
   }
 
-  async buildAcceptToolUsage(keypair: Keypair, input: ToolUsageAcceptInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_usage_accept", input, encodeToolUsageAcceptData(input));
+  async buildAcceptToolUsage(signer: TransactionSigner, input: ToolUsageAcceptInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_usage_accept", input, encodeToolUsageAcceptData(input));
   }
 
-  async acceptToolUsageAndSubmit(keypair: Keypair, input: ToolUsageAcceptInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildAcceptToolUsage(keypair, input));
+  async acceptToolUsageAndSubmit(signer: TransactionSigner, input: ToolUsageAcceptInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildAcceptToolUsage(signer, input));
   }
 
-  async buildDisputeToolUsage(keypair: Keypair, input: ToolUsageDisputeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_usage_dispute", input, encodeToolUsageDisputeData(input));
+  async buildDisputeToolUsage(signer: TransactionSigner, input: ToolUsageDisputeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_usage_dispute", input, encodeToolUsageDisputeData(input));
   }
 
-  async disputeToolUsageAndSubmit(keypair: Keypair, input: ToolUsageDisputeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDisputeToolUsage(keypair, input));
+  async disputeToolUsageAndSubmit(signer: TransactionSigner, input: ToolUsageDisputeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildDisputeToolUsage(signer, input));
   }
 
-  async buildResolveToolUsage(keypair: Keypair, input: ToolUsageResolveInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_usage_resolve", input, encodeToolUsageResolveData(input));
+  async buildResolveToolUsage(signer: TransactionSigner, input: ToolUsageResolveInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_usage_resolve", input, encodeToolUsageResolveData(input));
   }
 
-  async resolveToolUsageAndSubmit(keypair: Keypair, input: ToolUsageResolveInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildResolveToolUsage(keypair, input));
+  async resolveToolUsageAndSubmit(signer: TransactionSigner, input: ToolUsageResolveInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildResolveToolUsage(signer, input));
   }
 
-  async buildExpireToolUsage(keypair: Keypair, input: ToolUsageExpireInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_usage_expire", input, encodeToolUsageExpireData(input));
+  async buildExpireToolUsage(signer: TransactionSigner, input: ToolUsageExpireInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_usage_expire", input, encodeToolUsageExpireData(input));
   }
 
-  async expireToolUsageAndSubmit(keypair: Keypair, input: ToolUsageExpireInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildExpireToolUsage(keypair, input));
+  async expireToolUsageAndSubmit(signer: TransactionSigner, input: ToolUsageExpireInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildExpireToolUsage(signer, input));
   }
 
   async buildCreateToolSubscriptionPlan(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionPlanCreateInput,
   ): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "tool_subscription_plan_create",
       input,
       encodeToolSubscriptionPlanCreateData(input),
@@ -877,18 +877,18 @@ export class ZinchaClient {
   }
 
   async createToolSubscriptionPlanAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionPlanCreateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCreateToolSubscriptionPlan(keypair, input));
+    return this.submitSignedTransaction(await this.buildCreateToolSubscriptionPlan(signer, input));
   }
 
   async buildUpdateToolSubscriptionPlan(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionPlanUpdateInput,
   ): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "tool_subscription_plan_update",
       input,
       encodeToolSubscriptionPlanUpdateData(input),
@@ -896,70 +896,70 @@ export class ZinchaClient {
   }
 
   async updateToolSubscriptionPlanAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionPlanUpdateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateToolSubscriptionPlan(keypair, input));
+    return this.submitSignedTransaction(await this.buildUpdateToolSubscriptionPlan(signer, input));
   }
 
-  async buildStartToolSubscription(keypair: Keypair, input: ToolSubscriptionStartInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_subscription_start", input, encodeToolSubscriptionStartData(input));
+  async buildStartToolSubscription(signer: TransactionSigner, input: ToolSubscriptionStartInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_subscription_start", input, encodeToolSubscriptionStartData(input));
   }
 
   async startToolSubscriptionAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionStartInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildStartToolSubscription(keypair, input));
+    return this.submitSignedTransaction(await this.buildStartToolSubscription(signer, input));
   }
 
-  async buildTopUpToolSubscription(keypair: Keypair, input: ToolSubscriptionTopUpInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_subscription_top_up", input, encodeToolSubscriptionTopUpData(input));
+  async buildTopUpToolSubscription(signer: TransactionSigner, input: ToolSubscriptionTopUpInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_subscription_top_up", input, encodeToolSubscriptionTopUpData(input));
   }
 
   async topUpToolSubscriptionAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionTopUpInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildTopUpToolSubscription(keypair, input));
+    return this.submitSignedTransaction(await this.buildTopUpToolSubscription(signer, input));
   }
 
-  async buildCancelToolSubscription(keypair: Keypair, input: ToolSubscriptionCancelInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_subscription_cancel", input, encodeToolSubscriptionCancelData(input));
+  async buildCancelToolSubscription(signer: TransactionSigner, input: ToolSubscriptionCancelInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_subscription_cancel", input, encodeToolSubscriptionCancelData(input));
   }
 
   async cancelToolSubscriptionAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionCancelInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCancelToolSubscription(keypair, input));
+    return this.submitSignedTransaction(await this.buildCancelToolSubscription(signer, input));
   }
 
-  async buildResumeToolSubscription(keypair: Keypair, input: ToolSubscriptionResumeInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_subscription_resume", input, encodeToolSubscriptionResumeData(input));
+  async buildResumeToolSubscription(signer: TransactionSigner, input: ToolSubscriptionResumeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_subscription_resume", input, encodeToolSubscriptionResumeData(input));
   }
 
   async resumeToolSubscriptionAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionResumeInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildResumeToolSubscription(keypair, input));
+    return this.submitSignedTransaction(await this.buildResumeToolSubscription(signer, input));
   }
 
-  async buildRenewToolSubscription(keypair: Keypair, input: ToolSubscriptionRenewInput): Promise<SignedTransaction> {
-    return this.buildTypedTransaction(keypair, "tool_subscription_renew", input, encodeToolSubscriptionRenewData(input));
+  async buildRenewToolSubscription(signer: TransactionSigner, input: ToolSubscriptionRenewInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "tool_subscription_renew", input, encodeToolSubscriptionRenewData(input));
   }
 
   async renewToolSubscriptionAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ToolSubscriptionRenewInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildRenewToolSubscription(keypair, input));
+    return this.submitSignedTransaction(await this.buildRenewToolSubscription(signer, input));
   }
 
-  async buildDeployContract(keypair: Keypair, input: ContractDeployInput): Promise<SignedTransaction> {
+  async buildDeployContract(signer: TransactionSigner, input: ContractDeployInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_deploy",
       input,
       encodeContractDeployData(input),
@@ -967,15 +967,15 @@ export class ZinchaClient {
   }
 
   async deployContractAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractDeployInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDeployContract(keypair, input));
+    return this.submitSignedTransaction(await this.buildDeployContract(signer, input));
   }
 
-  async buildCallContract(keypair: Keypair, input: ContractCallInput): Promise<SignedTransaction> {
+  async buildCallContract(signer: TransactionSigner, input: ContractCallInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_call",
       input,
       encodeContractCallData(input),
@@ -983,15 +983,15 @@ export class ZinchaClient {
   }
 
   async callContractAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractCallInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCallContract(keypair, input));
+    return this.submitSignedTransaction(await this.buildCallContract(signer, input));
   }
 
-  async buildVerifyContract(keypair: Keypair, input: ContractVerifyInput): Promise<SignedTransaction> {
+  async buildVerifyContract(signer: TransactionSigner, input: ContractVerifyInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_verify",
       input,
       encodeContractVerifyData(input),
@@ -999,15 +999,15 @@ export class ZinchaClient {
   }
 
   async verifyContractAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractVerifyInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildVerifyContract(keypair, input));
+    return this.submitSignedTransaction(await this.buildVerifyContract(signer, input));
   }
 
-  async buildPublishContractAbi(keypair: Keypair, input: ContractPublishAbiInput): Promise<SignedTransaction> {
+  async buildPublishContractAbi(signer: TransactionSigner, input: ContractPublishAbiInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_publish_abi",
       input,
       encodeContractPublishAbiData(input),
@@ -1015,15 +1015,15 @@ export class ZinchaClient {
   }
 
   async publishContractAbiAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractPublishAbiInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildPublishContractAbi(keypair, input));
+    return this.submitSignedTransaction(await this.buildPublishContractAbi(signer, input));
   }
 
-  async buildUpdateContractRoute(keypair: Keypair, input: ContractRouteUpdateInput): Promise<SignedTransaction> {
+  async buildUpdateContractRoute(signer: TransactionSigner, input: ContractRouteUpdateInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_route_update",
       input,
       encodeContractRouteUpdateData(input),
@@ -1031,15 +1031,15 @@ export class ZinchaClient {
   }
 
   async updateContractRouteAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractRouteUpdateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateContractRoute(keypair, input));
+    return this.submitSignedTransaction(await this.buildUpdateContractRoute(signer, input));
   }
 
-  async buildCallContractRoute(keypair: Keypair, input: ContractRouteCallInput): Promise<SignedTransaction> {
+  async buildCallContractRoute(signer: TransactionSigner, input: ContractRouteCallInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_route_call",
       input,
       encodeContractRouteCallData(input),
@@ -1047,15 +1047,15 @@ export class ZinchaClient {
   }
 
   async callContractRouteAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractRouteCallInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCallContractRoute(keypair, input));
+    return this.submitSignedTransaction(await this.buildCallContractRoute(signer, input));
   }
 
-  async buildDeactivateContract(keypair: Keypair, input: ContractDeactivateInput): Promise<SignedTransaction> {
+  async buildDeactivateContract(signer: TransactionSigner, input: ContractDeactivateInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "contract_deactivate",
       input,
       encodeContractDeactivateData(input),
@@ -1063,16 +1063,16 @@ export class ZinchaClient {
   }
 
   async deactivateContractAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ContractDeactivateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildDeactivateContract(keypair, input));
+    return this.submitSignedTransaction(await this.buildDeactivateContract(signer, input));
   }
 
-  async buildRegisterValidator(keypair: Keypair, input: ValidatorRegisterInput): Promise<SignedTransaction> {
-    const vrfPublicKey = input.vrfPublicKey ?? keypair.publicKeyHex();
+  async buildRegisterValidator(signer: TransactionSigner, input: ValidatorRegisterInput): Promise<SignedTransaction> {
+    const vrfPublicKey = input.vrfPublicKey ?? signer.publicKeyHex();
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "validator_register",
       { ...input, amountMicroZin: input.stakeMicroZin },
       encodeValidatorRegisterData({ ...input, vrfPublicKey }),
@@ -1080,15 +1080,15 @@ export class ZinchaClient {
   }
 
   async registerValidatorAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorRegisterInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildRegisterValidator(keypair, input));
+    return this.submitSignedTransaction(await this.buildRegisterValidator(signer, input));
   }
 
-  async buildUpdateValidator(keypair: Keypair, input: ValidatorUpdateInput): Promise<SignedTransaction> {
+  async buildUpdateValidator(signer: TransactionSigner, input: ValidatorUpdateInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "validator_update",
       input,
       encodeValidatorUpdateData(input),
@@ -1096,15 +1096,15 @@ export class ZinchaClient {
   }
 
   async updateValidatorAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorUpdateInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUpdateValidator(keypair, input));
+    return this.submitSignedTransaction(await this.buildUpdateValidator(signer, input));
   }
 
-  async buildExitValidator(keypair: Keypair, input: ValidatorExitInput = {}): Promise<SignedTransaction> {
+  async buildExitValidator(signer: TransactionSigner, input: ValidatorExitInput = {}): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "validator_exit",
       input,
       encodeValidatorExitData(input),
@@ -1112,18 +1112,18 @@ export class ZinchaClient {
   }
 
   async exitValidatorAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorExitInput = {},
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildExitValidator(keypair, input));
+    return this.submitSignedTransaction(await this.buildExitValidator(signer, input));
   }
 
   async buildCommitValidatorVrf(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorVrfCommitInput,
   ): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "validator_vrf_commit",
       input,
       encodeValidatorVrfCommitData(input),
@@ -1131,18 +1131,18 @@ export class ZinchaClient {
   }
 
   async commitValidatorVrfAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorVrfCommitInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildCommitValidatorVrf(keypair, input));
+    return this.submitSignedTransaction(await this.buildCommitValidatorVrf(signer, input));
   }
 
   async buildContributeValidatorVrf(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorVrfContributionInput,
   ): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "validator_vrf_contribution",
       input,
       encodeValidatorVrfContributionData(input),
@@ -1150,39 +1150,39 @@ export class ZinchaClient {
   }
 
   async contributeValidatorVrfAndSubmit(
-    keypair: Keypair,
+    signer: TransactionSigner,
     input: ValidatorVrfContributionInput,
   ): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildContributeValidatorVrf(keypair, input));
+    return this.submitSignedTransaction(await this.buildContributeValidatorVrf(signer, input));
   }
 
-  async buildStake(keypair: Keypair, input: StakeInput): Promise<SignedTransaction> {
+  async buildStake(signer: TransactionSigner, input: StakeInput): Promise<SignedTransaction> {
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "stake",
       { ...input, amountMicroZin: input.amountMicroZin },
       encodeStakeData(input),
     );
   }
 
-  async stakeAndSubmit(keypair: Keypair, input: StakeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildStake(keypair, input));
+  async stakeAndSubmit(signer: TransactionSigner, input: StakeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildStake(signer, input));
   }
 
-  async buildUnstake(keypair: Keypair, input: UnstakeInput): Promise<SignedTransaction> {
+  async buildUnstake(signer: TransactionSigner, input: UnstakeInput): Promise<SignedTransaction> {
     if (input.target === "requester_auto_match") {
       throw new Error("requester_auto_match stake cannot be unstaked");
     }
     return this.buildTypedTransaction(
-      keypair,
+      signer,
       "unstake",
       { ...input, amountMicroZin: input.amountMicroZin },
       encodeUnstakeData(input),
     );
   }
 
-  async unstakeAndSubmit(keypair: Keypair, input: UnstakeInput): Promise<SubmitTransactionResponse> {
-    return this.submitSignedTransaction(await this.buildUnstake(keypair, input));
+  async unstakeAndSubmit(signer: TransactionSigner, input: UnstakeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildUnstake(signer, input));
   }
 
   /**
@@ -1191,7 +1191,7 @@ export class ZinchaClient {
    * payload has already been bincode-encoded.
    */
   private async buildTypedTransaction(
-    keypair: Keypair,
+    signer: TransactionSigner,
     txType: TxTypeName,
     input: {
       nonce?: BigNumberish;
@@ -1222,11 +1222,11 @@ export class ZinchaClient {
     if (!chainId) {
       throw new Error("chainId is required when chain info is not available");
     }
-    const nonce = input.nonce ?? (await this.nonce(keypair.address())).next_nonce;
+    const nonce = input.nonce ?? (await this.nonce(signer.address())).next_nonce;
 
     let tx = createSignableTransaction({
       txType,
-      sender: keypair.address(),
+      sender: signer.address(),
       recipient,
       data,
       nonce,
@@ -1249,7 +1249,7 @@ export class ZinchaClient {
       );
     }
 
-    return signTransaction(tx, keypair);
+    return signTransactionWith(tx, signer);
   }
 
   requestFaucet(request: FaucetRequest): Promise<FaucetResponse> {
@@ -1492,12 +1492,12 @@ export class ZinchaClient {
     return new WebSocketCtor(`${trimTrailingSlash(base)}${path}`);
   }
 
-  signedRequestHeaders(method: string, path: string, body?: unknown): Record<string, string> {
+  async signedRequestHeaders(method: string, path: string, body?: unknown): Promise<Record<string, string>> {
     if (!this.signer) {
       throw new Error("signed request requires a client signer");
     }
     const payload = body === undefined ? "" : JSON.stringify(body);
-    return signedRequestHeaders(this.signer, {
+    return signedRequestHeadersAsync(this.signer, {
       method,
       requestTarget: path,
       body: payload,

@@ -296,3 +296,21 @@ Regenerate the Rust golden vectors after intentional protocol changes:
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors
 ```
+
+## 0.2.0 — isomorphic build and external signers
+
+- `crypto.ts` no longer depends on `node:crypto`/`Buffer`; Ed25519 and SHA-256
+  come from `@noble/curves` and `@noble/hashes`, so the same code runs in Node,
+  browsers, and the MetaMask Snaps sandbox. Output is byte-identical (golden
+  vectors unchanged).
+- New `TransactionSigner` interface (async `sign`, optional `signTransaction`).
+  Every `build*`/`*AndSubmit` method now accepts any `TransactionSigner`;
+  `Keypair` still works unchanged.
+- `signTransactionWith(tx, signer)` routes through a wallet's `signTransaction`
+  when present (so the wallet can display the transaction) and verifies the
+  returned signature, hash, and canonical bytes.
+- `verifySignedTransactionSignature`, `transactionToJson`/`transactionFromJson`,
+  `signedRequestMessage`/`parseSignedRequestMessage`, and
+  `signedRequestHeadersAsync` support external wallets.
+- `ZinchaClient#signedRequestHeaders` is now async.
+- The package ships compiled ESM + type declarations from `dist/` (`npm run build`).
