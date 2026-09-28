@@ -3,10 +3,19 @@
 The TypeScript SDK is release-aware and uses the Rust node protocol as the
 source of truth for transaction serialization, hashes, and signatures.
 
-It is isomorphic — the same code runs in Node.js 20+, browsers, and the
+It is isomorphic — the same code runs in Node.js 22.6+, browsers, and the
 MetaMask Snaps sandbox — with two audited pure-JS runtime dependencies
 (`@noble/curves`, `@noble/hashes`). Any `TransactionSigner` (an in-process
 `Keypair`, or an external wallet such as the Zincha MetaMask Snap) can sign.
+The current serializer writes addresses, hashes, and public keys in the
+fixed-width binary form required by protocol/storage format 58.
+
+`client.transaction(hash)` receives the runtime's complete transaction-status
+JSON. Confirmed nodes now return receipt `events`, `state_changes`, and
+`contract_context`, including decoded protocol-authored contract operations.
+The `TransactionStatus` interface and generated OpenAPI schema expose those
+fields with typed receipt events, state changes, contract context, and operation
+variants.
 
 ## Transfer + read
 
@@ -288,11 +297,13 @@ From the repository root:
 
 ```bash
 node --experimental-strip-types --test sdk/typescript/test/*.test.ts
+pnpm --dir sdk/typescript run typecheck
 cargo test --test sdk_vectors
 ```
 
-The TypeScript tests use Node's native type-stripping test runner and require
-Node.js 22.6 or newer.
+The runtime tests use Node's native type-stripping test runner and require
+Node.js 22.6 or newer. The separate TypeScript compiler gate validates the
+exported response and builder contracts under strict mode.
 
 Regenerate the Rust golden vectors after intentional protocol changes:
 

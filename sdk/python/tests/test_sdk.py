@@ -851,7 +851,7 @@ class BincodePrimitiveTests(unittest.TestCase):
 
 
 class AgentRegisterEncoderTests(unittest.TestCase):
-    def test_zero_filled_inputs_produce_rust_hash_string_layout(self):
+    def test_zero_filled_inputs_produce_rust_fixed_hash_layout(self):
         bytes_out = encode_agent_register_data(
             name="",
             description="",
@@ -861,14 +861,13 @@ class AgentRegisterEncoderTests(unittest.TestCase):
             "0000000000000000"                    # name ""
             + "0000000000000000"                  # description ""
             + "00"                                # neural_embedding None
-            + "4000000000000000"                  # model_hash string length 64
-            + ("30" * 64)                         # model_hash zero hex string
+            + ("00" * 32)                         # model_hash fixed 32 bytes
             + "0000000000000000"                  # capabilities
             + "0000000000000000"                  # metadata
             + "0000000000000000"                  # min_fee
             + "0000000000000000"                  # fee_schedule
         )
-        self.assertEqual(len(bytes_out), 121)
+        self.assertEqual(len(bytes_out), 81)
         self.assertEqual(bytes_out.hex(), expected)
 
     def test_small_inputs_emit_expected_wire_layout(self):
@@ -881,8 +880,7 @@ class AgentRegisterEncoderTests(unittest.TestCase):
             "0200000000000000" + "6162"           # name "ab"
             + "0000000000000000"                    # description ""
             + "00"                                  # neural_embedding None
-            + "4000000000000000"                   # model_hash string length 64
-            + ("30" * 64)                          # model_hash zero hex string
+            + ("00" * 32)                          # model_hash fixed 32 bytes
             + "0100000000000000"                   # capabilities Vec len 1
             + "0100000000000000" + "78"          # Capability("x")
             + "0000000000000000"                   # metadata Vec len 0
@@ -904,8 +902,7 @@ class AgentRegisterEncoderTests(unittest.TestCase):
             + "01"                                # neural_embedding Some tag
             + "0200000000000000"                  # Vec<f32> len 2
             + "0000803f" + "00000040"           # f32 1.0, f32 2.0
-            + "4000000000000000"                  # model_hash string length 64
-            + ("30" * 64)                         # model_hash zero hex string
+            + ("00" * 32)                         # model_hash fixed 32 bytes
             + "0000000000000000"                  # capabilities
             + "0000000000000000"                  # metadata
             + "0000000000000000"                  # min_fee
@@ -1047,7 +1044,28 @@ class GoldenVectorTests(unittest.TestCase):
 
     def test_agreement_lifecycle_encoders_match_rust_golden(self):
         golden = json.loads(_python_fixture_path("golden-agreement-lifecycle.json").read_text())
-        create = golden["create"]["input"]
+        create = {
+            "parties": [
+                "zn1" + "11" * 20,
+                "zn1" + "22" * 20,
+                "zn1" + "33" * 20,
+            ],
+            "terms_hex": "deliver audited model".encode().hex(),
+            "escrow_amount": 1_000_000,
+            "expires_at": 1_900_000_000_000,
+            "arbitrator": "zn1" + "44" * 20,
+            "milestones": [
+                {"description": "prototype", "amount": 400_000},
+                {"description": "production", "amount": 600_000},
+            ],
+            "service_provider": "zn1" + "22" * 20,
+            "settlement_allocations": [
+                {"recipient": "zn1" + "22" * 20, "share_bps": 7_500},
+                {"recipient": "zn1" + "33" * 20, "share_bps": 2_500},
+            ],
+            "settlement_approver": "zn1" + "11" * 20,
+        }
+        agreement_id = "aa" * 32
         encoded_create = encode_agreement_create_data(
             parties=create["parties"],
             terms=bytes.fromhex(create["terms_hex"]),
@@ -1063,33 +1081,43 @@ class GoldenVectorTests(unittest.TestCase):
         )
         self.assertEqual(encoded_create.hex(), golden["create"]["data_hex"])
         self.assertEqual(
-            encode_agreement_accept_data(**golden["accept"]["input"]).hex(),
+            encode_agreement_accept_data(agreement_id=agreement_id).hex(),
             golden["accept"]["data_hex"],
         )
         self.assertEqual(
-            encode_agreement_execute_data(**golden["execute"]["input"]).hex(),
+            encode_agreement_execute_data(
+                agreement_id=agreement_id,
+                result_hash="bb" * 32,
+                milestone_index=1,
+            ).hex(),
             golden["execute"]["data_hex"],
         )
         self.assertEqual(
-            encode_agreement_dispute_data(**golden["dispute"]["input"]).hex(),
+            encode_agreement_dispute_data(
+                agreement_id=agreement_id,
+                reason="result failed review",
+                milestone_index=1,
+            ).hex(),
             golden["dispute"]["data_hex"],
         )
-        resolve = golden["resolve"]["input"]
         self.assertEqual(
             encode_agreement_resolve_data(
-                agreement_id=resolve["agreement_id"],
-                payouts=[AgreementPayout(**item) for item in resolve["payouts"]],
-                reputation_effects=[
-                    AgreementReputationEffect(**item)
-                    for item in resolve["reputation_effects"]
+                agreement_id=agreement_id,
+                payouts=[
+                    AgreementPayout("zn1" + "11" * 20, 2_000),
+                    AgreementPayout("zn1" + "22" * 20, 8_000),
                 ],
-                reason=resolve["reason"],
-                milestone_index=resolve["milestone_index"],
+                reputation_effects=[
+                    AgreementReputationEffect("zn1" + "11" * 20, "lost"),
+                    AgreementReputationEffect("zn1" + "22" * 20, "won"),
+                ],
+                reason="provider evidence prevailed",
+                milestone_index=1,
             ).hex(),
             golden["resolve"]["data_hex"],
         )
         self.assertEqual(
-            encode_agreement_cancel_data(**golden["cancel"]["input"]).hex(),
+            encode_agreement_cancel_data(agreement_id=agreement_id).hex(),
             golden["cancel"]["data_hex"],
         )
 
@@ -1205,8 +1233,7 @@ class GoldenVectorTests(unittest.TestCase):
         )
         self.assertEqual(
             encoded.hex(),
-            "4000000000000000"
-            + "3132" * 32
+            "12" * 32
             + "0000000000802240"
             + "01"
             + "0500000000000000"

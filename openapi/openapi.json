@@ -1054,6 +1054,54 @@
         ],
         "type": "object"
       },
+      "ApiResponse_CanonicalHeaderPage": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CanonicalHeaderPage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_CanonicalHeaderTip": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CanonicalHeaderTip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_CapabilityCatalogEntry": {
         "properties": {
           "data": {
@@ -3891,6 +3939,81 @@
         ],
         "type": "object"
       },
+      "CanonicalHeaderAnchor": {
+        "additionalProperties": false,
+        "properties": {
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_number",
+          "block_hash"
+        ],
+        "type": "object"
+      },
+      "CanonicalHeaderPage": {
+        "additionalProperties": false,
+        "properties": {
+          "has_more": {
+            "type": "boolean"
+          },
+          "headers": {
+            "items": {
+              "$ref": "#/components/schemas/CompactCanonicalHeader"
+            },
+            "maxItems": 128,
+            "type": "array"
+          },
+          "missing_height": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "next_anchor": {
+            "$ref": "#/components/schemas/CanonicalHeaderAnchor"
+          },
+          "requested_anchor": {
+            "$ref": "#/components/schemas/CanonicalHeaderAnchor"
+          },
+          "snapshot_finalized_floor": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "snapshot_tip": {
+            "$ref": "#/components/schemas/CompactCanonicalHeader"
+          }
+        },
+        "required": [
+          "requested_anchor",
+          "snapshot_tip",
+          "headers",
+          "missing_height",
+          "next_anchor",
+          "has_more"
+        ],
+        "type": "object"
+      },
+      "CanonicalHeaderTip": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CompactCanonicalHeader"
+          },
+          {
+            "$ref": "#/components/schemas/FinalizedCanonicalHeader"
+          }
+        ]
+      },
       "CapabilityCatalogEntry": {
         "properties": {
           "aliases": {
@@ -4481,6 +4604,42 @@
         ],
         "type": "object"
       },
+      "CompactCanonicalHeader": {
+        "additionalProperties": false,
+        "properties": {
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parent_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tx_count": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_number",
+          "block_hash",
+          "parent_hash",
+          "tx_count",
+          "timestamp"
+        ],
+        "type": "object"
+      },
       "Contract": {
         "additionalProperties": false,
         "properties": {
@@ -4857,6 +5016,231 @@
           "pagination"
         ],
         "type": "object"
+      },
+      "ContractOperation": {
+        "description": "A protocol-authored operation that completed successfully. Failed nested calls are rolled back before receipt commitment.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "from": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "operation": {
+                "enum": [
+                  "transfer"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "token_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "token_id",
+              "from",
+              "to",
+              "amount"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "from": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "operation": {
+                "enum": [
+                  "transfer_from"
+                ],
+                "type": "string"
+              },
+              "spender": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "to": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "token_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "token_id",
+              "spender",
+              "from",
+              "to",
+              "amount"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "authority": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "operation": {
+                "enum": [
+                  "mint"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "token_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "token_id",
+              "authority",
+              "to",
+              "amount"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "operation": {
+                "enum": [
+                  "burn"
+                ],
+                "type": "string"
+              },
+              "owner": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "token_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "token_id",
+              "owner",
+              "amount"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "operation": {
+                "enum": [
+                  "approve"
+                ],
+                "type": "string"
+              },
+              "owner": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "spender": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "token_id": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "token_id",
+              "owner",
+              "spender",
+              "amount"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "from": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "host_transfer",
+                  "call_value",
+                  "tool_payment"
+                ],
+                "type": "string"
+              },
+              "operation": {
+                "enum": [
+                  "native_transfer"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "pattern": "^zn1[0-9a-f]{40}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "kind",
+              "from",
+              "to",
+              "amount"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "ContractPlatformCapabilities": {
         "additionalProperties": false,
@@ -5282,6 +5666,39 @@
         ],
         "type": "object"
       },
+      "ContractTransactionContext": {
+        "additionalProperties": false,
+        "description": "Normalized contract addresses attributed to this transaction by successful execution.",
+        "properties": {
+          "deployed_contract_addresses": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "referenced_contract_addresses": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "resolved_contract_addresses": {
+            "items": {
+              "pattern": "^zn1[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "referenced_contract_addresses",
+          "deployed_contract_addresses",
+          "resolved_contract_addresses"
+        ],
+        "type": "object"
+      },
       "ContractVerificationRecord": {
         "additionalProperties": false,
         "properties": {
@@ -5460,6 +5877,13 @@
             "format": "uint64",
             "type": "integer"
           },
+          "current_parent_execution_phase_max_us": {
+            "additionalProperties": {
+              "format": "uint64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
           "current_parent_historical_state_read_cache_bytes": {
             "format": "uint64",
             "type": "integer"
@@ -5489,6 +5913,26 @@
             "type": "integer"
           },
           "current_parent_overlay_validation_count": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_runtime_index_frontier_cache_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_runtime_index_frontier_cache_entries": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_runtime_index_frontier_cache_evictions": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_runtime_index_frontier_cache_hits": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_runtime_index_frontier_cache_misses": {
             "format": "uint64",
             "type": "integer"
           },
@@ -5529,6 +5973,10 @@
             "type": "integer"
           },
           "current_parent_state_read_cache_cap_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "current_parent_state_read_cache_demand_admission_bypasses": {
             "format": "uint64",
             "type": "integer"
           },
@@ -5700,6 +6148,14 @@
             "format": "uint64",
             "type": "integer"
           },
+          "preexecution_transaction_authentication_fallback": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "preexecution_transaction_authentication_reused": {
+            "format": "uint64",
+            "type": "integer"
+          },
           "proposal_validation_artifact_hits": {
             "format": "uint64",
             "type": "integer"
@@ -5807,6 +6263,8 @@
           "validation_cache_hits",
           "validation_cache_misses",
           "validation_singleflight_deduped",
+          "preexecution_transaction_authentication_reused",
+          "preexecution_transaction_authentication_fallback",
           "proposal_validation_artifact_hits",
           "proposal_validation_artifact_misses",
           "replay_validation_avoided",
@@ -5837,7 +6295,14 @@
           "current_parent_state_read_cache_misses",
           "current_parent_state_read_cache_evictions",
           "current_parent_state_read_cache_oversized_rejections",
+          "current_parent_state_read_cache_demand_admission_bypasses",
           "current_parent_state_read_cache_lock_wait_ns",
+          "current_parent_runtime_index_frontier_cache_bytes",
+          "current_parent_runtime_index_frontier_cache_entries",
+          "current_parent_runtime_index_frontier_cache_hits",
+          "current_parent_runtime_index_frontier_cache_misses",
+          "current_parent_runtime_index_frontier_cache_evictions",
+          "current_parent_execution_phase_max_us",
           "current_parent_artifact_cache_cap_bytes",
           "current_parent_state_read_cache_cap_bytes",
           "state_commitment_lane_cache_entries",
@@ -6754,6 +7219,48 @@
           "view",
           "timestamp",
           "signature"
+        ],
+        "type": "object"
+      },
+      "FinalizedCanonicalHeader": {
+        "additionalProperties": false,
+        "properties": {
+          "block_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "block_number": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "parent_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "snapshot_finalized_floor": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "timestamp": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tx_count": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_number",
+          "block_hash",
+          "parent_hash",
+          "tx_count",
+          "timestamp",
+          "snapshot_finalized_floor"
         ],
         "type": "object"
       },
@@ -12681,6 +13188,85 @@
         ],
         "type": "object"
       },
+      "TransactionReceiptEvent": {
+        "additionalProperties": false,
+        "description": "One receipt event. Ordinary contract events contain the four required fields. Protocol-authored events may additionally identify a token or expose a versioned operation journal.",
+        "properties": {
+          "data_hex": {
+            "description": "Canonical binary event payload encoded as lowercase hexadecimal.",
+            "pattern": "^[0-9a-f]*$",
+            "type": "string"
+          },
+          "emitter": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "index": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "journal_version": {
+            "description": "Contract-operation journal encoding version. Present on operation-journal events.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "operations": {
+            "description": "Exact successful token or native-value host operations decoded from the protocol-authored journal.",
+            "items": {
+              "$ref": "#/components/schemas/ContractOperation"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "protocol_event": {
+            "description": "Present and true for node-authored token-reference and contract-operation events.",
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "token_id": {
+            "description": "Referenced token for a protocol-authored token-reference event.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "topic": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emitter",
+          "topic",
+          "data_hex",
+          "index"
+        ],
+        "type": "object"
+      },
+      "TransactionStateChange": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "new_value": {
+            "type": "string"
+          },
+          "old_value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "field",
+          "old_value",
+          "new_value"
+        ],
+        "type": "object"
+      },
       "TransactionStatus": {
         "additionalProperties": false,
         "description": "Transaction status plus the canonical public transaction fields when known, receipt accounting when confirmed, rejection details when rejected, or prepare-buffer diagnostics when prepared. Private orderflow returns only the status envelope and redaction flags.",
@@ -12721,10 +13307,20 @@
           "chain_id": {
             "type": "string"
           },
+          "contract_context": {
+            "$ref": "#/components/schemas/ContractTransactionContext"
+          },
           "effective_gas_price": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "events": {
+            "description": "Execution events committed into the transaction receipt. Binary event payloads are exposed as lowercase hexadecimal in `data_hex`.",
+            "items": {
+              "$ref": "#/components/schemas/TransactionReceiptEvent"
+            },
+            "type": "array"
           },
           "fee": {
             "description": "Maximum transaction fee in micro-ZIN.",
@@ -12870,6 +13466,13 @@
               "unknown"
             ],
             "type": "string"
+          },
+          "state_changes": {
+            "description": "State changes recorded by execution and committed into the transaction receipt.",
+            "items": {
+              "$ref": "#/components/schemas/TransactionStateChange"
+            },
+            "type": "array"
           },
           "status": {
             "enum": [
@@ -15278,6 +15881,248 @@
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/blocks/headers": {
+      "get": {
+        "description": "Returns headers after an exact height-and-hash anchor from one coherent storage snapshot. Pages contain at most 128 headers. Set `finalized_only=true` to cap the snapshot at its finalized floor.",
+        "operationId": "get_canonical_headers",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after_height",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 128,
+              "maximum": 128,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "finalized_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CanonicalHeaderPage"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "A bounded page of compact canonical headers.",
+        "tags": [
+          "Blocks"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/blocks/headers/latest": {
+      "get": {
+        "description": "Returns a bounded, body-free observation of the canonical tip. Set `finalized_only=true` to observe the finalized tip together with the finalized floor captured by the same storage snapshot.",
+        "operationId": "get_latest_canonical_header",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "finalized_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CanonicalHeaderTip"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "The compact canonical or finalized header tip.",
+        "tags": [
+          "Blocks"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
       }
     },
     "/v1/blocks/latest": {

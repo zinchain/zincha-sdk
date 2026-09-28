@@ -178,15 +178,15 @@ export function withValidityWindow(
 export function serializeTransaction(tx: Transaction): Uint8Array {
   const writer = new BincodeWriter();
   writer.writeU32(txTypeWireCode(tx.txType));
-  writer.writeString(rawAddressHex(tx.sender));
-  writer.writeString(rawAddressHex(tx.recipient));
+  writer.writeRaw(hexToBytes(rawAddressHex(tx.sender), 20));
+  writer.writeRaw(hexToBytes(rawAddressHex(tx.recipient), 20));
   writer.writeU64(tx.amount);
   writer.writeU64(tx.fee);
   writer.writeU64(tx.maxPriorityFeePerGas);
   writer.writeU64(tx.nonce);
   writer.writeU64(tx.timestamp);
   writer.writeU64(tx.referenceBlockHeight);
-  writer.writeString(normalizeHash(tx.referenceBlockHash));
+  writer.writeRaw(hexToBytes(normalizeHash(tx.referenceBlockHash), 32));
   writer.writeU64(tx.maxValidBlockHeight);
   writer.writeBytes(tx.data);
   writer.writeString(tx.chainId);
@@ -338,9 +338,9 @@ function decimalString(value: unknown, field: string): bigint {
 export function serializeSignedTransaction(tx: SignedTransaction): Uint8Array {
   const writer = new BincodeWriter();
   writer.writeRaw(serializeTransaction(tx.transaction));
-  writer.writeString(normalizeHex(tx.signature, 64, "signature"));
-  writer.writeString(normalizeHex(tx.publicKey, 32, "publicKey"));
-  writer.writeString(normalizeHash(tx.hash));
+  writer.writeRaw(hexToBytes(normalizeHex(tx.signature, 64, "signature"), 64));
+  writer.writeRaw(hexToBytes(normalizeHex(tx.publicKey, 32, "publicKey"), 32));
+  writer.writeRaw(hexToBytes(normalizeHash(tx.hash), 32));
   return writer.finish();
 }
 

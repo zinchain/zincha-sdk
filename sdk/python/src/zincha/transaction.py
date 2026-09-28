@@ -212,15 +212,15 @@ def with_validity_window(
 def serialize_transaction(tx: Transaction) -> bytes:
     writer = BincodeWriter()
     writer.write_u32(_tx_type_wire_code(tx.tx_type))
-    writer.write_string(raw_address_hex(tx.sender))
-    writer.write_string(raw_address_hex(tx.recipient))
+    writer.write_raw(hex_to_bytes(raw_address_hex(tx.sender), 20))
+    writer.write_raw(hex_to_bytes(raw_address_hex(tx.recipient), 20))
     writer.write_u64(tx.amount)
     writer.write_u64(tx.fee)
     writer.write_u64(tx.max_priority_fee_per_gas)
     writer.write_u64(tx.nonce)
     writer.write_u64(tx.timestamp)
     writer.write_u64(tx.reference_block_height)
-    writer.write_string(_normalize_hash(tx.reference_block_hash))
+    writer.write_raw(hex_to_bytes(_normalize_hash(tx.reference_block_hash), 32))
     writer.write_u64(tx.max_valid_block_height)
     writer.write_bytes(tx.data)
     writer.write_string(tx.chain_id)
@@ -246,9 +246,9 @@ def sign_transaction(tx: Transaction, keypair: Keypair) -> SignedTransaction:
 def serialize_signed_transaction(tx: SignedTransaction) -> bytes:
     writer = BincodeWriter()
     writer.write_raw(serialize_transaction(tx.transaction))
-    writer.write_string(_normalize_hex(tx.signature, 64, "signature"))
-    writer.write_string(_normalize_hex(tx.public_key, 32, "public_key"))
-    writer.write_string(_normalize_hash(tx.hash))
+    writer.write_raw(hex_to_bytes(_normalize_hex(tx.signature, 64, "signature"), 64))
+    writer.write_raw(hex_to_bytes(_normalize_hex(tx.public_key, 32, "public_key"), 32))
+    writer.write_raw(hex_to_bytes(_normalize_hash(tx.hash), 32))
     return writer.finish()
 
 

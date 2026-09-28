@@ -10,7 +10,7 @@
 // pins it to a fixture produced by the Rust SDK.
 
 import { BincodeWriter, asU32, asU64 } from "./bincode.ts";
-import { bytesToHex, hexToBytes, normalizeAddress, rawAddressHex } from "./crypto.ts";
+import { hexToBytes, normalizeAddress, rawAddressHex } from "./crypto.ts";
 import { createTransaction } from "./transaction.ts";
 import type {
   AddressString,
@@ -91,18 +91,18 @@ function writeCapability(w: BincodeWriter, capability: string): void {
   w.writeString(capability);
 }
 
-/** bincode-encodes a `Hash256` through the Rust Hash256 serde string form. */
+/** bincode-encodes a `Hash256` through its fixed-width binary serde form. */
 function writeHash256(w: BincodeWriter, hash: Hex): void {
-  w.writeString(bytesToHex(hexToBytes(hash, 32)));
+  w.writeRaw(hexToBytes(hash, 32));
 }
 
-/** bincode-encodes an `Address` through the Rust raw-hex string serde form. */
+/** bincode-encodes an `Address` through its fixed-width binary serde form. */
 function writeAddress(w: BincodeWriter, address: string): void {
-  w.writeString(rawAddressHex(address));
+  w.writeRaw(hexToBytes(rawAddressHex(address), 20));
 }
 
 function writePublicKey(w: BincodeWriter, publicKey: Hex): void {
-  w.writeString(bytesToHex(hexToBytes(publicKey, 32)));
+  w.writeRaw(hexToBytes(publicKey, 32));
 }
 
 function writeOptionalBool(w: BincodeWriter, value: boolean | null | undefined): void {

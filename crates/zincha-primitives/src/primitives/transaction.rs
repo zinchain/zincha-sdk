@@ -455,6 +455,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn signed_transfer_binary_encoding_avoids_hex_expansion() {
+        let sender = Keypair::from_secret_bytes(&[17u8; 32]);
+        let recipient = Keypair::from_secret_bytes(&[23u8; 32]).address();
+        let signed = Transaction::new_transfer(
+            sender.address(),
+            recipient,
+            1_000_000,
+            10,
+            7,
+            "zincha-binary-codec-test",
+        )
+        .sign(&sender);
+        let encoded = bincode::serialize(&signed).unwrap();
+        assert!(
+            encoded.len() < 320,
+            "encoded transfer was {} bytes",
+            encoded.len()
+        );
+        let decoded: SignedTransaction = bincode::deserialize(&encoded).unwrap();
+        assert_eq!(bincode::serialize(&decoded).unwrap(), encoded);
+        assert_eq!(decoded.public_key, signed.public_key);
+        assert_eq!(decoded.signature.to_bytes(), signed.signature.to_bytes());
+        assert_eq!(decoded.hash, signed.hash);
+        decoded.verify().unwrap();
+    }
+
+    #[test]
     fn test_sign_and_verify() {
         let kp = Keypair::generate();
         let tx = Transaction::new_transfer(

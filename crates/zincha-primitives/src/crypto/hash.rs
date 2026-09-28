@@ -57,15 +57,18 @@ impl fmt::Debug for Hash256 {
 }
 
 impl Serialize for Hash256 {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.to_hex().serialize(s)
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::crypto::keys::fixed_bytes_serde::serialize(&self.0, serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for Hash256 {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let hex_str = String::deserialize(d)?;
-        Hash256::from_hex(&hex_str).map_err(serde::de::Error::custom)
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            let encoded = String::deserialize(deserializer)?;
+            return Hash256::from_hex(&encoded).map_err(serde::de::Error::custom);
+        }
+        crate::crypto::keys::fixed_bytes_serde::deserialize(deserializer).map(Self)
     }
 }
 
@@ -148,6 +151,18 @@ mod tests {
         let hex_str = h.to_hex();
         let h2 = Hash256::from_hex(&hex_str).unwrap();
         assert_eq!(h, h2);
+    }
+
+    #[test]
+    fn hash_uses_fixed_width_binary_and_hex_json() {
+        let hash = hash_bytes(b"binary-codec-test");
+        let encoded = bincode::serialize(&hash).unwrap();
+        assert_eq!(encoded.len(), 32);
+        assert_eq!(bincode::deserialize::<Hash256>(&encoded).unwrap(), hash);
+
+        let json = serde_json::to_string(&hash).unwrap();
+        assert_eq!(json, format!("\"{}\"", hash.to_hex()));
+        assert_eq!(serde_json::from_str::<Hash256>(&json).unwrap(), hash);
     }
 
     #[test]

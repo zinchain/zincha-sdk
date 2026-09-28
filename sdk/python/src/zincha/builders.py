@@ -75,18 +75,18 @@ def _write_capability(w: BincodeWriter, capability: str) -> None:
 
 
 def _write_hash256(w: BincodeWriter, hash_hex: Hex) -> None:
-    """bincode-encodes a ``Hash256`` through the Rust Hash256 serde string form."""
-    w.write_string(hex_to_bytes(hash_hex, 32).hex())
+    """Bincode-encode a ``Hash256`` through its fixed-width binary serde form."""
+    w.write_raw(hex_to_bytes(hash_hex, 32))
 
 
 def _write_address(w: BincodeWriter, address: str) -> None:
-    """bincode-encodes an ``Address`` through the Rust raw-hex string serde form."""
-    w.write_string(raw_address_hex(address))
+    """Bincode-encode an ``Address`` through its fixed-width binary serde form."""
+    w.write_raw(hex_to_bytes(raw_address_hex(address), 20))
 
 
 def _write_public_key(w: BincodeWriter, public_key: Hex) -> None:
-    """bincode-encodes a ``PublicKey`` through the Rust hex string serde form."""
-    w.write_string(hex_to_bytes(public_key, 32).hex())
+    """Bincode-encode a ``PublicKey`` through its fixed-width binary serde form."""
+    w.write_raw(hex_to_bytes(public_key, 32))
 
 
 def _write_bool(w: BincodeWriter, value: bool) -> None:

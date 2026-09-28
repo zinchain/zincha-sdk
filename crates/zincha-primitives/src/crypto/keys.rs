@@ -16,8 +16,8 @@ pub const ADDRESS_PREFIX: &str = "zn1";
 
 /// A 20-byte Zincha address derived from a public key.
 /// Format: `zn1` followed by 40 lowercase hex characters.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Address(#[serde(with = "hex_serde")] pub [u8; 20]);
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Address(pub [u8; 20]);
 
 impl Address {
     /// Derive address from a public key: SHA-256 of pubkey, take last 20 bytes.
@@ -123,6 +123,18 @@ impl fmt::Debug for Address {
     }
 }
 
+impl Serialize for Address {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        fixed_bytes_serde::serialize(&self.0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Address {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        fixed_bytes_serde::deserialize(deserializer).map(Self)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // PublicKey wrapper
 // ---------------------------------------------------------------------------
@@ -161,20 +173,14 @@ impl PublicKey {
 }
 
 impl Serialize for PublicKey {
-    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
-        hex::encode(self.as_bytes()).serialize(s)
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        fixed_bytes_serde::serialize(self.as_bytes(), serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for PublicKey {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
-        let hex_str = String::deserialize(d)?;
-        let bytes = hex::decode(&hex_str).map_err(serde::de::Error::custom)?;
-        let mut arr = [0u8; 32];
-        if bytes.len() != 32 {
-            return Err(serde::de::Error::custom("Public key must be 32 bytes"));
-        }
-        arr.copy_from_slice(&bytes);
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let arr = fixed_bytes_serde::deserialize(deserializer)?;
         PublicKey::from_bytes(&arr).map_err(serde::de::Error::custom)
     }
 }
@@ -204,20 +210,14 @@ impl Signature {
 }
 
 impl Serialize for Signature {
-    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
-        hex::encode(self.to_bytes()).serialize(s)
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        fixed_bytes_serde::serialize(&self.to_bytes(), serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for Signature {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
-        let hex_str = String::deserialize(d)?;
-        let bytes = hex::decode(&hex_str).map_err(serde::de::Error::custom)?;
-        if bytes.len() != 64 {
-            return Err(serde::de::Error::custom("Signature must be 64 bytes"));
-        }
-        let mut arr = [0u8; 64];
-        arr.copy_from_slice(&bytes);
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let arr = fixed_bytes_serde::deserialize(deserializer)?;
         Signature::from_bytes(&arr).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }
@@ -287,24 +287,66 @@ impl Keypair {
 }
 
 // ---------------------------------------------------------------------------
-// Helper module for hex serde on fixed-size arrays
+// Human-readable APIs retain their canonical hex strings. Binary protocol and
+// consensus-hash encodings use fixed-width bytes, avoiding hex expansion and
+// decoding allocations at every client boundary.
 // ---------------------------------------------------------------------------
-mod hex_serde {
+pub(crate) mod fixed_bytes_serde {
+    use serde::de::{Error as _, SeqAccess, Visitor};
+    use serde::ser::SerializeTuple;
     use serde::{Deserialize, Deserializer, Serializer};
+    use std::fmt;
 
-    pub fn serialize<S: Serializer>(bytes: &[u8; 20], s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&hex::encode(bytes))
+    pub(crate) fn serialize<S: Serializer, const N: usize>(
+        bytes: &[u8; N],
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            return serializer.serialize_str(&hex::encode(bytes));
+        }
+        let mut tuple = serializer.serialize_tuple(N)?;
+        for byte in bytes {
+            tuple.serialize_element(byte)?;
+        }
+        tuple.end()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 20], D::Error> {
-        let hex_str = String::deserialize(d)?;
-        let bytes = hex::decode(&hex_str).map_err(serde::de::Error::custom)?;
-        let mut arr = [0u8; 20];
-        if bytes.len() != 20 {
-            return Err(serde::de::Error::custom("Expected 20 bytes"));
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>, const N: usize>(
+        deserializer: D,
+    ) -> std::result::Result<[u8; N], D::Error> {
+        if deserializer.is_human_readable() {
+            let encoded = String::deserialize(deserializer)?;
+            let decoded = hex::decode(&encoded).map_err(D::Error::custom)?;
+            let actual = decoded.len();
+            return decoded.try_into().map_err(|_| {
+                D::Error::custom(format_args!("expected {N} decoded bytes, found {actual}"))
+            });
         }
-        arr.copy_from_slice(&bytes);
-        Ok(arr)
+
+        struct FixedBytesVisitor<const N: usize>;
+
+        impl<'de, const N: usize> Visitor<'de> for FixedBytesVisitor<N> {
+            type Value = [u8; N];
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(formatter, "exactly {N} binary bytes")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> std::result::Result<Self::Value, A::Error> {
+                let mut bytes = [0u8; N];
+                for (index, byte) in bytes.iter_mut().enumerate() {
+                    *byte = sequence
+                        .next_element()?
+                        .ok_or_else(|| A::Error::invalid_length(index, &self))?;
+                }
+                Ok(bytes)
+            }
+        }
+
+        deserializer.deserialize_tuple(N, FixedBytesVisitor::<N>)
     }
 }
 
@@ -315,6 +357,62 @@ mod hex_serde {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cryptographic_types_use_fixed_width_binary_and_hex_json() {
+        let keypair = Keypair::from_secret_bytes(&[42u8; 32]);
+        let address = keypair.address();
+        let public_key = keypair.public_key();
+        let signature = keypair.sign(b"binary-codec-test");
+
+        let encoded_address = bincode::serialize(&address).unwrap();
+        let encoded_public_key = bincode::serialize(&public_key).unwrap();
+        let encoded_signature = bincode::serialize(&signature).unwrap();
+        assert_eq!(encoded_address.len(), 20);
+        assert_eq!(encoded_public_key.len(), 32);
+        assert_eq!(encoded_signature.len(), 64);
+        assert_eq!(
+            bincode::deserialize::<Address>(&encoded_address).unwrap(),
+            address
+        );
+        assert_eq!(
+            bincode::deserialize::<PublicKey>(&encoded_public_key).unwrap(),
+            public_key
+        );
+        assert_eq!(
+            bincode::deserialize::<Signature>(&encoded_signature)
+                .unwrap()
+                .to_bytes(),
+            signature.to_bytes()
+        );
+
+        let address_json = serde_json::to_string(&address).unwrap();
+        let public_key_json = serde_json::to_string(&public_key).unwrap();
+        let signature_json = serde_json::to_string(&signature).unwrap();
+        assert_eq!(address_json, format!("\"{}\"", address.to_raw_hex()));
+        assert_eq!(
+            public_key_json,
+            format!("\"{}\"", hex::encode(public_key.as_bytes()))
+        );
+        assert_eq!(
+            signature_json,
+            format!("\"{}\"", hex::encode(signature.to_bytes()))
+        );
+        assert_eq!(
+            serde_json::from_str::<Address>(&address_json).unwrap(),
+            address
+        );
+        assert_eq!(
+            serde_json::from_str::<PublicKey>(&public_key_json).unwrap(),
+            public_key
+        );
+        assert_eq!(
+            serde_json::from_str::<Signature>(&signature_json)
+                .unwrap()
+                .to_bytes(),
+            signature.to_bytes()
+        );
+    }
 
     #[test]
     fn test_keypair_sign_verify() {

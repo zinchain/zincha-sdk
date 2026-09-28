@@ -829,7 +829,7 @@ test("BincodeWriter writeF32 / writeF64 use little-endian IEEE 754", () => {
 
 test("encodeAgentRegisterData zero-filled fields produce the bincode wire layout", () => {
   // Empty strings, no embedding, zero hash, no caps, no metadata, zero min_fee,
-  // empty fee schedule. Hash256 follows the Rust serde hex-string form.
+  // empty fee schedule. Hash256 uses the Rust fixed-width binary form.
   const bytes = encodeAgentRegisterData({
     name: "",
     description: "",
@@ -839,13 +839,12 @@ test("encodeAgentRegisterData zero-filled fields produce the bincode wire layout
     "0000000000000000" +              // name ""
     "0000000000000000" +              // description ""
     "00" +                             // neural_embedding None
-    "4000000000000000" +              // model_hash string length 64
-    "30".repeat(64) +                 // model_hash zero hex string
+    "00".repeat(32) +                 // model_hash fixed 32 bytes
     "0000000000000000" +              // capabilities
     "0000000000000000" +              // metadata
     "0000000000000000" +              // min_fee
     "0000000000000000";               // fee_schedule
-  assert.equal(bytes.length, 121);
+  assert.equal(bytes.length, 81);
   assert.equal(bytesToHex(bytes), expected);
 });
 
@@ -861,8 +860,7 @@ test("encodeAgentRegisterData emits expected bytes for a small input", () => {
     "0200000000000000" + "6162" +     // name "ab"
     "0000000000000000" +               // description ""
     "00" +                              // neural_embedding None
-    "4000000000000000" +               // model_hash string length 64
-    "30".repeat(64) +                  // model_hash zero hex string
+    "00".repeat(32) +                  // model_hash fixed 32 bytes
     "0100000000000000" +               // capabilities Vec len 1
     "0100000000000000" + "78" +       // Capability("x")
     "0000000000000000" +               // metadata Vec len 0
@@ -884,8 +882,7 @@ test("encodeAgentRegisterData encodes Some(neural_embedding) Vec<f32>", () => {
     "01" +                             // neural_embedding Some tag
     "0200000000000000" +              // Vec<f32> len 2
     "0000803f" + "00000040" +        // f32 1.0, f32 2.0
-    "4000000000000000" +              // model_hash string length 64
-    "30".repeat(64) +                 // model_hash zero hex string
+    "00".repeat(32) +                 // model_hash fixed 32 bytes
     "0000000000000000" +              // capabilities
     "0000000000000000" +              // metadata
     "0000000000000000" +              // min_fee
@@ -1035,7 +1032,28 @@ test("agreement lifecycle encoders match Rust golden vector", () => {
     new URL("../../testdata/golden-agreement-lifecycle.json", import.meta.url),
     "utf8",
   ));
-  const create = fixture.create.input;
+  const create = {
+    parties: [
+      `zn1${"11".repeat(20)}`,
+      `zn1${"22".repeat(20)}`,
+      `zn1${"33".repeat(20)}`,
+    ],
+    terms_hex: Buffer.from("deliver audited model").toString("hex"),
+    escrow_amount: 1_000_000,
+    expires_at: 1_900_000_000_000,
+    arbitrator: `zn1${"44".repeat(20)}`,
+    milestones: [
+      { description: "prototype", amount: 400_000 },
+      { description: "production", amount: 600_000 },
+    ],
+    service_provider: `zn1${"22".repeat(20)}`,
+    settlement_allocations: [
+      { recipient: `zn1${"22".repeat(20)}`, share_bps: 7_500 },
+      { recipient: `zn1${"33".repeat(20)}`, share_bps: 2_500 },
+    ],
+    settlement_approver: `zn1${"11".repeat(20)}`,
+  };
+  const agreementId = "aa".repeat(32);
   assert.equal(bytesToHex(encodeAgreementCreateData({
     parties: create.parties,
     terms: Uint8Array.from(Buffer.from(create.terms_hex, "hex")),
@@ -1054,30 +1072,33 @@ test("agreement lifecycle encoders match Rust golden vector", () => {
     settlementApprover: create.settlement_approver,
   })), fixture.create.data_hex);
   assert.equal(bytesToHex(encodeAgreementAcceptData({
-    agreementId: fixture.accept.input.agreement_id,
+    agreementId,
   })), fixture.accept.data_hex);
   assert.equal(bytesToHex(encodeAgreementExecuteData({
-    agreementId: fixture.execute.input.agreement_id,
-    resultHash: fixture.execute.input.result_hash,
-    milestoneIndex: fixture.execute.input.milestone_index,
+    agreementId,
+    resultHash: "bb".repeat(32),
+    milestoneIndex: 1,
   })), fixture.execute.data_hex);
   assert.equal(bytesToHex(encodeAgreementDisputeData({
-    agreementId: fixture.dispute.input.agreement_id,
-    reason: fixture.dispute.input.reason,
-    milestoneIndex: fixture.dispute.input.milestone_index,
+    agreementId,
+    reason: "result failed review",
+    milestoneIndex: 1,
   })), fixture.dispute.data_hex);
   assert.equal(bytesToHex(encodeAgreementResolveData({
-    agreementId: fixture.resolve.input.agreement_id,
-    payouts: fixture.resolve.input.payouts.map((item: any) => ({
-      recipient: item.recipient,
-      shareBps: item.share_bps,
-    })),
-    reputationEffects: fixture.resolve.input.reputation_effects,
-    reason: fixture.resolve.input.reason,
-    milestoneIndex: fixture.resolve.input.milestone_index,
+    agreementId,
+    payouts: [
+      { recipient: `zn1${"11".repeat(20)}`, shareBps: 2_000 },
+      { recipient: `zn1${"22".repeat(20)}`, shareBps: 8_000 },
+    ],
+    reputationEffects: [
+      { party: `zn1${"11".repeat(20)}`, outcome: "lost" },
+      { party: `zn1${"22".repeat(20)}`, outcome: "won" },
+    ],
+    reason: "provider evidence prevailed",
+    milestoneIndex: 1,
   })), fixture.resolve.data_hex);
   assert.equal(bytesToHex(encodeAgreementCancelData({
-    agreementId: fixture.cancel.input.agreement_id,
+    agreementId,
   })), fixture.cancel.data_hex);
 });
 
@@ -1186,7 +1207,7 @@ test("reputation update encoder matches Rust wire layout", () => {
   });
   assert.equal(
     bytesToHex(encoded),
-    "4000000000000000" + "3132".repeat(32) + "0000000000802240" + "01" + "0500000000000000" + "6772656174",
+    "12".repeat(32) + "0000000000802240" + "01" + "0500000000000000" + "6772656174",
   );
 
   assert.throws(

@@ -544,6 +544,74 @@ for schema_name in ("BlockTransaction", "TransactionListItem", "TokenTransaction
         if stale in properties:
             raise SystemExit(f"error: {schema_name} must not expose stale {stale}")
 
+receipt_detail_refs = {
+    "events": "#/components/schemas/TransactionReceiptEvent",
+    "state_changes": "#/components/schemas/TransactionStateChange",
+    "contract_context": "#/components/schemas/ContractTransactionContext",
+}
+for field, expected_ref in receipt_detail_refs.items():
+    field_schema = transaction_status_properties.get(field) or {}
+    actual_ref = (
+        ((field_schema.get("items") or {}).get("$ref"))
+        if field in ("events", "state_changes")
+        else field_schema.get("$ref")
+    )
+    if actual_ref != expected_ref:
+        raise SystemExit(f"error: TransactionStatus.{field} must reference {expected_ref}")
+for compact_schema_name in ("TransactionListItem", "TokenTransaction"):
+    compact_properties = spec["components"]["schemas"][compact_schema_name]["properties"]
+    for field in receipt_detail_refs:
+        if field in compact_properties:
+            raise SystemExit(
+                f"error: {compact_schema_name} must not promise full receipt field {field}"
+            )
+
+require_exact_properties(
+    "TransactionReceiptEvent",
+    {
+        "emitter", "topic", "data_hex", "index", "token_id", "protocol_event",
+        "journal_version", "operations",
+    },
+)
+require_exact_properties(
+    "TransactionStateChange",
+    {"address", "field", "old_value", "new_value"},
+)
+require_exact_properties(
+    "ContractTransactionContext",
+    {
+        "referenced_contract_addresses", "deployed_contract_addresses",
+        "resolved_contract_addresses",
+    },
+)
+
+operation_variants = spec["components"]["schemas"].get("ContractOperation", {}).get("oneOf") or []
+expected_operation_properties = {
+    "transfer": {"operation", "token_id", "from", "to", "amount"},
+    "transfer_from": {"operation", "token_id", "spender", "from", "to", "amount"},
+    "mint": {"operation", "token_id", "authority", "to", "amount"},
+    "burn": {"operation", "token_id", "owner", "amount"},
+    "approve": {"operation", "token_id", "owner", "spender", "amount"},
+    "native_transfer": {"operation", "kind", "from", "to", "amount"},
+}
+actual_operation_properties = {}
+for variant in operation_variants:
+    properties = variant.get("properties") or {}
+    operation_enum = (properties.get("operation") or {}).get("enum") or []
+    if len(operation_enum) != 1:
+        raise SystemExit("error: each ContractOperation variant must have one operation tag")
+    operation = operation_enum[0]
+    if variant.get("additionalProperties") is not False:
+        raise SystemExit(f"error: ContractOperation {operation} must reject undocumented fields")
+    if set(variant.get("required") or []) != set(properties):
+        raise SystemExit(f"error: ContractOperation {operation} must require every property")
+    actual_operation_properties[operation] = set(properties)
+if actual_operation_properties != expected_operation_properties:
+    raise SystemExit(
+        "error: ContractOperation variants differ: "
+        f"expected={expected_operation_properties}, actual={actual_operation_properties}"
+    )
+
 expected_transaction_statuses = [
     "accepted", "pending", "queued", "prepared", "confirmed", "rejected", "unknown",
 ]

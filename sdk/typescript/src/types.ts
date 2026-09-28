@@ -189,6 +189,74 @@ export interface FaucetResponse extends SubmitTransactionResponse {
   };
 }
 
+export type ContractOperation =
+  | {
+    operation: "transfer";
+    token_id: Hex;
+    from: AddressString;
+    to: AddressString;
+    amount: number;
+  }
+  | {
+    operation: "transfer_from";
+    token_id: Hex;
+    spender: AddressString;
+    from: AddressString;
+    to: AddressString;
+    amount: number;
+  }
+  | {
+    operation: "mint";
+    token_id: Hex;
+    authority: AddressString;
+    to: AddressString;
+    amount: number;
+  }
+  | {
+    operation: "burn";
+    token_id: Hex;
+    owner: AddressString;
+    amount: number;
+  }
+  | {
+    operation: "approve";
+    token_id: Hex;
+    owner: AddressString;
+    spender: AddressString;
+    amount: number;
+  }
+  | {
+    operation: "native_transfer";
+    kind: "host_transfer" | "call_value" | "tool_payment";
+    from: AddressString;
+    to: AddressString;
+    amount: number;
+  };
+
+export interface TransactionReceiptEvent {
+  emitter: AddressString;
+  topic: string;
+  data_hex: Hex;
+  index: number;
+  token_id?: Hex;
+  protocol_event?: true;
+  journal_version?: number;
+  operations?: ContractOperation[];
+}
+
+export interface TransactionStateChange {
+  address: AddressString;
+  field: string;
+  old_value: string;
+  new_value: string;
+}
+
+export interface ContractTransactionContext {
+  referenced_contract_addresses: AddressString[];
+  deployed_contract_addresses: AddressString[];
+  resolved_contract_addresses: AddressString[];
+}
+
 export interface TransactionStatus {
   tx_hash: Hex;
   status:
@@ -233,6 +301,9 @@ export interface TransactionStatus {
   fee_validator_base_fee?: number;
   fee_validator_tip?: number;
   fee_refunded?: number;
+  events?: TransactionReceiptEvent[];
+  state_changes?: TransactionStateChange[];
+  contract_context?: ContractTransactionContext;
   rejection_reason?: string;
   rejection_stage?: string;
   rejected_at_ms?: number;

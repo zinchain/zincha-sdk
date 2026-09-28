@@ -3,7 +3,10 @@
 The Python SDK is release-aware and uses the Rust node protocol as the source
 of truth for transaction serialization, hashes, and signatures.
 
-It has no external runtime dependencies and targets Python 3.9+.
+It has no external runtime dependencies, targets Python 3.9+, and writes
+addresses, hashes, public keys, and signatures in the current fixed-width binary
+form required by protocol/storage format 58. Its signed transactions are checked
+byte-for-byte against the Rust-generated golden vectors.
 
 ## Transfer + read
 
@@ -283,8 +286,8 @@ client.update_contract_route_and_submit(
 The SDK also exposes `build_verify_contract`,
 `build_publish_contract_abi`, `build_call_contract_route`, and
 `build_deactivate_contract`, plus matching `_and_submit` helpers.
-Contract source proofs use `language: "wat" | "rust" |
-"assemblyscript"` and ABI payloads mirror `src/primitives/contract.rs`.
+Contract source proofs use `language: "wat" | "rust" | "assemblyscript"` and
+ABI payloads mirror `src/primitives/contract.rs`.
 
 ## Any other transaction type
 
@@ -315,8 +318,9 @@ PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
 cargo test --test sdk_vectors
 ```
 
-The Python and TypeScript SDKs use the same Rust-generated golden fixtures.
-Regenerate them after intentional protocol changes:
+The Python and TypeScript SDKs consume the same Rust-generated golden fixtures.
+After an intentional protocol change and aligned serializer updates, regenerate
+them with:
 
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors

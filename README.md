@@ -67,6 +67,16 @@ scripts/live-vega-smoke.sh
 The live smoke uses read-only `zincha --release vega` commands by default.
 Mutating faucet/submit coverage must remain opt-in.
 
+## Protocol alignment
+
+This revision was promoted from `zinchain/zincha-dev` commit `61445bb` on
+2026-09-28. Rust, TypeScript, and Python transaction serializers use the same
+fixed-width binary representation for addresses, hashes, public keys, and
+signatures, while human-readable JSON retains canonical hexadecimal strings.
+The promoted OpenAPI and `skill.md` artifacts describe the same chain revision,
+including complete transaction receipt events, state changes, contract context,
+and typed token/native contract-operation journals.
+
 ## CLI
 
 ```bash
