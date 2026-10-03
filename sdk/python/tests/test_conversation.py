@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import stat
 import tempfile
@@ -43,6 +45,16 @@ class ConversationTests(unittest.TestCase):
             expires_at_ms=2,
         )
         self.assertEqual(delegation["participant_address"], account.address())
+        with self.assertRaisesRegex(ValueError, "non-contributory"):
+            create_conversation_delegation(
+                account=account,
+                operational=operational,
+                encryption_public_key=bytes(32),
+                subject=subject,
+                home_service_id="marketplace.example/conversations",
+                not_before_ms=1,
+                expires_at_ms=2,
+            )
         message = sign_conversation_message(
             operational=operational,
             delegation_id=delegation["delegation_id"],
@@ -67,6 +79,46 @@ class ConversationTests(unittest.TestCase):
         )
         with self.assertRaises(Exception):
             decrypt_conversation_e2e("ef" * 32, 7, encrypted, "recipient", secret)
+        with self.assertRaisesRegex(ValueError, "epoch"):
+            decrypt_conversation_e2e("cd" * 32, 8, encrypted, "recipient", secret)
+        with self.assertRaisesRegex(ValueError, "recipient"):
+            decrypt_conversation_e2e(
+                "cd" * 32, 7, encrypted, "missing-recipient", secret
+            )
+        last = encrypted["ciphertext"][-1]
+        tampered = {
+            **encrypted,
+            "ciphertext": encrypted["ciphertext"][:-1]
+            + ("B" if last == "A" else "A"),
+        }
+        with self.assertRaises(Exception):
+            decrypt_conversation_e2e("cd" * 32, 7, tampered, "recipient", secret)
+        envelope_bytes = base64.urlsafe_b64decode(
+            encrypted["ciphertext"] + "=" * (-len(encrypted["ciphertext"]) % 4)
+        )
+        non_contributory_envelope = json.loads(envelope_bytes)
+        non_contributory_envelope["ephemeral_public_key"] = "00" * 32
+        non_contributory_ephemeral = {
+            **encrypted,
+            "ciphertext": base64.urlsafe_b64encode(
+                json.dumps(
+                    non_contributory_envelope, separators=(",", ":")
+                ).encode()
+            )
+            .rstrip(b"=")
+            .decode(),
+        }
+        with self.assertRaises(Exception):
+            decrypt_conversation_e2e(
+                "cd" * 32, 7, non_contributory_ephemeral, "recipient", secret
+            )
+        with self.assertRaises(Exception):
+            encrypt_conversation_e2e(
+                "cd" * 32,
+                7,
+                plaintext,
+                [{"key_id": "non-contributory", "public_key": bytes(32)}],
+            )
         with self.assertRaisesRegex(ValueError, "epoch"):
             encrypt_conversation_e2e(
                 "cd" * 32,

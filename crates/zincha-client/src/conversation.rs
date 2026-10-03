@@ -270,6 +270,7 @@ pub fn create_delegation(
 ) -> Result<ConversationKeyDelegationV1> {
     validate_subject_ref(&options.subject)?;
     validate_service_id(&options.home_service_id)?;
+    validate_x25519_public_key(encryption_public_key)?;
     if options.not_before_ms >= options.expires_at_ms
         || options.expires_at_ms.saturating_sub(options.not_before_ms) > 31 * 24 * 60 * 60 * 1_000
     {
@@ -821,6 +822,9 @@ pub fn encrypt_e2e(
             .try_into()
             .map_err(|_| anyhow!("recipient key must be 32 bytes"))?;
         let shared = ephemeral.diffie_hellman(&X25519PublicKey::from(bytes));
+        if !shared.was_contributory() {
+            bail!("E2E recipient public key is non-contributory");
+        }
         let wrap_aad = format!(
             "{E2E_WRAP_DOMAIN}\n{conversation_id}\n{epoch}\n{}",
             recipient.key_id
@@ -910,6 +914,9 @@ pub fn decrypt_e2e(
         .ok_or_else(|| anyhow!("recipient is not included in E2E envelope"))?;
     let secret = StaticSecret::from(recipient_secret);
     let shared = secret.diffie_hellman(&X25519PublicKey::from(ephemeral));
+    if !shared.was_contributory() {
+        bail!("E2E ephemeral public key is non-contributory");
+    }
     let wrap_aad =
         format!("{E2E_WRAP_DOMAIN}\n{conversation_id}\n{expected_epoch}\n{recipient_key_id}");
     let mut wrap_key = [0u8; 32];
@@ -957,7 +964,23 @@ pub fn decrypt_e2e(
             },
         )
         .map_err(|_| anyhow!("decrypt E2E content"))?;
-    serde_json::from_slice(&plaintext).context("decode E2E plaintext")
+    let plaintext: MessagePayload =
+        serde_json::from_slice(&plaintext).context("decode E2E plaintext")?;
+    if !matches!(plaintext, MessagePayload::Plaintext { .. }) {
+        bail!("E2E plaintext has an invalid payload encoding");
+    }
+    Ok(plaintext)
+}
+
+fn validate_x25519_public_key(public_key: [u8; 32]) -> Result<()> {
+    let probe = StaticSecret::from([0x42; 32]);
+    if !probe
+        .diffie_hellman(&X25519PublicKey::from(public_key))
+        .was_contributory()
+    {
+        bail!("encryption public key is non-contributory");
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1355,6 +1378,71 @@ mod tests {
             &encrypted,
             "recipient",
             secret.to_bytes()
+        )
+        .is_err());
+        assert!(decrypt_e2e(
+            &"cd".repeat(32),
+            8,
+            &encrypted,
+            "recipient",
+            secret.to_bytes()
+        )
+        .is_err());
+        assert!(decrypt_e2e(
+            &"cd".repeat(32),
+            7,
+            &encrypted,
+            "missing-recipient",
+            secret.to_bytes()
+        )
+        .is_err());
+
+        let MessagePayload::Ciphertext { ciphertext } = &encrypted else {
+            panic!("E2E encryption must produce ciphertext");
+        };
+        let mut envelope: Value =
+            serde_json::from_slice(&URL_SAFE_NO_PAD.decode(ciphertext).unwrap()).unwrap();
+        let mut content = URL_SAFE_NO_PAD
+            .decode(envelope["ciphertext"].as_str().unwrap())
+            .unwrap();
+        content[0] ^= 1;
+        envelope["ciphertext"] = Value::String(URL_SAFE_NO_PAD.encode(content));
+        let tampered = MessagePayload::Ciphertext {
+            ciphertext: URL_SAFE_NO_PAD.encode(serde_jcs::to_vec(&envelope).unwrap()),
+        };
+        assert!(decrypt_e2e(
+            &"cd".repeat(32),
+            7,
+            &tampered,
+            "recipient",
+            secret.to_bytes()
+        )
+        .is_err());
+
+        let mut non_contributory_ephemeral: Value =
+            serde_json::from_slice(&URL_SAFE_NO_PAD.decode(ciphertext).unwrap()).unwrap();
+        non_contributory_ephemeral["ephemeral_public_key"] = Value::String("00".repeat(32));
+        let non_contributory_ephemeral = MessagePayload::Ciphertext {
+            ciphertext: URL_SAFE_NO_PAD
+                .encode(serde_jcs::to_vec(&non_contributory_ephemeral).unwrap()),
+        };
+        assert!(decrypt_e2e(
+            &"cd".repeat(32),
+            7,
+            &non_contributory_ephemeral,
+            "recipient",
+            secret.to_bytes()
+        )
+        .is_err());
+
+        assert!(encrypt_e2e(
+            &"cd".repeat(32),
+            7,
+            &plaintext,
+            &[E2eRecipient {
+                key_id: "non-contributory".into(),
+                public_key: "00".repeat(32),
+            }],
         )
         .is_err());
         assert!(encrypt_e2e(

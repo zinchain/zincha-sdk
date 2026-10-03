@@ -73,7 +73,7 @@ export async function createConversationDelegation(input: {
   subject: ConversationSubjectRef; homeServiceId: string; notBeforeMs: number; expiresAtMs: number;
   capabilities?: string[];
 }): Promise<ConversationKeyDelegationV1> {
-  if (input.encryptionPublicKey.length !== 32) throw new Error("encryption public key must be 32 bytes");
+  validateX25519PublicKey(input.encryptionPublicKey);
   validateConversationSubject(input.subject);
   validateServiceId(input.homeServiceId);
   if (!Number.isSafeInteger(input.notBeforeMs) || !Number.isSafeInteger(input.expiresAtMs) || input.notBeforeMs >= input.expiresAtMs || input.expiresAtMs - input.notBeforeMs > 31 * 24 * 60 * 60 * 1_000) throw new Error("delegation validity must be positive and no longer than 31 days");
@@ -276,7 +276,15 @@ export function decryptConversationE2e(conversationId: string, epoch: number, pa
   const contentKey = xchacha20poly1305(wrapKey, fromBase64url(recipient.nonce), wrapAad).decrypt(fromBase64url(recipient.ciphertext));
   const contentAad = encoder.encode(`${E2E_CONTENT_DOMAIN}\n${conversationId}\n${epoch}`);
   const decoded = xchacha20poly1305(contentKey, fromBase64url(envelope.content_nonce), contentAad).decrypt(fromBase64url(envelope.ciphertext));
-  return JSON.parse(decoder.decode(decoded)) as ConversationMessagePayload;
+  const plaintext = JSON.parse(decoder.decode(decoded)) as unknown;
+  if (typeof plaintext !== "object" || plaintext === null || Array.isArray(plaintext) || (plaintext as { encoding?: unknown }).encoding !== "plaintext" || !Array.isArray((plaintext as { parts?: unknown }).parts)) throw new Error("E2E plaintext has an invalid payload encoding");
+  return plaintext as ConversationMessagePayload;
+}
+
+function validateX25519PublicKey(publicKey: Uint8Array): void {
+  if (!(publicKey instanceof Uint8Array) || publicKey.length !== 32) throw new Error("encryption public key must be 32 bytes");
+  try { x25519.getSharedSecret(new Uint8Array(32).fill(0x42), publicKey); }
+  catch { throw new Error("encryption public key is non-contributory"); }
 }
 
 export interface OutboxStore { load(): Promise<QueuedConversationMessage[]>; save(items: QueuedConversationMessage[]): Promise<void> }

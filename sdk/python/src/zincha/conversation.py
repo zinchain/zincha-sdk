@@ -24,6 +24,7 @@ from nacl.bindings import (
     crypto_scalarmult,
     crypto_scalarmult_base,
 )
+from nacl.exceptions import RuntimeError as NaClRuntimeError
 
 from .crypto import Keypair, bytes_to_hex, hex_to_bytes, sha256_hex
 
@@ -81,8 +82,7 @@ def create_conversation_delegation(
     expires_at_ms: int,
     capabilities: Sequence[str] = ("read", "write"),
 ) -> Dict[str, Any]:
-    if len(encryption_public_key) != 32:
-        raise ValueError("encryption public key must be 32 bytes")
+    _validate_x25519_public_key(encryption_public_key)
     validate_conversation_subject(subject)
     _validate_service_id(home_service_id)
     if (
@@ -620,7 +620,23 @@ def decrypt_conversation_e2e(
         _unb64(envelope["content_nonce"]),
         content_key,
     )
-    return json.loads(plaintext)
+    decoded = json.loads(plaintext)
+    if (
+        not isinstance(decoded, dict)
+        or decoded.get("encoding") != "plaintext"
+        or not isinstance(decoded.get("parts"), list)
+    ):
+        raise ValueError("E2E plaintext has an invalid payload encoding")
+    return decoded
+
+
+def _validate_x25519_public_key(public_key: bytes) -> None:
+    if not isinstance(public_key, bytes) or len(public_key) != 32:
+        raise ValueError("encryption public key must be 32 bytes")
+    try:
+        crypto_scalarmult(bytes([0x42]) * 32, public_key)
+    except NaClRuntimeError as error:
+        raise ValueError("encryption public key is non-contributory") from error
 
 
 class SQLiteConversationOutbox:

@@ -39,6 +39,15 @@ test("conversation delegation and message use account and operational identities
   });
   assert.equal(delegation.participant_address, account.address());
   assert.equal(delegation.operational_signing_key, operational.publicKeyHex());
+  await assert.rejects(createConversationDelegation({
+    account,
+    operational,
+    encryptionPublicKey: new Uint8Array(32),
+    subject,
+    homeServiceId: "marketplace.example/conversations",
+    notBeforeMs: 1,
+    expiresAtMs: 2,
+  }), /non-contributory/);
   const message = await signConversationMessage({
     operational,
     delegationId: delegation.delegation_id,
@@ -57,6 +66,17 @@ test("conversation E2E envelope binds conversation and epoch", () => {
   ]);
   assert.deepEqual(decryptConversationE2e("cd".repeat(32), 7, encrypted, "recipient", secret), plaintext);
   assert.throws(() => decryptConversationE2e("ef".repeat(32), 7, encrypted, "recipient", secret));
+  assert.throws(() => decryptConversationE2e("cd".repeat(32), 8, encrypted, "recipient", secret), /epoch/);
+  assert.throws(() => decryptConversationE2e("cd".repeat(32), 7, encrypted, "missing-recipient", secret), /recipient/);
+  if (encrypted.encoding !== "ciphertext") throw new Error("E2E encryption must produce ciphertext");
+  const last = encrypted.ciphertext.at(-1);
+  const tampered = { ...encrypted, ciphertext: `${encrypted.ciphertext.slice(0, -1)}${last === "A" ? "B" : "A"}` };
+  assert.throws(() => decryptConversationE2e("cd".repeat(32), 7, tampered, "recipient", secret));
+  const nonContributoryEnvelope = JSON.parse(Buffer.from(encrypted.ciphertext, "base64url").toString("utf8")) as Record<string, unknown>;
+  nonContributoryEnvelope.ephemeral_public_key = "00".repeat(32);
+  const nonContributoryEphemeral = { ...encrypted, ciphertext: Buffer.from(JSON.stringify(nonContributoryEnvelope)).toString("base64url") };
+  assert.throws(() => decryptConversationE2e("cd".repeat(32), 7, nonContributoryEphemeral, "recipient", secret), /key/);
+  assert.throws(() => encryptConversationE2e("cd".repeat(32), 7, plaintext, [{ keyId: "non-contributory", publicKey: new Uint8Array(32) }]), /key/);
   assert.throws(() => encryptConversationE2e("cd".repeat(32), Number.MAX_SAFE_INTEGER + 1, plaintext, [{ keyId: "recipient", publicKey: x25519.getPublicKey(secret) }]), /epoch/);
 });
 
