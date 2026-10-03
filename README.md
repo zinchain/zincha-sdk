@@ -49,7 +49,9 @@ account-authorized operational keys, exact message signing, resumable SSE,
 durable idempotent outboxes, profile discovery, and optional X25519/HKDF/
 XChaCha20-Poly1305 end-to-end encryption. Conversation traffic remains off
 chain; the node's existing participant-protected workflow reads remain the
-authorization source.
+authorization source. All implementations reject non-contributory X25519 keys
+and validate the complete typed plaintext schema before signing or after
+decryption.
 
 Outboxes are deliberately bounded. The Rust file implementation defaults to
 1,000 messages/64 MiB and uses private, atomically replaced files within one

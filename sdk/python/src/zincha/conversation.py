@@ -168,6 +168,7 @@ def sign_conversation_message(
         _validate_uuid(reply_to, "reply ID")
     if key_epoch is not None:
         _validate_epoch(key_epoch)
+    _validate_message_payload(payload, key_epoch)
     request: Dict[str, Any] = {
         "message_id": str(uuid.uuid4()),
         "client_timestamp_ms": now_ms(),
@@ -490,18 +491,22 @@ def _b64(value: bytes) -> str:
 
 
 def _unb64(value: str) -> bytes:
-    if (
-        not isinstance(value, str)
-        or not value
-        or len(value) % 4 == 1
-        or any(
-            character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-            for character in value
-        )
-    ):
+    if not _is_base64url_no_pad(value):
         raise ValueError("invalid URL-safe base64")
     return base64.b64decode(
         value + "=" * ((4 - len(value) % 4) % 4), altchars=b"-_", validate=True
+    )
+
+
+def _is_base64url_no_pad(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and len(value) % 4 != 1
+        and all(
+            character in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+            for character in value
+        )
     )
 
 
@@ -513,7 +518,8 @@ def encrypt_conversation_e2e(
 ) -> Dict[str, Any]:
     _validate_conversation_id(conversation_id)
     _validate_epoch(epoch)
-    if plaintext.get("encoding") != "plaintext" or not (1 <= len(recipients) <= 256):
+    _validate_plaintext_payload(plaintext)
+    if not (1 <= len(recipients) <= 256):
         raise ValueError("E2E encryption requires plaintext and 1-256 recipients")
     ephemeral_secret = os.urandom(32)
     ephemeral_public = crypto_scalarmult_base(ephemeral_secret)
@@ -621,13 +627,67 @@ def decrypt_conversation_e2e(
         content_key,
     )
     decoded = json.loads(plaintext)
-    if (
-        not isinstance(decoded, dict)
-        or decoded.get("encoding") != "plaintext"
-        or not isinstance(decoded.get("parts"), list)
-    ):
-        raise ValueError("E2E plaintext has an invalid payload encoding")
+    _validate_plaintext_payload(decoded)
     return decoded
+
+
+def _validate_message_payload(
+    payload: Mapping[str, Any], key_epoch: Optional[int]
+) -> None:
+    if isinstance(payload, Mapping) and payload.get("encoding") == "plaintext":
+        if key_epoch is not None:
+            raise ValueError("plaintext messages cannot include a key epoch")
+        _validate_plaintext_payload(payload)
+        return
+    if (
+        not isinstance(payload, Mapping)
+        or set(payload) != {"encoding", "ciphertext"}
+        or payload.get("encoding") != "ciphertext"
+        or not _is_base64url_no_pad(payload.get("ciphertext"))
+        or key_epoch is None
+    ):
+        raise ValueError("ciphertext messages require URL-safe ciphertext and a key epoch")
+
+
+def _validate_plaintext_payload(payload: Mapping[str, Any]) -> None:
+    if (
+        not isinstance(payload, Mapping)
+        or set(payload) != {"encoding", "parts"}
+        or payload.get("encoding") != "plaintext"
+        or not isinstance(payload.get("parts"), list)
+        or not (1 <= len(payload["parts"]) <= 256)
+    ):
+        raise ValueError("plaintext messages require 1-256 valid parts")
+    for part in payload["parts"]:
+        if not isinstance(part, Mapping) or not isinstance(part.get("type"), str):
+            raise ValueError("conversation message part is invalid")
+        if part["type"] == "text":
+            if set(part) != {"type", "text"} or not isinstance(part.get("text"), str):
+                raise ValueError("conversation text part is invalid")
+        elif part["type"] == "data":
+            if set(part) != {"type", "value"}:
+                raise ValueError("conversation data part is invalid")
+        elif part["type"] == "artifact_reference":
+            media_type = part.get("media_type")
+            size = part.get("size")
+            if (
+                set(part)
+                != {"type", "artifact_id", "digest", "media_type", "size"}
+                or not isinstance(part.get("artifact_id"), str)
+                or not isinstance(part.get("digest"), str)
+                or len(part["digest"]) != 64
+                or any(character not in "0123456789abcdef" for character in part["digest"])
+                or not isinstance(media_type, str)
+                or not (1 <= len(media_type.encode("utf-8")) <= 255)
+                or any(ord(character) <= 31 or 127 <= ord(character) <= 159 for character in media_type)
+                or not isinstance(size, int)
+                or isinstance(size, bool)
+                or not (0 <= size <= 2**64 - 1)
+            ):
+                raise ValueError("conversation artifact reference is invalid")
+            _validate_uuid(part["artifact_id"], "artifact ID")
+        else:
+            raise ValueError("conversation message part type is invalid")
 
 
 def _validate_x25519_public_key(public_key: bytes) -> None:

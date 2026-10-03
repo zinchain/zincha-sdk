@@ -327,6 +327,8 @@ conversation.set_access_token(session["access_token"])
 
 `encrypt_conversation_e2e` and `decrypt_conversation_e2e` use the same versioned
 X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope as the Rust and TypeScript SDKs.
+Non-contributory X25519 keys and malformed typed plaintext parts are rejected
+before signing or after decryption.
 The conversation extras depend on `jcs` and `PyNaCl`, as declared by the package.
 `events()` resumes by durable sequence, performs paged catch-up after
 `resync_required`, and raises `ConversationAuthorizationRequiredError` when a

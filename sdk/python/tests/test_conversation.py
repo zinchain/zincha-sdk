@@ -63,6 +63,37 @@ class ConversationTests(unittest.TestCase):
             payload={"encoding": "plaintext", "parts": [{"type": "text", "text": "hello"}]},
         )
         self.assertEqual(len(message["signature"]), 128)
+        with self.assertRaisesRegex(ValueError, "key epoch"):
+            sign_conversation_message(
+                operational=operational,
+                delegation_id=delegation["delegation_id"],
+                conversation_id="cd" * 32,
+                sender=account.address(),
+                payload={
+                    "encoding": "plaintext",
+                    "parts": [{"type": "text", "text": "hello"}],
+                },
+                key_epoch=1,
+            )
+        with self.assertRaisesRegex(ValueError, "artifact ID"):
+            sign_conversation_message(
+                operational=operational,
+                delegation_id=delegation["delegation_id"],
+                conversation_id="cd" * 32,
+                sender=account.address(),
+                payload={
+                    "encoding": "plaintext",
+                    "parts": [
+                        {
+                            "type": "artifact_reference",
+                            "artifact_id": "bad",
+                            "digest": "00" * 32,
+                            "media_type": "text/plain",
+                            "size": 1,
+                        }
+                    ],
+                },
+            )
 
     def test_e2e_context_binding(self):
         secret = bytes([19]) * 32
@@ -73,6 +104,13 @@ class ConversationTests(unittest.TestCase):
             plaintext,
             [{"key_id": "recipient", "public_key": crypto_scalarmult_base(secret)}],
         )
+        with self.assertRaisesRegex(ValueError, "1-256"):
+            encrypt_conversation_e2e(
+                "cd" * 32,
+                7,
+                {"encoding": "plaintext", "parts": []},
+                [{"key_id": "recipient", "public_key": crypto_scalarmult_base(secret)}],
+            )
         self.assertEqual(
             decrypt_conversation_e2e("cd" * 32, 7, encrypted, "recipient", secret),
             plaintext,

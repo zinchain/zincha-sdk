@@ -315,7 +315,9 @@ conversation.setAccessToken(session.access_token);
 
 `encryptConversationE2e` and `decryptConversationE2e` implement the versioned
 X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope. The service sees only opaque
-ciphertext in `end_to_end` mode. `events()` follows authenticated SSE and
+ciphertext in `end_to_end` mode. Non-contributory X25519 keys and malformed
+typed plaintext parts are rejected before signing or after decryption.
+`events()` follows authenticated SSE and
 resumes from the highest durable message sequence, performs bounded paged
 catch-up after `resync_required`, and throws
 `ConversationAuthorizationRequiredError` instead of retrying an expired or

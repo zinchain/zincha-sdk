@@ -115,6 +115,7 @@ export async function signConversationMessage(input: {
   validateUuid(input.delegationId, "delegation ID");
   if (input.replyTo !== undefined) validateUuid(input.replyTo, "reply ID");
   if (input.keyEpoch !== undefined) validateEpoch(input.keyEpoch);
+  validateConversationMessagePayload(input.payload, input.keyEpoch);
   const request: SubmitConversationMessage = {
     message_id: uuidV4(), client_timestamp_ms: Date.now(), reply_to: input.replyTo ?? null,
     key_epoch: input.keyEpoch ?? null, payload: input.payload, signing_key_id: input.delegationId, signature: "",
@@ -241,7 +242,8 @@ export interface E2eRecipient { keyId: string; publicKey: Uint8Array }
 
 export function encryptConversationE2e(conversationId: string, epoch: number, plaintext: ConversationMessagePayload, recipients: E2eRecipient[]): ConversationMessagePayload {
   validateConversationId(conversationId); validateEpoch(epoch);
-  if (plaintext.encoding !== "plaintext" || recipients.length === 0 || recipients.length > 256) throw new Error("E2E encryption requires plaintext and 1-256 recipients");
+  validatePlaintextPayload(plaintext);
+  if (recipients.length === 0 || recipients.length > 256) throw new Error("E2E encryption requires plaintext and 1-256 recipients");
   const ephemeralSecret = randomBytes(32); const ephemeralPublic = x25519.getPublicKey(ephemeralSecret);
   const contentKey = randomBytes(32); const contentNonce = randomBytes(24);
   const contentAad = encoder.encode(`${E2E_CONTENT_DOMAIN}\n${conversationId}\n${epoch}`);
@@ -277,14 +279,49 @@ export function decryptConversationE2e(conversationId: string, epoch: number, pa
   const contentAad = encoder.encode(`${E2E_CONTENT_DOMAIN}\n${conversationId}\n${epoch}`);
   const decoded = xchacha20poly1305(contentKey, fromBase64url(envelope.content_nonce), contentAad).decrypt(fromBase64url(envelope.ciphertext));
   const plaintext = JSON.parse(decoder.decode(decoded)) as unknown;
-  if (typeof plaintext !== "object" || plaintext === null || Array.isArray(plaintext) || (plaintext as { encoding?: unknown }).encoding !== "plaintext" || !Array.isArray((plaintext as { parts?: unknown }).parts)) throw new Error("E2E plaintext has an invalid payload encoding");
-  return plaintext as ConversationMessagePayload;
+  validatePlaintextPayload(plaintext);
+  return plaintext;
 }
 
 function validateX25519PublicKey(publicKey: Uint8Array): void {
   if (!(publicKey instanceof Uint8Array) || publicKey.length !== 32) throw new Error("encryption public key must be 32 bytes");
   try { x25519.getSharedSecret(new Uint8Array(32).fill(0x42), publicKey); }
   catch { throw new Error("encryption public key is non-contributory"); }
+}
+
+function validateConversationMessagePayload(payload: unknown, keyEpoch?: number): asserts payload is ConversationMessagePayload {
+  if (isRecord(payload) && payload.encoding === "plaintext") {
+    if (keyEpoch !== undefined) throw new Error("plaintext messages cannot include a key epoch");
+    validatePlaintextPayload(payload);
+    return;
+  }
+  if (!isRecord(payload) || !hasExactKeys(payload, ["encoding", "ciphertext"]) || payload.encoding !== "ciphertext" || typeof payload.ciphertext !== "string" || payload.ciphertext.length === 0 || payload.ciphertext.length % 4 === 1 || !/^[A-Za-z0-9_-]+$/.test(payload.ciphertext) || keyEpoch === undefined) throw new Error("ciphertext messages require URL-safe ciphertext and a key epoch");
+}
+
+function validatePlaintextPayload(payload: unknown): asserts payload is Extract<ConversationMessagePayload, { encoding: "plaintext" }> {
+  if (!isRecord(payload) || !hasExactKeys(payload, ["encoding", "parts"]) || payload.encoding !== "plaintext" || !Array.isArray(payload.parts) || payload.parts.length === 0 || payload.parts.length > 256) throw new Error("plaintext messages require 1-256 valid parts");
+  for (const part of payload.parts) {
+    if (!isRecord(part) || typeof part.type !== "string") throw new Error("conversation message part is invalid");
+    if (part.type === "text") {
+      if (!hasExactKeys(part, ["type", "text"]) || typeof part.text !== "string") throw new Error("conversation text part is invalid");
+    } else if (part.type === "data") {
+      if (!hasExactKeys(part, ["type", "value"])) throw new Error("conversation data part is invalid");
+    } else if (part.type === "artifact_reference") {
+      if (!hasExactKeys(part, ["type", "artifact_id", "digest", "media_type", "size"]) || typeof part.artifact_id !== "string" || typeof part.digest !== "string" || !/^[0-9a-f]{64}$/.test(part.digest) || typeof part.media_type !== "string" || encoder.encode(part.media_type).length === 0 || encoder.encode(part.media_type).length > 255 || /[\u0000-\u001f\u007f-\u009f]/u.test(part.media_type) || !Number.isSafeInteger(part.size) || Number(part.size) < 0) throw new Error("conversation artifact reference is invalid");
+      validateUuid(part.artifact_id, "artifact ID");
+    } else {
+      throw new Error("conversation message part type is invalid");
+    }
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, expected: string[]): boolean {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => Object.prototype.hasOwnProperty.call(value, key));
 }
 
 export interface OutboxStore { load(): Promise<QueuedConversationMessage[]>; save(items: QueuedConversationMessage[]): Promise<void> }

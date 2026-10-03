@@ -56,6 +56,21 @@ test("conversation delegation and message use account and operational identities
     payload: { encoding: "plaintext", parts: [{ type: "text", text: "hello" }] },
   });
   assert.equal(message.signature.length, 128);
+  await assert.rejects(signConversationMessage({
+    operational,
+    delegationId: delegation.delegation_id,
+    conversationId: "cd".repeat(32),
+    sender: account.address(),
+    payload: { encoding: "plaintext", parts: [{ type: "text", text: "hello" }] },
+    keyEpoch: 1,
+  }), /cannot include a key epoch/);
+  await assert.rejects(signConversationMessage({
+    operational,
+    delegationId: delegation.delegation_id,
+    conversationId: "cd".repeat(32),
+    sender: account.address(),
+    payload: { encoding: "plaintext", parts: [{ type: "artifact_reference", artifact_id: "bad", digest: "00".repeat(32), media_type: "text/plain", size: 1 }] },
+  }), /artifact ID/);
 });
 
 test("conversation E2E envelope binds conversation and epoch", () => {
@@ -64,6 +79,7 @@ test("conversation E2E envelope binds conversation and epoch", () => {
   const encrypted = encryptConversationE2e("cd".repeat(32), 7, plaintext, [
     { keyId: "recipient", publicKey: x25519.getPublicKey(secret) },
   ]);
+  assert.throws(() => encryptConversationE2e("cd".repeat(32), 7, { encoding: "plaintext", parts: [] }, [{ keyId: "recipient", publicKey: x25519.getPublicKey(secret) }]), /1-256/);
   assert.deepEqual(decryptConversationE2e("cd".repeat(32), 7, encrypted, "recipient", secret), plaintext);
   assert.throws(() => decryptConversationE2e("ef".repeat(32), 7, encrypted, "recipient", secret));
   assert.throws(() => decryptConversationE2e("cd".repeat(32), 8, encrypted, "recipient", secret), /epoch/);

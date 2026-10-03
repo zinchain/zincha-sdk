@@ -368,6 +368,7 @@ pub fn sign_message(
     if key_epoch.is_some_and(|epoch| i64::try_from(epoch).is_err()) {
         bail!("message key epoch exceeds the protocol range");
     }
+    validate_message_payload(&payload, key_epoch)?;
     let mut request = SubmitMessageRequest {
         message_id: Uuid::new_v4(),
         client_timestamp_ms: now_ms(),
@@ -782,10 +783,8 @@ pub fn encrypt_e2e(
     if i64::try_from(epoch).is_err() {
         bail!("E2E epoch exceeds the protocol range");
     }
-    if !matches!(plaintext, MessagePayload::Plaintext { .. })
-        || recipients.is_empty()
-        || recipients.len() > 256
-    {
+    validate_plaintext_payload(plaintext)?;
+    if recipients.is_empty() || recipients.len() > 256 {
         bail!("E2E encryption requires plaintext and recipients");
     }
     let ephemeral = StaticSecret::random_from_rng(OsRng);
@@ -966,10 +965,60 @@ pub fn decrypt_e2e(
         .map_err(|_| anyhow!("decrypt E2E content"))?;
     let plaintext: MessagePayload =
         serde_json::from_slice(&plaintext).context("decode E2E plaintext")?;
-    if !matches!(plaintext, MessagePayload::Plaintext { .. }) {
-        bail!("E2E plaintext has an invalid payload encoding");
-    }
+    validate_plaintext_payload(&plaintext)?;
     Ok(plaintext)
+}
+
+fn validate_message_payload(payload: &MessagePayload, key_epoch: Option<u64>) -> Result<()> {
+    match payload {
+        MessagePayload::Plaintext { .. } => {
+            if key_epoch.is_some() {
+                bail!("plaintext messages cannot include a key epoch");
+            }
+            validate_plaintext_payload(payload)
+        }
+        MessagePayload::Ciphertext { ciphertext } => {
+            if key_epoch.is_none()
+                || ciphertext.is_empty()
+                || ciphertext.len() % 4 == 1
+                || !ciphertext
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+            {
+                bail!("ciphertext messages require URL-safe ciphertext and a key epoch");
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_plaintext_payload(payload: &MessagePayload) -> Result<()> {
+    let MessagePayload::Plaintext { parts } = payload else {
+        bail!("E2E plaintext has an invalid payload encoding");
+    };
+    if parts.is_empty() || parts.len() > 256 {
+        bail!("plaintext messages require 1-256 parts");
+    }
+    for part in parts {
+        if let MessagePart::ArtifactReference {
+            digest, media_type, ..
+        } = part
+        {
+            if digest.len() != 64
+                || !digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                || media_type.is_empty()
+                || media_type.len() > 255
+                || media_type.chars().any(char::is_control)
+            {
+                bail!(
+                    "artifact references require a lowercase SHA-256 digest and bounded media type"
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_x25519_public_key(public_key: [u8; 32]) -> Result<()> {
@@ -1361,6 +1410,16 @@ mod tests {
             }],
         )
         .unwrap();
+        assert!(encrypt_e2e(
+            &"cd".repeat(32),
+            7,
+            &MessagePayload::Plaintext { parts: vec![] },
+            &[E2eRecipient {
+                key_id: "recipient".into(),
+                public_key: hex::encode(public.as_bytes()),
+            }],
+        )
+        .is_err());
         assert_eq!(
             decrypt_e2e(
                 &"cd".repeat(32),
@@ -1453,6 +1512,56 @@ mod tests {
                 key_id: "recipient".into(),
                 public_key: hex::encode(public.as_bytes()),
             }],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn message_signing_rejects_payload_and_epoch_mismatches() {
+        let operational = Keypair::from_secret_bytes(&[9; 32]);
+        let sender = operational.address().to_string();
+        let plaintext = MessagePayload::Plaintext {
+            parts: vec![MessagePart::Text {
+                text: "hello".into(),
+            }],
+        };
+        assert!(sign_message(
+            &operational,
+            Uuid::nil(),
+            &"cd".repeat(32),
+            &sender,
+            plaintext,
+            None,
+            Some(1),
+        )
+        .is_err());
+        assert!(sign_message(
+            &operational,
+            Uuid::nil(),
+            &"cd".repeat(32),
+            &sender,
+            MessagePayload::Ciphertext {
+                ciphertext: "AA".into(),
+            },
+            None,
+            None,
+        )
+        .is_err());
+        assert!(sign_message(
+            &operational,
+            Uuid::nil(),
+            &"cd".repeat(32),
+            &sender,
+            MessagePayload::Plaintext {
+                parts: vec![MessagePart::ArtifactReference {
+                    artifact_id: Uuid::nil(),
+                    digest: "GG".repeat(32),
+                    media_type: "text/plain".into(),
+                    size: 1,
+                }],
+            },
+            None,
+            None,
         )
         .is_err());
     }
