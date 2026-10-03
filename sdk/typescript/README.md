@@ -279,6 +279,49 @@ used by the typed builders) + `submitSignedTransaction`. Mirror the
 struct from `src/primitives/*.rs`, encode the `data` payload, and
 submit. Builders for additional types are added as needed.
 
+## Participant conversations
+
+`ConversationClient` talks to the workflow provider's separately advertised
+conversation service. `createConversationDelegation` lets the account key
+authorize a short-lived operational key, while `signConversationMessage` signs
+each idempotent message without reopening the wallet. `ConversationOutbox`
+persists signed messages through an injected store; `LocalStorageOutboxStore`
+is provided for browser applications, and production platforms can use the same
+interface with IndexedDB or their database.
+
+The default outbox bounds are 1,000 entries and 64 MiB of serialized data.
+`LocalStorageOutboxStore` is suitable only for a trusted, single-tab browser
+origin: local storage is plaintext and its read/modify/write cycle is not
+transactional across tabs or workers. Production browser platforms should use
+an IndexedDB implementation, encrypt sensitive platform-readable drafts with
+an application-held key, and elect one sender lease per account/conversation.
+
+```ts
+const conversation = new ConversationClient({ baseUrl: profile.discovery_url });
+verifyConversationServiceProfile(profile, await conversation.profile());
+const challenge = await conversation.issueChallenge(account.address(), subject);
+const delegation = await createConversationDelegation({
+  account,
+  operational,
+  encryptionPublicKey,
+  subject,
+  homeServiceId: profile.service_id,
+  notBeforeMs: Date.now() - 1_000,
+  expiresAtMs: Date.now() + 86_400_000,
+});
+const session = await conversation.createSession(challenge, delegation, operational);
+conversation.setAccessToken(session.access_token);
+```
+
+`encryptConversationE2e` and `decryptConversationE2e` implement the versioned
+X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope. The service sees only opaque
+ciphertext in `end_to_end` mode. `events()` follows authenticated SSE and
+resumes from the highest durable message sequence, performs bounded paged
+catch-up after `resync_required`, and throws
+`ConversationAuthorizationRequiredError` instead of retrying an expired or
+revoked session. Persist a fully signed message with `ConversationOutbox`
+before submission and use `flush()` for capped idempotent retries.
+
 ## Releases
 
 Named releases map to the same catalog as the Rust node:

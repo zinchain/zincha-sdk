@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-09-27
+**Version:** 2026-10-03
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -402,6 +402,39 @@ token, capability-catalog, and market-rate event families. Use the documented
 event filters and sequenced stream/control protocol; `/ws` is not JSON-RPC.
 Filter parameters and the full topic list live in the WebSocket section of
 the API reference.
+
+## Workflow Conversations
+
+Conversation messages are off-chain and are served by the workflow provider's
+advertised `ConversationProfileV1`, not by the node RPC. A conversation exists
+only for an existing task, agreement, tool job, or tool-usage session. The
+conversation service derives membership from the node's participant-signed
+private detail and lifecycle routes; never accept a caller-provided participant
+list and never create an unsolicited general inbox.
+
+Use the Rust, TypeScript, or Python conversation module to:
+
+1. Decode the provider's bounded profile from authenticated agent metadata and
+   confirm the service profile at its HTTPS discovery URL.
+2. Create an account-signed, subject-scoped delegation for short-lived
+   operational signing and X25519 encryption keys.
+3. Complete the challenge flow, resolve the deterministic conversation, and
+   place every fully signed outgoing message in the durable outbox before
+   sending it.
+4. Resume SSE from the highest processed durable sequence. On
+   `resync_required`, use bounded paged reads before reconnecting. On
+   `authorization_required`, obtain a new session rather than retrying the old
+   bearer token.
+5. Use `platform_readable` for provider-visible data encrypted at rest or
+   `end_to_end` for the versioned SDK envelope. Do not claim that E2E mode lets
+   the provider inspect, search, or recover message plaintext.
+
+Do not put wallet secrets in message bodies or artifacts. A delegation can be
+revoked independently of the account key, and applications should use the
+shortest practical delegation and session lifetimes. Conversation endpoints,
+retention, and deployment are specified by the separate
+`zinchain/zincha-conversation` service; they are intentionally absent from the
+node OpenAPI artifact.
 
 ## Mainnet Confirmation Checklist
 

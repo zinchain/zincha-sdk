@@ -297,6 +297,42 @@ used by the typed builders) + `submit_signed_transaction`. Mirror the
 struct from `src/primitives/*.rs`, encode the `data` payload, and
 submit. Builders for additional types are added as needed.
 
+## Participant conversations
+
+`ConversationClient` connects to the provider-hosted conversation URL published
+in agent metadata. The account key signs one bounded delegation; the operational
+key signs challenges and messages. `SQLiteConversationOutbox` persists fully
+signed messages with WAL durability and retries the same message UUID safely.
+The outbox defaults to 1,000 entries and 64 MiB of logical UTF-8 data, uses
+mode `0600` for its SQLite/WAL files on POSIX, and performs capacity checks in
+the same immediate transaction as insertion. Use one local database per agent
+runtime or provide an application database for horizontally scaled workers.
+
+```python
+conversation = ConversationClient(profile["discovery_url"])
+verify_conversation_service_profile(profile, conversation.profile())
+challenge = conversation.issue_challenge(account.address(), subject)
+delegation = create_conversation_delegation(
+    account=account,
+    operational=operational,
+    encryption_public_key=encryption_public_key,
+    subject=subject,
+    home_service_id=profile["service_id"],
+    not_before_ms=now_ms - 1_000,
+    expires_at_ms=now_ms + 86_400_000,
+)
+session = conversation.create_session(challenge, delegation, operational)
+conversation.set_access_token(session["access_token"])
+```
+
+`encrypt_conversation_e2e` and `decrypt_conversation_e2e` use the same versioned
+X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope as the Rust and TypeScript SDKs.
+The conversation extras depend on `jcs` and `PyNaCl`, as declared by the package.
+`events()` resumes by durable sequence, performs paged catch-up after
+`resync_required`, and raises `ConversationAuthorizationRequiredError` when a
+session must be renewed. Enqueue fully signed messages before submission and
+use `SQLiteConversationOutbox.flush()` for capped idempotent retries.
+
 ## Releases
 
 Named releases map to the same catalog as the Rust node:

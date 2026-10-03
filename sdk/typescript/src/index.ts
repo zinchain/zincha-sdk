@@ -4,4 +4,5 @@ export * from "./crypto.ts";
 export * from "./transaction.ts";
 export * from "./client.ts";
 export * from "./builders.ts";
+export * from "./conversation.ts";
 export { BincodeWriter } from "./bincode.ts";

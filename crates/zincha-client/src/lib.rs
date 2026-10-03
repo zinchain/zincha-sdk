@@ -12,6 +12,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use zincha_primitives::crypto::{hash_bytes, Keypair};
 use zincha_primitives::release::{canonical_rpc_url_for_alias, canonical_websocket_url_for_alias};
 
+pub mod conversation;
+
 const USER_AGENT: &str = concat!("zincha-sdk-rust/", env!("CARGO_PKG_VERSION"));
 const SIGNED_REQUEST_PREFIX: &str = "zincha-rpc-signed-request-v1";
 
@@ -408,12 +410,14 @@ impl ZinchaClient {
         signed_tx_hex: String,
         options: ProtectedSubmitOptions,
     ) -> Result<Value> {
-        let mut request = RequestOptions::default();
-        request.bearer_token = options.bearer_token;
-        request.body = Some(json!(ProtectedSubmitRequest {
-            signed_tx_hex,
-            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
-        }));
+        let request = RequestOptions {
+            bearer_token: options.bearer_token,
+            body: Some(json!(ProtectedSubmitRequest {
+                signed_tx_hex,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+            })),
+            ..RequestOptions::default()
+        };
         self.request(Method::POST, "/v1/tx/submit/protected", request)
             .await
     }
@@ -423,15 +427,17 @@ impl ZinchaClient {
         signed_txs_hex: Vec<String>,
         options: OrderflowBundleOptions,
     ) -> Result<Value> {
-        let mut request = RequestOptions::default();
-        request.bearer_token = options.bearer_token;
-        request.body = Some(json!(OrderflowBundleRequest {
-            signed_txs_hex,
-            atomic: options.atomic,
-            expiration_height: options.expiration_height,
-            max_total_fee: options.max_total_fee,
-            max_priority_fee_per_gas: options.max_priority_fee_per_gas,
-        }));
+        let request = RequestOptions {
+            bearer_token: options.bearer_token,
+            body: Some(json!(OrderflowBundleRequest {
+                signed_txs_hex,
+                atomic: options.atomic,
+                expiration_height: options.expiration_height,
+                max_total_fee: options.max_total_fee,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+            })),
+            ..RequestOptions::default()
+        };
         self.request(Method::POST, "/v1/orderflow/bundles", request)
             .await
     }

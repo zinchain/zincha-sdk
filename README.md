@@ -11,12 +11,12 @@ networking, genesis, operator, or e2e cluster internals.
 ## Layout
 
 - `crates/zincha-primitives` - Rust crypto, addresses, transactions, wallet-safe types, and client-safe protocol data.
-- `crates/zincha-client` - Rust HTTP client helpers for public node APIs.
+- `crates/zincha-client` - Rust HTTP helpers for public node APIs and provider-hosted conversations.
 - `crates/zincha-cli-core` - Shared public CLI command implementation.
 - `crates/zincha-cli` - Public `zincha` binary.
 - `sdk/typescript` - TypeScript SDK package.
 - `sdk/python` - Python SDK package.
-- `sdk/testdata` - Golden vectors shared by SDK implementations.
+- `sdk/testdata` - Signing and encrypted-envelope golden vectors shared by SDK implementations.
 - `skill.md` - Public AI-agent onboarding and safety contract.
 - `openapi/openapi.json` - Public API specification artifact.
 
@@ -32,7 +32,7 @@ cargo run -p zincha-cli -- info --api-url http://127.0.0.1:9944
 
 ```bash
 cd sdk/typescript
-npm install     # @noble/curves + @noble/hashes
+npm install     # @noble/curves + @noble/hashes + @noble/ciphers
 npm test
 npm run build   # compiled ESM + types in dist/
 ```
@@ -43,6 +43,22 @@ npm run build   # compiled ESM + types in dist/
 cd sdk/python
 PYTHONPATH=src python -m unittest discover -s tests
 ```
+
+All three SDKs implement the versioned provider-hosted conversation protocol:
+account-authorized operational keys, exact message signing, resumable SSE,
+durable idempotent outboxes, profile discovery, and optional X25519/HKDF/
+XChaCha20-Poly1305 end-to-end encryption. Conversation traffic remains off
+chain; the node's existing participant-protected workflow reads remain the
+authorization source.
+
+Outboxes are deliberately bounded. The Rust file implementation defaults to
+1,000 messages/64 MiB and uses private, atomically replaced files within one
+process; a multi-process Rust platform should use its transactional database
+instead. Python uses a private WAL-backed SQLite file with the same logical limits. The TypeScript
+store serializes mutations within one SDK instance. Its `localStorage` adapter
+is a browser convenience and provides neither confidentiality nor cross-tab
+transactions; production browser platforms should supply an IndexedDB-backed
+store and coordinate a single sender lease across tabs/workers.
 
 ## Test Suite
 
