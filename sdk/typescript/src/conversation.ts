@@ -405,7 +405,7 @@ export function validateConversationProfile(profile: ConversationProfileV2): voi
   if (profile.version !== 2 || !Array.isArray(profile.protocol_versions) || !profile.protocol_versions.includes(1)) throw new Error("unsupported conversation profile");
   validateServiceId(profile.service_id);
   if (!Array.isArray(profile.privacy_modes) || profile.privacy_modes.length === 0 || new Set(profile.privacy_modes).size !== profile.privacy_modes.length || profile.privacy_modes.some((mode) => mode !== "platform_readable" && mode !== "end_to_end")) throw new Error("conversation profile privacy modes are invalid");
-  if (new Set(profile.protocol_versions).size !== profile.protocol_versions.length || profile.protocol_versions.some((version) => !Number.isSafeInteger(version) || version <= 0)) throw new Error("conversation profile protocol versions are invalid");
+  if (profile.protocol_versions.length > 64 || new Set(profile.protocol_versions).size !== profile.protocol_versions.length || profile.protocol_versions.some((version) => !Number.isSafeInteger(version) || version <= 0)) throw new Error("conversation profile protocol versions are invalid");
   if (!Array.isArray(profile.interfaces) || profile.interfaces.length < 1 || profile.interfaces.length > 4) throw new Error("conversation profile must advertise 1-4 interfaces");
   const endpoints = new Set<string>();
   for (const entry of profile.interfaces) {
@@ -413,6 +413,7 @@ export function validateConversationProfile(profile: ConversationProfileV2): voi
     let identity: string;
     if (entry.type === "https") {
       validateExactKeys(entry, ["type", "url"], "HTTPS conversation interface");
+      if (typeof entry.url !== "string" || entry.url.length > 2048) throw new Error("HTTPS conversation interface URL exceeds the supported length");
       const normalized = normalizeConversationBaseUrl(String(entry.url));
       if (!normalized.startsWith("https://")) throw new Error("advertised HTTPS interface must use HTTPS");
       identity = `https:${normalized}`;

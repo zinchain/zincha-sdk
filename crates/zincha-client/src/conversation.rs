@@ -46,6 +46,8 @@ const MAX_CONVERSATION_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_SSE_EVENT_BYTES: usize = 256 * 1024;
 const MAX_OUTBOX_ERROR_CHARS: usize = 1_024;
 const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 256;
+const MAX_HTTPS_INTERFACE_URL_LENGTH: usize = 2_048;
+const MAX_PROTOCOL_VERSIONS: usize = 64;
 
 #[derive(Debug)]
 pub struct ConversationAuthorizationRequiredError;
@@ -1523,6 +1525,7 @@ pub fn validate_conversation_profile(profile: &ConversationProfileV2) -> Result<
             .enumerate()
             .any(|(index, mode)| profile.privacy_modes[..index].contains(mode))
         || profile.protocol_versions.is_empty()
+        || profile.protocol_versions.len() > MAX_PROTOCOL_VERSIONS
         || profile
             .protocol_versions
             .iter()
@@ -1540,6 +1543,9 @@ pub fn validate_conversation_profile(profile: &ConversationProfileV2) -> Result<
     for interface in &profile.interfaces {
         let identity = match interface {
             ConversationInterface::Https { url } => {
+                if url.len() > MAX_HTTPS_INTERFACE_URL_LENGTH {
+                    bail!("HTTPS conversation interface URL exceeds the supported length");
+                }
                 let parsed = Url::parse(url)
                     .context("conversation profile HTTPS interface URL is invalid")?;
                 validate_conversation_url(&parsed)?;
@@ -1982,6 +1988,9 @@ mod tests {
         invalid.interfaces = vec![ConversationInterface::Https {
             url: format!("https://conversations.example/{}", "x".repeat(4_096)),
         }];
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        invalid.protocol_versions = (1..=65).collect();
         assert!(validate_conversation_profile(&invalid).is_err());
         assert!(ConversationClient::new("http://127.0.0.1:8080/base").is_ok());
         assert!(ConversationClient::new("http://conversations.example").is_err());

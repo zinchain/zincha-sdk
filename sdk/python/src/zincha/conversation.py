@@ -1166,6 +1166,7 @@ def validate_conversation_profile(profile: Mapping[str, Any]) -> None:
     if (
         not isinstance(protocols, list)
         or 1 not in protocols
+        or len(protocols) > 64
         or len(protocols) != len(set(protocols))
         or any(not isinstance(version, int) or isinstance(version, bool) or version <= 0 for version in protocols)
     ):
@@ -1189,7 +1190,11 @@ def validate_conversation_profile(profile: Mapping[str, Any]) -> None:
         if interface_type == "https":
             _validate_exact_keys(interface, {"type", "url"}, "HTTPS conversation interface")
             value = interface.get("url")
-            if not isinstance(value, str) or urllib.parse.urlsplit(value).scheme != "https":
+            if not isinstance(value, str) or len(value) > 2048:
+                raise ValueError(
+                    "HTTPS conversation interface URL exceeds the supported length"
+                )
+            if urllib.parse.urlsplit(value).scheme != "https":
                 raise ValueError("advertised HTTPS interface must use HTTPS")
             normalized = _normalize_conversation_base_url(value)
             identity = "https:%s" % normalized

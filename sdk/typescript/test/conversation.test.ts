@@ -156,7 +156,8 @@ test("conversation profiles and client URLs are strictly validated", () => {
   assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: "http://conversations.example" }] }), /HTTPS/);
   assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: "https://user:secret@conversations.example" }] }), /HTTPS/);
   assert.throws(() => encodeConversationProfile({ ...profile, unexpected: true } as never), /unknown fields/);
-  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: `https://conversations.example/${"x".repeat(4096)}` }] }), /metadata limit/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: `https://conversations.example/${"x".repeat(4096)}` }] }), /URL exceeds/);
+  assert.throws(() => encodeConversationProfile({ ...profile, protocol_versions: Array.from({ length: 65 }, (_, index) => index + 1) }), /protocol versions/);
   const client = new ConversationClient({ baseUrl: "http://127.0.0.1:8080/base", fetch: (() => undefined) as never });
   assert.throws(() => client.conversation("../profile"), /identifier/);
   assert.throws(() => new ConversationClient({ baseUrl: "http://conversations.example", fetch: (() => undefined) as never }), /HTTPS/);

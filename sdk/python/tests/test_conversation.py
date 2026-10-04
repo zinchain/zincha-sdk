@@ -246,7 +246,7 @@ class ConversationTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "unknown fields"):
             encode_conversation_profile({**profile, "unexpected": True})
-        with self.assertRaisesRegex(ValueError, "metadata limit"):
+        with self.assertRaisesRegex(ValueError, "URL exceeds"):
             encode_conversation_profile(
                 {
                     **profile,
@@ -257,6 +257,10 @@ class ConversationTests(unittest.TestCase):
                         }
                     ],
                 }
+            )
+        with self.assertRaisesRegex(ValueError, "protocol versions"):
+            encode_conversation_profile(
+                {**profile, "protocol_versions": list(range(1, 66))}
             )
         client = ConversationClient("http://127.0.0.1:8080/base")
         with self.assertRaisesRegex(ValueError, "identifier"):
