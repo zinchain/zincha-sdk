@@ -19,7 +19,12 @@ const MAX_OUTBOX_ERROR_CHARS = 1_024;
 export type ConversationSubjectKind = "task" | "agreement" | "tool_job" | "tool_session";
 export type ConversationPrivacyMode = "platform_readable" | "end_to_end";
 export interface ConversationSubjectRef { network: string; chain_id: string; kind: ConversationSubjectKind; id: string }
-export interface ConversationProfileV1 { version: 1; service_id: string; discovery_url: string; privacy_modes: ConversationPrivacyMode[]; protocol_versions: number[]; service_signing_public_key: string }
+export interface ConversationTlsCertificatePin { sha256: string; not_before_ms: number; not_after_ms: number }
+export type ConversationInterface =
+  | { type: "https"; url: string }
+  | { type: "zincha_tls_v1"; host: string; port: number; certificate_pins: ConversationTlsCertificatePin[] };
+export interface ConversationProfileV2 { version: 2; service_id: string; interfaces: ConversationInterface[]; privacy_modes: ConversationPrivacyMode[]; protocol_versions: number[] }
+export type ConversationTransportPolicy = "auto" | "https_only" | "zincha_tls_only";
 export interface ConversationKeyDelegationV1 {
   version: 1; delegation_id: string; participant_address: string; participant_public_key: string;
   subject: ConversationSubjectRef; home_service_id: string; operational_signing_key: string;
@@ -134,8 +139,20 @@ export class ConversationClient {
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     if (!this.fetchImpl) throw new Error("ConversationClient requires fetch");
   }
+  static async fromProfile(profile: ConversationProfileV2, options: { policy?: ConversationTransportPolicy; accessToken?: string; fetch?: typeof fetch } = {}): Promise<ConversationClient> {
+    validateConversationProfile(profile);
+    const policy = options.policy ?? "auto";
+    if (policy === "zincha_tls_only") throw new Error("zincha-tls-v1 is unsupported in browser runtimes; use the @zincha/client/conversation-node export");
+    const selected = profile.interfaces.find((entry) => entry.type === "https");
+    if (!selected) throw new Error("conversation profile has no HTTPS interface supported by this runtime");
+    const client = new ConversationClient({ baseUrl: selected.url, fetch: options.fetch });
+    const live = await client.profile();
+    verifyConversationServiceProfile(profile, live);
+    if (options.accessToken !== undefined) client.setAccessToken(options.accessToken);
+    return client;
+  }
   setAccessToken(token: string): void { this.accessToken = token; }
-  profile(): Promise<ConversationProfileV1> { return this.request("GET", "/v1/profile", undefined, false); }
+  profile(): Promise<ConversationProfileV2> { return this.request("GET", "/v1/profile", undefined, false); }
   issueChallenge(participantAddress: string, subject: ConversationSubjectRef): Promise<ConversationChallenge> { validateConversationAddress(participantAddress); validateConversationSubject(subject); return this.request("POST", "/v1/auth/challenges", { participant_address: participantAddress, subject }, false); }
   createSession(challenge: ConversationChallenge, delegation: ConversationKeyDelegationV1, operational: TransactionSigner): Promise<ConversationSession> {
     validateUuid(challenge.challenge_id, "challenge ID");
@@ -383,14 +400,40 @@ export class LocalStorageOutboxStore implements OutboxStore {
   async save(items: QueuedConversationMessage[]): Promise<void> { this.storage.setItem(this.key, JSON.stringify(items)); }
 }
 
-export function validateConversationProfile(profile: ConversationProfileV1): void {
-  validateExactKeys(profile, ["version", "service_id", "discovery_url", "privacy_modes", "protocol_versions", "service_signing_public_key"], "conversation profile");
-  if (profile.version !== 1 || !Array.isArray(profile.protocol_versions) || !profile.protocol_versions.includes(1)) throw new Error("unsupported conversation profile");
+export function validateConversationProfile(profile: ConversationProfileV2): void {
+  validateExactKeys(profile, ["version", "service_id", "interfaces", "privacy_modes", "protocol_versions"], "conversation profile");
+  if (profile.version !== 2 || !Array.isArray(profile.protocol_versions) || !profile.protocol_versions.includes(1)) throw new Error("unsupported conversation profile");
   validateServiceId(profile.service_id);
   if (!Array.isArray(profile.privacy_modes) || profile.privacy_modes.length === 0 || new Set(profile.privacy_modes).size !== profile.privacy_modes.length || profile.privacy_modes.some((mode) => mode !== "platform_readable" && mode !== "end_to_end")) throw new Error("conversation profile privacy modes are invalid");
   if (new Set(profile.protocol_versions).size !== profile.protocol_versions.length || profile.protocol_versions.some((version) => !Number.isSafeInteger(version) || version <= 0)) throw new Error("conversation profile protocol versions are invalid");
-  normalizeConversationBaseUrl(profile.discovery_url);
-  if (!/^[0-9a-f]{64}$/.test(profile.service_signing_public_key)) throw new Error("conversation profile service signing key is invalid");
+  if (!Array.isArray(profile.interfaces) || profile.interfaces.length < 1 || profile.interfaces.length > 4) throw new Error("conversation profile must advertise 1-4 interfaces");
+  const endpoints = new Set<string>();
+  for (const entry of profile.interfaces) {
+    if (!isRecord(entry) || typeof entry.type !== "string") throw new Error("conversation interface is invalid");
+    let identity: string;
+    if (entry.type === "https") {
+      validateExactKeys(entry, ["type", "url"], "HTTPS conversation interface");
+      const normalized = normalizeConversationBaseUrl(String(entry.url));
+      if (!normalized.startsWith("https://")) throw new Error("advertised HTTPS interface must use HTTPS");
+      identity = `https:${normalized}`;
+    } else if (entry.type === "zincha_tls_v1") {
+      validateExactKeys(entry, ["type", "host", "port", "certificate_pins"], "zincha-tls-v1 conversation interface");
+      if (typeof entry.host !== "string" || !isCanonicalIp(entry.host) || !Number.isSafeInteger(entry.port) || entry.port < 1 || entry.port > 65535) throw new Error("zincha-tls-v1 host or port is invalid");
+      if (!Array.isArray(entry.certificate_pins) || entry.certificate_pins.length < 1 || entry.certificate_pins.length > 2) throw new Error("zincha-tls-v1 requires one active and at most one next pin");
+      const hashes = new Set<string>();
+      for (const pin of entry.certificate_pins) {
+        validateExactKeys(pin, ["sha256", "not_before_ms", "not_after_ms"], "zincha-tls-v1 certificate pin");
+        if (typeof pin.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(pin.sha256) || !Number.isSafeInteger(pin.not_before_ms) || !Number.isSafeInteger(pin.not_after_ms) || pin.not_before_ms >= pin.not_after_ms || hashes.has(pin.sha256)) throw new Error("zincha-tls-v1 certificate pin is invalid or duplicated");
+        hashes.add(pin.sha256);
+      }
+      identity = `zincha_tls_v1:${entry.host}:${entry.port}`;
+    } else {
+      throw new Error("conversation interface type is unsupported");
+    }
+    if (endpoints.has(identity)) throw new Error("conversation profile interfaces must be unique");
+    endpoints.add(identity);
+  }
+  if (encoder.encode(canonicalJson(profile)).length > 4096) throw new Error("conversation profile exceeds agent metadata limit");
 }
 
 export function validateConversationSubject(subject: ConversationSubjectRef): void {
@@ -403,6 +446,7 @@ function validateExactKeys(value: unknown, allowed: readonly string[], label: st
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} is invalid`);
   const permitted = new Set(allowed);
   if (Object.keys(value).some((key) => !permitted.has(key))) throw new Error(`${label} contains unknown fields`);
+  if (Object.keys(value).length !== allowed.length || allowed.some((key) => !Object.prototype.hasOwnProperty.call(value, key))) throw new Error(`${label} is missing required fields`);
 }
 
 function validateServiceId(value: string): void {
@@ -425,16 +469,28 @@ function validateEpoch(value: number): void {
 function validateE2eKeyId(value: string): void {
   if (typeof value !== "string" || value.length === 0 || value.length > 256 || /[\u0000-\u001f\u007f]/.test(value)) throw new Error("E2E recipient key ID is invalid");
 }
-export function encodeConversationProfile(profile: ConversationProfileV1): Uint8Array { validateConversationProfile(profile); const bytes = encoder.encode(canonicalJson(profile)); if (bytes.length > 4096) throw new Error("conversation profile exceeds agent metadata limit"); return bytes; }
-export function decodeConversationProfile(metadata: Uint8Array): ConversationProfileV1 { if (metadata.length > 4096) throw new Error("conversation profile exceeds agent metadata limit"); const profile = JSON.parse(decoder.decode(metadata)) as ConversationProfileV1; validateConversationProfile(profile); return profile; }
-export function verifyConversationServiceProfile(advertised: ConversationProfileV1, live: ConversationProfileV1): void { validateConversationProfile(advertised); validateConversationProfile(live); if (canonicalJson(advertised) !== canonicalJson(live)) throw new Error("live conversation profile does not match authenticated agent metadata"); }
+export function encodeConversationProfile(profile: ConversationProfileV2): Uint8Array { validateConversationProfile(profile); const bytes = encoder.encode(canonicalJson(profile)); if (bytes.length > 4096) throw new Error("conversation profile exceeds agent metadata limit"); return bytes; }
+export function decodeConversationProfile(metadata: Uint8Array): ConversationProfileV2 { if (metadata.length > 4096) throw new Error("conversation profile exceeds agent metadata limit"); const profile = JSON.parse(decoder.decode(metadata)) as ConversationProfileV2; validateConversationProfile(profile); return profile; }
+export function verifyConversationServiceProfile(advertised: ConversationProfileV2, live: ConversationProfileV2): void { validateConversationProfile(advertised); validateConversationProfile(live); if (canonicalJson(advertised) !== canonicalJson(live)) throw new Error("live conversation profile does not match authenticated agent metadata"); }
+
+function isCanonicalIp(value: string): boolean {
+  const parts = value.split(".");
+  if (parts.length === 4) return parts.every((part) => /^(0|[1-9][0-9]{0,2})$/.test(part) && Number(part) <= 255);
+  if (!value.includes(":") || value.includes("%") || value !== value.toLowerCase()) return false;
+  try {
+    const normalized = new URL(`https://[${value}]/`).hostname;
+    return normalized.slice(1, -1) === value;
+  } catch {
+    return false;
+  }
+}
 
 function normalizeConversationBaseUrl(value: string): string {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error("conversation service URL is invalid"); }
   const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
   if ((url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) || url.username !== "" || url.password !== "") throw new Error("conversation service URL must use HTTPS, except for loopback development");
-  url.search = ""; url.hash = "";
+  if (url.search !== "" || url.hash !== "") throw new Error("conversation service URL cannot contain a query or fragment");
   return url.toString().replace(/\/+$/, "");
 }
 

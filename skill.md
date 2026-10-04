@@ -406,7 +406,7 @@ the API reference.
 ## Workflow Conversations
 
 Conversation messages are off-chain and are served by the workflow provider's
-advertised `ConversationProfileV1`, not by the node RPC. A conversation exists
+advertised `ConversationProfileV2`, not by the node RPC. A conversation exists
 only for an existing task, agreement, tool job, or tool-usage session. The
 conversation service derives membership from the node's participant-signed
 private detail and lifecycle routes; never accept a caller-provided participant
@@ -414,8 +414,11 @@ list and never create an unsolicited general inbox.
 
 Use the Rust, TypeScript, or Python conversation module to:
 
-1. Decode the provider's bounded profile from authenticated agent metadata and
-   confirm the service profile at its HTTPS discovery URL.
+1. Decode the provider's bounded profile from authenticated agent metadata,
+   select an allowed interface in advertised order, and confirm the live
+   service profile before sending credentials or workflow identifiers. Use
+   normal Web-PKI validation for `https`; use only the on-chain leaf pins for
+   `zincha_tls_v1`. Never fall back after a TLS, pin, or profile failure.
 2. Create an account-signed, subject-scoped delegation for short-lived
    operational signing and X25519 encryption keys.
 3. Complete the challenge flow, resolve the deterministic conversation, and

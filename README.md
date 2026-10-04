@@ -32,7 +32,7 @@ cargo run -p zincha-cli -- info --api-url http://127.0.0.1:9944
 
 ```bash
 cd sdk/typescript
-npm install     # @noble/curves + @noble/hashes + @noble/ciphers
+npm install     # audited crypto packages plus Node's pinned-TLS transport
 npm test
 npm run build   # compiled ESM + types in dist/
 ```
@@ -52,6 +52,16 @@ chain; the node's existing participant-protected workflow reads remain the
 authorization source. All implementations reject non-contributory X25519 keys
 and validate the complete typed plaintext schema before signing or after
 decryption.
+
+`ConversationProfileV2` advertises ordered Web-PKI HTTPS and/or
+`zincha-tls-v1` interfaces. The Rust, Node, and Python clients support direct
+TLS 1.3 leaf-certificate pinning from authenticated on-chain metadata; browser
+TypeScript selects HTTPS and reports a precise unsupported-runtime error for a
+pinned-only profile. Every profile-driven constructor verifies `/v1/profile`
+before attaching a bearer token or sending workflow data.
+Client pools retain at most 256 idle connections per endpoint. The Node pinned
+transport also caps its process cache at 256 service pools and discards a
+service's old pool and TLS resumption state when its endpoint or pin set changes.
 
 Outboxes are deliberately bounded. The Rust file implementation defaults to
 1,000 messages/64 MiB and uses private, atomically replaced files within one

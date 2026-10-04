@@ -1,11 +1,20 @@
 import base64
 import json
 import os
+import socket
+import ssl
 import stat
 import tempfile
+import threading
 import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from nacl.bindings import crypto_scalarmult_base
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.x509.oid import NameOID
 
 from zincha import Keypair
 from zincha.conversation import (
@@ -207,23 +216,48 @@ class ConversationTests(unittest.TestCase):
 
     def test_profiles_and_client_urls_are_strictly_validated(self):
         profile = {
-            "version": 1,
+            "version": 2,
             "service_id": "marketplace.example/conversations",
-            "discovery_url": "https://conversations.example/v1",
+            "interfaces": [
+                {
+                    "type": "zincha_tls_v1",
+                    "host": "203.0.113.25",
+                    "port": 443,
+                    "certificate_pins": [
+                        {
+                            "sha256": "ab" * 32,
+                            "not_before_ms": 1791000000000,
+                            "not_after_ms": 1822536000000,
+                        }
+                    ],
+                },
+                {"type": "https", "url": "https://conversations.example/v1"},
+            ],
             "privacy_modes": ["platform_readable", "end_to_end"],
             "protocol_versions": [1],
-            "service_signing_public_key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
         }
         self.assertEqual(decode_conversation_profile(encode_conversation_profile(profile)), profile)
         verify_conversation_service_profile(profile, profile)
         with self.assertRaisesRegex(ValueError, "HTTPS"):
-            encode_conversation_profile({**profile, "discovery_url": "http://conversations.example"})
+            encode_conversation_profile({**profile, "interfaces": [{"type": "https", "url": "http://conversations.example"}]})
         with self.assertRaises(ValueError):
             encode_conversation_profile(
-                {**profile, "discovery_url": "https://user:secret@conversations.example"}
+                {**profile, "interfaces": [{"type": "https", "url": "https://user:secret@conversations.example"}]}
             )
         with self.assertRaisesRegex(ValueError, "unknown fields"):
             encode_conversation_profile({**profile, "unexpected": True})
+        with self.assertRaisesRegex(ValueError, "metadata limit"):
+            encode_conversation_profile(
+                {
+                    **profile,
+                    "interfaces": [
+                        {
+                            "type": "https",
+                            "url": "https://conversations.example/" + "x" * 4096,
+                        }
+                    ],
+                }
+            )
         client = ConversationClient("http://127.0.0.1:8080/base")
         with self.assertRaisesRegex(ValueError, "identifier"):
             client.conversation("../profile")
@@ -231,6 +265,128 @@ class ConversationTests(unittest.TestCase):
             ConversationClient("http://conversations.example")
         with self.assertRaisesRegex(ValueError, "metadata limit"):
             decode_conversation_profile(b"x" * 4097)
+
+    def test_profile_v2_matches_cross_language_golden_vector(self):
+        path = Path(__file__).parents[2] / "testdata" / "golden-conversation-profile-v2.json"
+        vector = json.loads(path.read_text())
+        encoded = encode_conversation_profile(vector["profile"])
+        self.assertEqual(encoded.decode(), vector["canonical_json"])
+        self.assertEqual(decode_conversation_profile(encoded), vector["profile"])
+
+    def test_pinned_transport_verifies_the_serving_socket(self):
+        key = ed25519.Ed25519PrivateKey.generate()
+        current = datetime.now(timezone.utc).replace(microsecond=0)
+        certificate = (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]))
+            .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]))
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(current - timedelta(minutes=1))
+            .not_valid_after(current + timedelta(days=30))
+            .add_extension(
+                x509.SubjectAlternativeName([x509.IPAddress(__import__("ipaddress").ip_address("127.0.0.1"))]),
+                critical=False,
+            )
+            .sign(key, algorithm=None)
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            certificate_path = os.path.join(directory, "certificate.pem")
+            key_path = os.path.join(directory, "key.pem")
+            with open(certificate_path, "wb") as output:
+                output.write(certificate.public_bytes(serialization.Encoding.PEM))
+            with open(key_path, "wb") as output:
+                output.write(
+                    key.private_bytes(
+                        serialization.Encoding.PEM,
+                        serialization.PrivateFormat.PKCS8,
+                        serialization.NoEncryption(),
+                    )
+                )
+            listener = socket.socket()
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            listener.settimeout(0.2)
+            port = listener.getsockname()[1]
+            profile = {
+                "version": 2,
+                "service_id": "provider/conversations",
+                "interfaces": [
+                    {
+                        "type": "zincha_tls_v1",
+                        "host": "127.0.0.1",
+                        "port": port,
+                        "certificate_pins": [
+                            {
+                                "sha256": "11" * 32,
+                                "not_before_ms": int(certificate.not_valid_before_utc.timestamp() * 1000),
+                                "not_after_ms": int(certificate.not_valid_after_utc.timestamp() * 1000),
+                            },
+                            {
+                                "sha256": certificate.fingerprint(hashes.SHA256()).hex(),
+                                "not_before_ms": int(certificate.not_valid_before_utc.timestamp() * 1000),
+                                "not_after_ms": int(certificate.not_valid_after_utc.timestamp() * 1000),
+                            }
+                        ],
+                    }
+                ],
+                "privacy_modes": ["platform_readable"],
+                "protocol_versions": [1],
+            }
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.minimum_version = ssl.TLSVersion.TLSv1_3
+            context.maximum_version = ssl.TLSVersion.TLSv1_3
+            context.set_alpn_protocols(["http/1.1"])
+            context.load_cert_chain(certificate_path, key_path)
+            stopping = threading.Event()
+            requests = []
+
+            def handle(connection: socket.socket) -> None:
+                try:
+                    with context.wrap_socket(connection, server_side=True) as stream:
+                        request = stream.recv(8192)
+                        if not request:
+                            return
+                        requests.append(request)
+                        stream.sendall(
+                            (
+                                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                                "Content-Length: %d\r\nConnection: close\r\n\r\n"
+                                % len(encoded)
+                            ).encode()
+                            + encoded
+                        )
+                except (OSError, ssl.SSLError):
+                    connection.close()
+
+            def serve() -> None:
+                while not stopping.is_set():
+                    try:
+                        connection, _ = listener.accept()
+                    except (socket.timeout, OSError):
+                        continue
+                    threading.Thread(
+                        target=handle, args=(connection,), daemon=True
+                    ).start()
+
+            encoded = json.dumps({"success": True, "data": profile}).encode()
+            thread = threading.Thread(target=serve, daemon=True)
+            thread.start()
+            try:
+                client = ConversationClient.from_profile(profile, policy="zincha_tls_only")
+                self.assertIsNone(client.access_token)
+                client.close()
+                wrong = json.loads(json.dumps(profile))
+                wrong["interfaces"][0]["certificate_pins"] = wrong["interfaces"][0]["certificate_pins"][:1]
+                with self.assertRaises(Exception):
+                    ConversationClient.from_profile(wrong)
+                self.assertEqual(
+                    len(requests), 1, "pin mismatch must fail before HTTP data"
+                )
+            finally:
+                stopping.set()
+                listener.close()
+                thread.join(timeout=2)
 
     def test_client_validates_session_and_resolution_inputs_before_io(self):
         class RecordingClient(ConversationClient):

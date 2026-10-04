@@ -5,6 +5,8 @@ The SDK repository exposes client-side APIs only:
 - Address, key, hash, signature, and transaction primitives.
 - Client-safe protocol payloads used to construct and sign transactions.
 - HTTP/WebSocket client helpers for public node APIs.
+- Profile-driven provider conversation clients for Web-PKI HTTPS and pinned
+  `zincha-tls-v1`; the Node-specific transport is isolated from browser bundles.
 - Public CLI commands for key generation, wallet inspection, transaction
   construction/submission, faucet, info, query, and watch workflows.
 - TypeScript and Python SDKs with golden-vector parity tests.

@@ -5,7 +5,7 @@ source of truth for transaction serialization, hashes, and signatures.
 
 It is isomorphic — the same code runs in Node.js 22.6+, browsers, and the
 MetaMask Snaps sandbox — with two audited pure-JS runtime dependencies
-(`@noble/curves`, `@noble/hashes`). Any `TransactionSigner` (an in-process
+(`@noble/curves`, `@noble/hashes`, and `@noble/ciphers`). Any `TransactionSigner` (an in-process
 `Keypair`, or an external wallet such as the Zincha MetaMask Snap) can sign.
 The current serializer writes addresses, hashes, and public keys in the
 fixed-width binary form required by protocol/storage format 58.
@@ -297,8 +297,9 @@ an IndexedDB implementation, encrypt sensitive platform-readable drafts with
 an application-held key, and elect one sender lease per account/conversation.
 
 ```ts
-const conversation = new ConversationClient({ baseUrl: profile.discovery_url });
-verifyConversationServiceProfile(profile, await conversation.profile());
+// Browser: selects the first HTTPS interface and verifies /v1/profile before
+// any access token or workflow identifier is sent.
+const conversation = await ConversationClient.fromProfile(profile);
 const challenge = await conversation.issueChallenge(account.address(), subject);
 const delegation = await createConversationDelegation({
   account,
@@ -312,6 +313,21 @@ const delegation = await createConversationDelegation({
 const session = await conversation.createSession(challenge, delegation, operational);
 conversation.setAccessToken(session.access_token);
 ```
+
+Node applications can also use pinned TLS 1.3 without placing Node modules in
+browser bundles:
+
+```ts
+import { createNodeConversationClient } from "@zincha/client/conversation-node";
+const conversation = await createNodeConversationClient(profile, { policy: "auto" });
+```
+
+Policies are `auto`, `https_only`, and `zincha_tls_only`. `auto` follows
+provider preference and advances only when a TCP endpoint is unreachable. A
+TLS, pin, live-profile, or service-identity failure is terminal.
+The Node export reuses pinned transports, evicts least-recently-used pools
+above 256 services, and closes the old pool whenever a service's endpoint or
+pin set changes.
 
 `encryptConversationE2e` and `decryptConversationE2e` implement the versioned
 X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope. The service sees only opaque

@@ -20,7 +20,7 @@ import {
   encodeConversationProfile,
   hexToBytes,
   verifyConversationServiceProfile,
-  type ConversationProfileV1,
+  type ConversationProfileV2,
 } from "../src/index.ts";
 
 test("conversation delegation and message use account and operational identities", async () => {
@@ -141,23 +141,60 @@ test("conversation outbox serializes mutations and enforces bounds", async () =>
 });
 
 test("conversation profiles and client URLs are strictly validated", () => {
-  const profile: ConversationProfileV1 = {
-    version: 1,
+  const profile: ConversationProfileV2 = {
+    version: 2,
     service_id: "marketplace.example/conversations",
-    discovery_url: "https://conversations.example/v1",
+    interfaces: [
+      { type: "zincha_tls_v1", host: "203.0.113.25", port: 443, certificate_pins: [{ sha256: "ab".repeat(32), not_before_ms: 1_791_000_000_000, not_after_ms: 1_822_536_000_000 }] },
+      { type: "https", url: "https://conversations.example/v1" },
+    ],
     privacy_modes: ["platform_readable", "end_to_end"],
     protocol_versions: [1],
-    service_signing_public_key: "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
   };
   assert.deepEqual(decodeConversationProfile(encodeConversationProfile(profile)), profile);
   assert.doesNotThrow(() => verifyConversationServiceProfile(profile, profile));
-  assert.throws(() => encodeConversationProfile({ ...profile, discovery_url: "http://conversations.example" }), /HTTPS/);
-  assert.throws(() => encodeConversationProfile({ ...profile, discovery_url: "https://user:secret@conversations.example" }), /HTTPS/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: "http://conversations.example" }] }), /HTTPS/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: "https://user:secret@conversations.example" }] }), /HTTPS/);
   assert.throws(() => encodeConversationProfile({ ...profile, unexpected: true } as never), /unknown fields/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: `https://conversations.example/${"x".repeat(4096)}` }] }), /metadata limit/);
   const client = new ConversationClient({ baseUrl: "http://127.0.0.1:8080/base", fetch: (() => undefined) as never });
   assert.throws(() => client.conversation("../profile"), /identifier/);
   assert.throws(() => new ConversationClient({ baseUrl: "http://conversations.example", fetch: (() => undefined) as never }), /HTTPS/);
   assert.throws(() => decodeConversationProfile(new Uint8Array(4_097)), /metadata limit/);
+});
+
+test("conversation profile v2 matches the cross-language golden vector", () => {
+  const vector = JSON.parse(readFileSync(new URL("../../testdata/golden-conversation-profile-v2.json", import.meta.url), "utf8"));
+  const encoded = encodeConversationProfile(vector.profile as ConversationProfileV2);
+  assert.equal(new TextDecoder().decode(encoded), vector.canonical_json);
+  assert.deepEqual(decodeConversationProfile(encoded), vector.profile);
+});
+
+test("browser profile selection verifies live identity before storing credentials", async () => {
+  const profile: ConversationProfileV2 = {
+    version: 2,
+    service_id: "provider/conversations",
+    interfaces: [
+      { type: "zincha_tls_v1", host: "203.0.113.25", port: 443, certificate_pins: [{ sha256: "ab".repeat(32), not_before_ms: 1, not_after_ms: 2 }] },
+      { type: "https", url: "https://conversations.example" },
+    ],
+    privacy_modes: ["platform_readable"],
+    protocol_versions: [1],
+  };
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    requests.push(request);
+    return new Response(JSON.stringify({ success: true, data: profile }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  await ConversationClient.fromProfile(profile, { accessToken: "secret", fetch: fetchImpl });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://conversations.example/v1/profile");
+  assert.equal(requests[0].headers.get("authorization"), null);
+  await assert.rejects(
+    ConversationClient.fromProfile({ ...profile, interfaces: [profile.interfaces[0]] }, { fetch: fetchImpl }),
+    /unsupported in browser runtimes|no HTTPS interface/,
+  );
 });
 
 test("conversation client validates session identifiers and operational binding", async () => {

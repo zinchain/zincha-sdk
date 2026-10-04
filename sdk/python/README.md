@@ -309,8 +309,7 @@ the same immediate transaction as insertion. Use one local database per agent
 runtime or provide an application database for horizontally scaled workers.
 
 ```python
-conversation = ConversationClient(profile["discovery_url"])
-verify_conversation_service_profile(profile, conversation.profile())
+conversation = ConversationClient.from_profile(profile, policy="auto")
 challenge = conversation.issue_challenge(account.address(), subject)
 delegation = create_conversation_delegation(
     account=account,
@@ -325,11 +324,21 @@ session = conversation.create_session(challenge, delegation, operational)
 conversation.set_access_token(session["access_token"])
 ```
 
+Policies are `auto`, `https_only`, and `zincha_tls_only`. The pinned transport
+uses TLS 1.3 and verifies the leaf DER fingerprint and certificate validity on
+the same socket used for HTTP. Only an unreachable TCP endpoint permits
+`auto` to advance; TLS, pin, and exact live-profile failures are terminal.
+Call `conversation.close()` when finished, or use the client as a context
+manager, to release pooled HTTPS and SSE connections deterministically.
+The pool permits up to 10,000 active sockets for the SSE target but retains at
+most 256 idle sockets, keeping ordinary warmed residency bounded.
+
 `encrypt_conversation_e2e` and `decrypt_conversation_e2e` use the same versioned
 X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope as the Rust and TypeScript SDKs.
 Non-contributory X25519 keys and malformed typed plaintext parts are rejected
 before signing or after decryption.
-The conversation extras depend on `jcs` and `PyNaCl`, as declared by the package.
+The conversation extras depend on `cryptography`, `jcs`, and `PyNaCl`, as
+declared by the package.
 `events()` resumes by durable sequence, performs paged catch-up after
 `resync_required`, and raises `ConversationAuthorizationRequiredError` when a
 session must be renewed. Enqueue fully signed messages before submission and

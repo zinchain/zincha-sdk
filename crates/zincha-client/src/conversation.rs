@@ -7,7 +7,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     pin::Pin,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -21,9 +21,16 @@ use futures::{Stream, StreamExt};
 use hkdf::Hkdf;
 use rand::{rngs::OsRng, RngCore};
 use reqwest::{Client, Method, Url};
+use rustls::{
+    client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
+    crypto::{verify_tls12_signature, verify_tls13_signature, WebPkiSupportedAlgorithms},
+    pki_types::{CertificateDer, ServerName, UnixTime},
+    DigitallySignedStruct, SignatureScheme,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 use zincha_primitives::crypto::Keypair;
@@ -38,6 +45,7 @@ const DEFAULT_OUTBOX_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_CONVERSATION_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_SSE_EVENT_BYTES: usize = 256 * 1024;
 const MAX_OUTBOX_ERROR_CHARS: usize = 1_024;
+const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 256;
 
 #[derive(Debug)]
 pub struct ConversationAuthorizationRequiredError;
@@ -88,13 +96,40 @@ pub enum PrivacyMode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConversationProfileV1 {
+pub struct TlsCertificatePin {
+    pub sha256: String,
+    pub not_before_ms: i64,
+    pub not_after_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ConversationInterface {
+    Https {
+        url: String,
+    },
+    ZinchaTlsV1 {
+        host: String,
+        port: u16,
+        certificate_pins: Vec<TlsCertificatePin>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConversationProfileV2 {
     pub version: u16,
     pub service_id: String,
-    pub discovery_url: String,
+    pub interfaces: Vec<ConversationInterface>,
     pub privacy_modes: Vec<PrivacyMode>,
     pub protocol_versions: Vec<u16>,
-    pub service_signing_public_key: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConversationTransportPolicy {
+    Auto,
+    HttpsOnly,
+    ZinchaTlsOnly,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -392,6 +427,118 @@ pub fn sign_message(
     Ok(request)
 }
 
+#[derive(Debug)]
+struct PinnedCertificateVerifier {
+    pins: Vec<([u8; 32], i64, i64)>,
+    algorithms: WebPkiSupportedAlgorithms,
+}
+
+impl ServerCertVerifier for PinnedCertificateVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
+        let digest: [u8; 32] = Sha256::digest(end_entity.as_ref()).into();
+        let pin = self
+            .pins
+            .iter()
+            .find(|(expected, _, _)| digest.ct_eq(expected).into())
+            .ok_or_else(|| {
+                rustls::Error::General("zincha-tls-v1 certificate pin mismatch".into())
+            })?;
+        let current = now_ms();
+        const CLOCK_SKEW_MS: i64 = 5 * 60 * 1_000;
+        if current.saturating_add(CLOCK_SKEW_MS) < pin.1
+            || current.saturating_sub(CLOCK_SKEW_MS) > pin.2
+        {
+            return Err(rustls::Error::General(
+                "zincha-tls-v1 certificate pin is outside its advertised validity".into(),
+            ));
+        }
+        let (_, certificate) =
+            x509_parser::parse_x509_certificate(end_entity.as_ref()).map_err(|_| {
+                rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
+            })?;
+        let not_before_ms = certificate
+            .validity()
+            .not_before
+            .timestamp()
+            .checked_mul(1_000)
+            .ok_or_else(|| rustls::Error::General("certificate validity overflows".into()))?;
+        let not_after_ms = certificate
+            .validity()
+            .not_after
+            .timestamp()
+            .checked_mul(1_000)
+            .ok_or_else(|| rustls::Error::General("certificate validity overflows".into()))?;
+        if (not_before_ms, not_after_ms) != (pin.1, pin.2) {
+            return Err(rustls::Error::General(
+                "zincha-tls-v1 certificate validity does not match the on-chain pin".into(),
+            ));
+        }
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        certificate: &CertificateDer<'_>,
+        signature: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls12_signature(message, certificate, signature, &self.algorithms)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        certificate: &CertificateDer<'_>,
+        signature: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls13_signature(message, certificate, signature, &self.algorithms)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.algorithms.supported_schemes()
+    }
+}
+
+fn pinned_http_client(pins: &[TlsCertificatePin]) -> Result<Client> {
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let parsed = pins
+        .iter()
+        .map(|pin| {
+            let bytes: [u8; 32] = hex::decode(&pin.sha256)
+                .context("decode zincha-tls-v1 pin")?
+                .try_into()
+                .map_err(|_| anyhow!("zincha-tls-v1 pin must be 32 bytes"))?;
+            Ok((bytes, pin.not_before_ms, pin.not_after_ms))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let verifier = Arc::new(PinnedCertificateVerifier {
+        pins: parsed,
+        algorithms: provider.signature_verification_algorithms,
+    });
+    let mut tls = rustls::ClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .context("configure zincha-tls-v1 TLS 1.3")?
+        .dangerous()
+        .with_custom_certificate_verifier(verifier)
+        .with_no_client_auth();
+    tls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    tls.enable_early_data = false;
+    Client::builder()
+        .use_preconfigured_tls(tls)
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(30))
+        .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
+        .build()
+        .context("build zincha-tls-v1 HTTP client")
+}
+
 #[derive(Clone)]
 pub struct ConversationClient {
     http: Client,
@@ -414,7 +561,103 @@ impl ConversationClient {
             http: Client::builder()
                 .connect_timeout(std::time::Duration::from_secs(5))
                 .timeout(std::time::Duration::from_secs(30))
+                .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
                 .build()?,
+            base_url,
+            access_token: None,
+        })
+    }
+
+    /// Builds a client from authenticated on-chain metadata and verifies the
+    /// live profile before any credential or workflow identifier can be sent.
+    pub async fn from_profile(
+        profile: &ConversationProfileV2,
+        policy: ConversationTransportPolicy,
+    ) -> Result<Self> {
+        validate_conversation_profile(profile)?;
+        let mut supported = false;
+        let mut unreachable = Vec::new();
+        for interface in &profile.interfaces {
+            let (base_url, http) = match interface {
+                ConversationInterface::Https { url }
+                    if policy != ConversationTransportPolicy::ZinchaTlsOnly =>
+                {
+                    supported = true;
+                    (
+                        Url::parse(url).context("parse HTTPS conversation interface")?,
+                        Client::builder()
+                            .connect_timeout(std::time::Duration::from_secs(5))
+                            .timeout(std::time::Duration::from_secs(30))
+                            .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
+                            .build()?,
+                    )
+                }
+                ConversationInterface::ZinchaTlsV1 {
+                    host,
+                    port,
+                    certificate_pins,
+                } if policy != ConversationTransportPolicy::HttpsOnly => {
+                    supported = true;
+                    (
+                        direct_tls_url(host, *port)?,
+                        pinned_http_client(certificate_pins)?,
+                    )
+                }
+                _ => continue,
+            };
+
+            // This probe carries no application data. Only a reachability
+            // failure permits Auto to try the next advertised interface.
+            let host = base_url
+                .host_str()
+                .ok_or_else(|| anyhow!("conversation interface has no host"))?;
+            let port = base_url
+                .port_or_known_default()
+                .ok_or_else(|| anyhow!("conversation interface has no port"))?;
+            let reachable = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                tokio::net::TcpStream::connect((host, port)),
+            )
+            .await
+            .is_ok_and(|result| result.is_ok());
+            if !reachable {
+                unreachable.push(format!("{host}:{port}"));
+                if policy == ConversationTransportPolicy::Auto {
+                    continue;
+                }
+                bail!("conversation interface {host}:{port} is unreachable");
+            }
+
+            let mut client = Self::with_http(base_url, http)?;
+            let live = client
+                .profile()
+                .await
+                .context("verify live conversation service profile")?;
+            verify_conversation_service_profile(profile, &live)?;
+            client.access_token = None;
+            return Ok(client);
+        }
+        if !supported {
+            bail!(
+                "conversation profile has no interface supported by the selected transport policy"
+            );
+        }
+        bail!(
+            "all supported conversation interfaces were unreachable: {}",
+            unreachable.join(", ")
+        )
+    }
+
+    fn with_http(mut base_url: Url, http: Client) -> Result<Self> {
+        validate_conversation_url(&base_url)?;
+        if !base_url.path().ends_with('/') {
+            let path = format!("{}/", base_url.path());
+            base_url.set_path(&path);
+        }
+        base_url.set_query(None);
+        base_url.set_fragment(None);
+        Ok(Self {
+            http,
             base_url,
             access_token: None,
         })
@@ -554,7 +797,7 @@ impl ConversationClient {
         self.json(Method::POST, "/v1/auth/challenges", Some(request))
             .await
     }
-    pub async fn profile(&self) -> Result<ConversationProfileV1> {
+    pub async fn profile(&self) -> Result<ConversationProfileV2> {
         self.json::<(), _>(Method::GET, "/v1/profile", None).await
     }
     pub async fn create_session(&self, request: &SessionRequest) -> Result<SessionResponse> {
@@ -1228,17 +1471,17 @@ impl FileOutbox {
     }
 }
 
-pub fn conversation_profile_from_metadata(metadata: &[u8]) -> Result<ConversationProfileV1> {
+pub fn conversation_profile_from_metadata(metadata: &[u8]) -> Result<ConversationProfileV2> {
     if metadata.len() > 4_096 {
         bail!("conversation profile exceeds agent metadata limit");
     }
-    let profile: ConversationProfileV1 =
+    let profile: ConversationProfileV2 =
         serde_json::from_slice(metadata).context("decode conversation profile")?;
     validate_conversation_profile(&profile)?;
     Ok(profile)
 }
 
-pub fn conversation_profile_metadata(profile: &ConversationProfileV1) -> Result<Vec<u8>> {
+pub fn conversation_profile_metadata(profile: &ConversationProfileV2) -> Result<Vec<u8>> {
     validate_conversation_profile(profile)?;
     let bytes = serde_jcs::to_vec(profile).context("encode conversation profile")?;
     if bytes.len() > 4_096 {
@@ -1248,8 +1491,8 @@ pub fn conversation_profile_metadata(profile: &ConversationProfileV1) -> Result<
 }
 
 pub fn verify_conversation_service_profile(
-    advertised: &ConversationProfileV1,
-    live: &ConversationProfileV1,
+    advertised: &ConversationProfileV2,
+    live: &ConversationProfileV2,
 ) -> Result<()> {
     validate_conversation_profile(advertised)?;
     validate_conversation_profile(live)?;
@@ -1259,8 +1502,8 @@ pub fn verify_conversation_service_profile(
     Ok(())
 }
 
-pub fn validate_conversation_profile(profile: &ConversationProfileV1) -> Result<()> {
-    if profile.version != 1 || !profile.protocol_versions.contains(&1) {
+pub fn validate_conversation_profile(profile: &ConversationProfileV2) -> Result<()> {
+    if profile.version != 2 || !profile.protocol_versions.contains(&1) {
         bail!("unsupported conversation profile");
     }
     validate_service_id(&profile.service_id)?;
@@ -1281,16 +1524,75 @@ pub fn validate_conversation_profile(profile: &ConversationProfileV1) -> Result<
     {
         bail!("conversation profile capabilities must be non-empty and unique");
     }
-    let discovery = Url::parse(&profile.discovery_url)
-        .context("conversation profile discovery URL is invalid")?;
-    validate_conversation_url(&discovery)?;
-    let public_key: [u8; 32] = hex::decode(&profile.service_signing_public_key)
-        .context("conversation profile service signing key is not hexadecimal")?
-        .try_into()
-        .map_err(|_| anyhow!("conversation profile service signing key must be 32 bytes"))?;
-    ed25519_dalek::VerifyingKey::from_bytes(&public_key)
-        .map_err(|_| anyhow!("conversation profile service signing key is invalid"))?;
+    if profile.interfaces.is_empty() || profile.interfaces.len() > 4 {
+        bail!("conversation profile must advertise 1-4 interfaces");
+    }
+    let mut identities = BTreeSet::new();
+    for interface in &profile.interfaces {
+        let identity = match interface {
+            ConversationInterface::Https { url } => {
+                let parsed = Url::parse(url)
+                    .context("conversation profile HTTPS interface URL is invalid")?;
+                validate_conversation_url(&parsed)?;
+                if parsed.scheme() != "https" {
+                    bail!("advertised HTTPS interface must use HTTPS");
+                }
+                format!("https:{parsed}")
+            }
+            ConversationInterface::ZinchaTlsV1 {
+                host,
+                port,
+                certificate_pins,
+            } => {
+                let address: std::net::IpAddr = host
+                    .parse()
+                    .context("zincha-tls-v1 host must be a literal IP address")?;
+                if *host != address.to_string() || *port == 0 {
+                    bail!("zincha-tls-v1 host or port is not canonical");
+                }
+                if certificate_pins.is_empty() || certificate_pins.len() > 2 {
+                    bail!("zincha-tls-v1 requires one active and at most one next pin");
+                }
+                let mut hashes = BTreeSet::new();
+                for pin in certificate_pins {
+                    if pin.sha256.len() != 64
+                        || !pin
+                            .sha256
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                        || pin.not_before_ms >= pin.not_after_ms
+                        || !hashes.insert(&pin.sha256)
+                    {
+                        bail!("zincha-tls-v1 certificate pin is invalid or duplicated");
+                    }
+                }
+                format!("zincha_tls_v1:{host}:{port}")
+            }
+        };
+        if !identities.insert(identity) {
+            bail!("conversation profile interfaces must be unique");
+        }
+    }
+    if serde_jcs::to_vec(profile)
+        .context("encode conversation profile")?
+        .len()
+        > 4_096
+    {
+        bail!("conversation profile exceeds agent metadata limit");
+    }
     Ok(())
+}
+
+fn direct_tls_url(host: &str, port: u16) -> Result<Url> {
+    let address: std::net::IpAddr = host
+        .parse()
+        .context("zincha-tls-v1 host must be a literal IP address")?;
+    let authority = if address.is_ipv6() {
+        format!("[{address}]:{port}")
+    } else {
+        format!("{address}:{port}")
+    };
+    Url::parse(&format!("https://{authority}/")).context("build zincha-tls-v1 URL")
 }
 
 pub fn validate_subject_ref(subject: &SubjectRef) -> Result<()> {
@@ -1352,6 +1654,9 @@ fn validate_conversation_url(url: &Url) -> Result<()> {
     if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
         bail!("conversation service URL must use HTTPS, except for loopback development");
     }
+    if url.query().is_some() || url.fragment().is_some() {
+        bail!("conversation service URL cannot contain a query or fragment");
+    }
     Ok(())
 }
 
@@ -1362,16 +1667,28 @@ pub fn outbox_path(parent: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    fn valid_profile() -> ConversationProfileV1 {
-        ConversationProfileV1 {
-            version: 1,
+    fn valid_profile() -> ConversationProfileV2 {
+        ConversationProfileV2 {
+            version: 2,
             service_id: "marketplace.example/conversations".into(),
-            discovery_url: "https://conversations.example/v1".into(),
+            interfaces: vec![
+                ConversationInterface::ZinchaTlsV1 {
+                    host: "203.0.113.25".into(),
+                    port: 443,
+                    certificate_pins: vec![TlsCertificatePin {
+                        sha256: "ab".repeat(32),
+                        not_before_ms: 1_791_000_000_000,
+                        not_after_ms: 1_822_536_000_000,
+                    }],
+                },
+                ConversationInterface::Https {
+                    url: "https://conversations.example/v1".into(),
+                },
+            ],
             privacy_modes: vec![PrivacyMode::PlatformReadable, PrivacyMode::EndToEnd],
             protocol_versions: vec![1],
-            service_signing_public_key:
-                "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c".into(),
         }
     }
 
@@ -1635,9 +1952,27 @@ mod tests {
         verify_conversation_service_profile(&profile, &profile).unwrap();
 
         let mut invalid = profile.clone();
-        invalid.discovery_url = "http://conversations.example".into();
+        invalid.interfaces = vec![ConversationInterface::Https {
+            url: "http://conversations.example".into(),
+        }];
         assert!(validate_conversation_profile(&invalid).is_err());
-        invalid.discovery_url = "https://user:secret@conversations.example".into();
+        invalid.interfaces = vec![ConversationInterface::Https {
+            url: "https://user:secret@conversations.example".into(),
+        }];
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid.interfaces = vec![ConversationInterface::ZinchaTlsV1 {
+            host: "203.000.113.25".into(),
+            port: 443,
+            certificate_pins: vec![TlsCertificatePin {
+                sha256: "ab".repeat(32),
+                not_before_ms: 1,
+                not_after_ms: 2,
+            }],
+        }];
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid.interfaces = vec![ConversationInterface::Https {
+            url: format!("https://conversations.example/{}", "x".repeat(4_096)),
+        }];
         assert!(validate_conversation_profile(&invalid).is_err());
         assert!(ConversationClient::new("http://127.0.0.1:8080/base").is_ok());
         assert!(ConversationClient::new("http://conversations.example").is_err());
@@ -1652,6 +1987,123 @@ mod tests {
             id: "AB".repeat(32),
         })
         .is_err());
+    }
+
+    #[test]
+    fn profile_v2_matches_cross_language_golden_vector() {
+        let vector: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../sdk/testdata/golden-conversation-profile-v2.json"
+        ))
+        .unwrap();
+        let profile: ConversationProfileV2 =
+            serde_json::from_value(vector["profile"].clone()).unwrap();
+        assert_eq!(
+            String::from_utf8(conversation_profile_metadata(&profile).unwrap()).unwrap(),
+            vector["canonical_json"].as_str().unwrap()
+        );
+        assert_eq!(
+            conversation_profile_from_metadata(
+                vector["canonical_json"].as_str().unwrap().as_bytes()
+            )
+            .unwrap(),
+            profile
+        );
+    }
+
+    #[tokio::test]
+    async fn pinned_transport_verifies_before_returning_a_client() {
+        let key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ED25519).unwrap();
+        let mut parameters = rcgen::CertificateParams::new(vec!["127.0.0.1".to_string()]).unwrap();
+        parameters.not_before = rcgen::date_time_ymd(2026, 1, 1);
+        parameters.not_after = rcgen::date_time_ymd(2030, 1, 1);
+        let certificate = parameters.self_signed(&key).unwrap();
+        let (_, parsed) = x509_parser::parse_x509_certificate(certificate.der()).unwrap();
+        let pin = TlsCertificatePin {
+            sha256: hex::encode(Sha256::digest(certificate.der())),
+            not_before_ms: parsed.validity().not_before.timestamp() * 1_000,
+            not_after_ms: parsed.validity().not_after.timestamp() * 1_000,
+        };
+        let mut overlap_pin = pin.clone();
+        overlap_pin.sha256 = "11".repeat(32);
+        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let unavailable_port = unavailable.local_addr().unwrap().port();
+        drop(unavailable);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let profile = ConversationProfileV2 {
+            version: 2,
+            service_id: "provider/conversations".to_string(),
+            interfaces: vec![
+                ConversationInterface::Https {
+                    url: format!("https://127.0.0.1:{unavailable_port}"),
+                },
+                ConversationInterface::ZinchaTlsV1 {
+                    host: "127.0.0.1".to_string(),
+                    port,
+                    certificate_pins: vec![overlap_pin, pin],
+                },
+            ],
+            privacy_modes: vec![PrivacyMode::PlatformReadable],
+            protocol_versions: vec![1],
+        };
+        let body = Arc::new(
+            serde_json::to_vec(&serde_json::json!({"success": true, "data": &profile})).unwrap(),
+        );
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let mut server = rustls::ServerConfig::builder_with_provider(provider)
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certificate.der().clone()],
+                rustls::pki_types::PrivatePkcs8KeyDer::from(key.serialize_der()).into(),
+            )
+            .unwrap();
+        server.alpn_protocols = vec![b"http/1.1".to_vec()];
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server));
+        let task = tokio::spawn(async move {
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                let acceptor = acceptor.clone();
+                let body = body.clone();
+                tokio::spawn(async move {
+                    let Ok(mut stream) = acceptor.accept(stream).await else {
+                        return;
+                    };
+                    let mut request = vec![0u8; 8 * 1024];
+                    if stream.read(&mut request).await.is_err() {
+                        return;
+                    }
+                    let headers = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    );
+                    let _ = stream.write_all(headers.as_bytes()).await;
+                    let _ = stream.write_all(&body).await;
+                    let _ = stream.shutdown().await;
+                });
+            }
+        });
+
+        let client = ConversationClient::from_profile(&profile, ConversationTransportPolicy::Auto)
+            .await
+            .unwrap();
+        assert_eq!(client.profile().await.unwrap(), profile);
+
+        let mut wrong = profile.clone();
+        let ConversationInterface::ZinchaTlsV1 {
+            certificate_pins, ..
+        } = &mut wrong.interfaces[1]
+        else {
+            unreachable!()
+        };
+        certificate_pins.truncate(1);
+        assert!(
+            ConversationClient::from_profile(&wrong, ConversationTransportPolicy::Auto)
+                .await
+                .is_err()
+        );
+        task.abort();
     }
 
     #[test]

@@ -5,10 +5,15 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import http.client
 import ipaddress
 import json
 import os
+import queue
+import socket
 import sqlite3
+import ssl
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -18,6 +23,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generator, Mapping, Optional, Sequence
 
 import jcs
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
 from nacl.bindings import (
     crypto_aead_xchacha20poly1305_ietf_decrypt,
     crypto_aead_xchacha20poly1305_ietf_encrypt,
@@ -36,6 +43,226 @@ E2E_WRAP_DOMAIN = "zincha-conversation-e2e-wrap-v1"
 MAX_CONVERSATION_RESPONSE_BYTES = 64 * 1024 * 1024
 MAX_ERROR_RESPONSE_BYTES = 256 * 1024
 MAX_OUTBOX_ERROR_CHARS = 1_024
+CLOCK_SKEW_MS = 5 * 60 * 1_000
+
+
+class _ConversationTransport:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        max_connections: int = 10_000,
+        max_idle_connections: int = 256,
+    ) -> None:
+        parsed = urllib.parse.urlsplit(base_url)
+        self._scheme = parsed.scheme
+        self._host = parsed.hostname or ""
+        self._port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        self._max_connections = max_connections
+        self._idle: "queue.LifoQueue[http.client.HTTPConnection]" = queue.LifoQueue(
+            min(max_connections, max_idle_connections)
+        )
+        self._created = 0
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def _connection(self, timeout: float) -> http.client.HTTPConnection:
+        if self._scheme == "https":
+            return http.client.HTTPSConnection(
+                self._host,
+                self._port,
+                timeout=timeout,
+                context=ssl.create_default_context(),
+            )
+        return http.client.HTTPConnection(self._host, self._port, timeout=timeout)
+
+    def _acquire(self, timeout: float) -> http.client.HTTPConnection:
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("conversation transport is closed")
+        try:
+            connection = self._idle.get_nowait()
+            connection.timeout = timeout
+            return connection
+        except queue.Empty:
+            pass
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("conversation transport is closed")
+            if self._created < self._max_connections:
+                self._created += 1
+                return self._connection(timeout)
+        try:
+            connection = self._idle.get(timeout=timeout)
+        except queue.Empty as error:
+            raise TimeoutError("conversation connection pool is exhausted") from error
+        connection.timeout = timeout
+        return connection
+
+    def _release(self, connection: http.client.HTTPConnection, reusable: bool) -> None:
+        with self._lock:
+            closed = self._closed
+        if reusable and not closed:
+            try:
+                self._idle.put_nowait(connection)
+                return
+            except queue.Full:
+                pass
+        connection.close()
+        with self._lock:
+            self._created = max(0, self._created - 1)
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+        while True:
+            try:
+                connection = self._idle.get_nowait()
+            except queue.Empty:
+                break
+            connection.close()
+            with self._lock:
+                self._created = max(0, self._created - 1)
+
+    def open(self, request: urllib.request.Request, timeout: float) -> Any:
+        parsed = urllib.parse.urlsplit(request.full_url)
+        if (
+            parsed.scheme != self._scheme
+            or parsed.hostname != self._host
+            or (parsed.port or (443 if parsed.scheme == "https" else 80)) != self._port
+        ):
+            raise ValueError("conversation transport request changed endpoint")
+        connection = self._acquire(timeout)
+        path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+        try:
+            connection.request(
+                request.get_method(),
+                path,
+                body=request.data,
+                headers=dict(request.header_items()),
+            )
+            response = connection.getresponse()
+        except Exception:
+            self._release(connection, False)
+            raise
+        if response.status >= 400:
+            wrapped = _PooledResponse(response, connection, self, reusable_allowed=False)
+            raise urllib.error.HTTPError(
+                request.full_url,
+                response.status,
+                response.reason,
+                response.headers,
+                wrapped,
+            )
+        return _PooledResponse(response, connection, self)
+
+
+class _PooledResponse:
+    def __init__(
+        self,
+        response: http.client.HTTPResponse,
+        connection: http.client.HTTPConnection,
+        owner: _ConversationTransport,
+        reusable_allowed: bool = True,
+    ) -> None:
+        self._response = response
+        self._connection = connection
+        self._owner = owner
+        self._reusable_allowed = reusable_allowed
+        self._released = False
+        self.headers = response.headers
+
+    def read(self, amount: Optional[int] = None) -> bytes:
+        value = self._response.read() if amount is None else self._response.read(amount)
+        if self._response.isclosed():
+            self._release(self._reusable_allowed)
+        return value
+
+    def __iter__(self) -> "_PooledResponse":
+        return self
+
+    def __next__(self) -> bytes:
+        value = self._response.readline()
+        if value:
+            return value
+        self._release(self._reusable_allowed)
+        raise StopIteration
+
+    def __enter__(self) -> "_PooledResponse":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        reusable = (
+            self._reusable_allowed and exc_type is None and self._response.isclosed()
+        )
+        self._response.close()
+        self._release(reusable)
+
+    def _release(self, reusable: bool) -> None:
+        if not self._released:
+            self._released = True
+            self._owner._release(self._connection, reusable)
+
+
+class _PinnedHttpsConnection(http.client.HTTPSConnection):
+    def __init__(
+        self,
+        host: str,
+        *,
+        context: ssl.SSLContext,
+        pins: Sequence[Mapping[str, Any]],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(host, context=context, **kwargs)
+        self._pins = tuple(dict(pin) for pin in pins)
+
+    def connect(self) -> None:
+        super().connect()
+        if self.sock is None:
+            raise ssl.SSLError("zincha-tls-v1 socket was not established")
+        encoded = self.sock.getpeercert(binary_form=True)
+        if not encoded:
+            raise ssl.SSLError("zincha-tls-v1 peer did not present a certificate")
+        digest = hashlib.sha256(encoded).hexdigest()
+        pin = next(
+            (candidate for candidate in self._pins if hmac.compare_digest(digest, candidate["sha256"])),
+            None,
+        )
+        if pin is None:
+            raise ssl.SSLError("zincha-tls-v1 certificate pin mismatch")
+        certificate = x509.load_der_x509_certificate(encoded)
+        not_before_ms = int(certificate.not_valid_before_utc.timestamp() * 1000)
+        not_after_ms = int(certificate.not_valid_after_utc.timestamp() * 1000)
+        if (not_before_ms, not_after_ms) != (pin["not_before_ms"], pin["not_after_ms"]):
+            raise ssl.SSLError(
+                "zincha-tls-v1 certificate validity does not match the on-chain pin"
+            )
+        current = now_ms()
+        if current + CLOCK_SKEW_MS < not_before_ms or current - CLOCK_SKEW_MS > not_after_ms:
+            raise ssl.SSLError(
+                "zincha-tls-v1 certificate pin is outside its advertised validity"
+            )
+
+
+class _PinnedConversationTransport(_ConversationTransport):
+    def __init__(self, base_url: str, pins: Sequence[Mapping[str, Any]]) -> None:
+        super().__init__(base_url)
+        self._pins = tuple(dict(pin) for pin in pins)
+        self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self._context.check_hostname = False
+        self._context.verify_mode = ssl.CERT_NONE
+        self._context.minimum_version = ssl.TLSVersion.TLSv1_3
+        self._context.maximum_version = ssl.TLSVersion.TLSv1_3
+        self._context.set_alpn_protocols(["http/1.1"])
+
+    def _connection(self, timeout: float) -> http.client.HTTPConnection:
+        return _PinnedHttpsConnection(
+            self._host,
+            port=self._port,
+            timeout=timeout,
+            context=self._context,
+            pins=self._pins,
+        )
 
 
 def now_ms() -> int:
@@ -196,13 +423,80 @@ class ConversationClient:
         *,
         access_token: Optional[str] = None,
         timeout: float = 30.0,
+        _transport: Optional[_ConversationTransport] = None,
     ) -> None:
         self.base_url = _normalize_conversation_base_url(base_url)
         self.access_token = access_token
         self.timeout = timeout
+        self._transport = _transport or _ConversationTransport(self.base_url)
+
+    @classmethod
+    def from_profile(
+        cls,
+        profile: Mapping[str, Any],
+        *,
+        policy: str = "auto",
+        access_token: Optional[str] = None,
+        timeout: float = 30.0,
+    ) -> "ConversationClient":
+        validate_conversation_profile(profile)
+        if policy not in ("auto", "https_only", "zincha_tls_only"):
+            raise ValueError("conversation transport policy is invalid")
+        supported = False
+        unreachable = []
+        for interface in profile["interfaces"]:
+            if interface["type"] == "https":
+                if policy == "zincha_tls_only":
+                    continue
+                base_url = interface["url"]
+                transport: _ConversationTransport = _ConversationTransport(base_url)
+            else:
+                if policy == "https_only":
+                    continue
+                host = interface["host"]
+                rendered_host = "[%s]" % host if ":" in host else host
+                base_url = "https://%s:%d" % (rendered_host, interface["port"])
+                transport = _PinnedConversationTransport(
+                    base_url, interface["certificate_pins"]
+                )
+            supported = True
+            parsed = urllib.parse.urlparse(base_url)
+            try:
+                with socket.create_connection(
+                    (parsed.hostname, parsed.port or 443), timeout=min(timeout, 5.0)
+                ):
+                    pass
+            except OSError:
+                unreachable.append(base_url)
+                if policy == "auto":
+                    continue
+                raise RuntimeError("conversation interface is unreachable: %s" % base_url)
+            client = cls(base_url, timeout=timeout, _transport=transport)
+            # Any error after the endpoint is reachable is terminal. In
+            # particular, pin and profile failures cannot trigger downgrade.
+            verify_conversation_service_profile(profile, client.profile())
+            client.access_token = access_token
+            return client
+        if not supported:
+            raise RuntimeError(
+                "conversation profile has no interface supported by the selected transport policy"
+            )
+        raise RuntimeError(
+            "all supported conversation interfaces were unreachable: %s"
+            % ", ".join(unreachable)
+        )
 
     def set_access_token(self, token: str) -> None:
         self.access_token = token
+
+    def close(self) -> None:
+        self._transport.close()
+
+    def __enter__(self) -> "ConversationClient":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.close()
 
     def profile(self) -> Dict[str, Any]:
         return self._request("GET", "/v1/profile", authenticated=False)
@@ -343,7 +637,7 @@ class ConversationClient:
             )
             try:
                 resync = False
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                with self._transport.open(request, self.timeout) as response:
                     event: Dict[str, str] = {}
                     event_bytes = 0
                     for raw in response:
@@ -397,13 +691,15 @@ class ConversationClient:
             except ConversationAuthorizationRequiredError:
                 raise
             except urllib.error.HTTPError as error:
-                if error.code in (401, 403):
+                code = error.code
+                error.close()
+                if code in (401, 403):
                     raise ConversationAuthorizationRequiredError(
                         "conversation authorization must be renewed"
                     ) from error
-                if error.code not in (408, 429) and error.code < 500:
+                if code not in (408, 429) and code < 500:
                     raise RuntimeError(
-                        "conversation SSE HTTP %d" % error.code
+                        "conversation SSE HTTP %d" % code
                     ) from error
                 if stop is not None and stop():
                     return
@@ -440,7 +736,7 @@ class ConversationClient:
             self.base_url + path, data=encoded, headers=headers, method=method
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with self._transport.open(request, self.timeout) as response:
                 raw = _read_bounded(response, MAX_CONVERSATION_RESPONSE_BYTES)
                 if allow_empty and not raw:
                     return None
@@ -451,7 +747,9 @@ class ConversationClient:
                 message = parsed.get("error")
             except Exception:
                 message = None
-            raise RuntimeError(message or "conversation HTTP %d" % error.code) from error
+            code = error.code
+            error.close()
+            raise RuntimeError(message or "conversation HTTP %d" % code) from error
         if not isinstance(parsed, dict) or parsed.get("success") is not True:
             raise RuntimeError(parsed.get("error") or "conversation request failed")
         return parsed.get("data")
@@ -828,14 +1126,13 @@ def validate_conversation_profile(profile: Mapping[str, Any]) -> None:
         {
             "version",
             "service_id",
-            "discovery_url",
+            "interfaces",
             "privacy_modes",
             "protocol_versions",
-            "service_signing_public_key",
         },
         "conversation profile",
     )
-    if profile.get("version") != 1:
+    if profile.get("version") != 2:
         raise ValueError("unsupported conversation profile")
     _validate_service_id(profile.get("service_id"))
     protocols = profile.get("protocol_versions")
@@ -854,17 +1151,79 @@ def validate_conversation_profile(profile: Mapping[str, Any]) -> None:
         or any(mode not in ("platform_readable", "end_to_end") for mode in privacy_modes)
     ):
         raise ValueError("conversation profile privacy modes are invalid")
-    discovery_url = profile.get("discovery_url")
-    if not isinstance(discovery_url, str):
-        raise ValueError("conversation profile discovery URL is invalid")
-    _normalize_conversation_base_url(discovery_url)
-    public_key = profile.get("service_signing_public_key")
-    if (
-        not isinstance(public_key, str)
-        or len(public_key) != 64
-        or any(character not in "0123456789abcdef" for character in public_key)
-    ):
-        raise ValueError("conversation profile service signing key is invalid")
+    interfaces = profile.get("interfaces")
+    if not isinstance(interfaces, list) or not 1 <= len(interfaces) <= 4:
+        raise ValueError("conversation profile must advertise 1-4 interfaces")
+    identities = set()
+    for interface in interfaces:
+        if not isinstance(interface, Mapping):
+            raise ValueError("conversation interface is invalid")
+        interface_type = interface.get("type")
+        if interface_type == "https":
+            _validate_exact_keys(interface, {"type", "url"}, "HTTPS conversation interface")
+            value = interface.get("url")
+            if not isinstance(value, str) or urllib.parse.urlsplit(value).scheme != "https":
+                raise ValueError("advertised HTTPS interface must use HTTPS")
+            normalized = _normalize_conversation_base_url(value)
+            identity = "https:%s" % normalized
+        elif interface_type == "zincha_tls_v1":
+            _validate_exact_keys(
+                interface,
+                {"type", "host", "port", "certificate_pins"},
+                "zincha-tls-v1 conversation interface",
+            )
+            host = interface.get("host")
+            port = interface.get("port")
+            try:
+                address = ipaddress.ip_address(host)
+            except (TypeError, ValueError):
+                address = None
+            if (
+                address is None
+                or str(address) != host
+                or not isinstance(port, int)
+                or isinstance(port, bool)
+                or not 1 <= port <= 65535
+            ):
+                raise ValueError("zincha-tls-v1 host or port is invalid")
+            pins = interface.get("certificate_pins")
+            if not isinstance(pins, list) or not 1 <= len(pins) <= 2:
+                raise ValueError(
+                    "zincha-tls-v1 requires one active and at most one next pin"
+                )
+            hashes_seen = set()
+            for pin in pins:
+                _validate_exact_keys(
+                    pin,
+                    {"sha256", "not_before_ms", "not_after_ms"},
+                    "zincha-tls-v1 certificate pin",
+                )
+                digest = pin.get("sha256")
+                not_before = pin.get("not_before_ms")
+                not_after = pin.get("not_after_ms")
+                if (
+                    not isinstance(digest, str)
+                    or len(digest) != 64
+                    or any(character not in "0123456789abcdef" for character in digest)
+                    or digest in hashes_seen
+                    or not isinstance(not_before, int)
+                    or isinstance(not_before, bool)
+                    or not isinstance(not_after, int)
+                    or isinstance(not_after, bool)
+                    or not_before >= not_after
+                ):
+                    raise ValueError(
+                        "zincha-tls-v1 certificate pin is invalid or duplicated"
+                    )
+                hashes_seen.add(digest)
+            identity = "zincha_tls_v1:%s:%d" % (host, port)
+        else:
+            raise ValueError("conversation interface type is unsupported")
+        if identity in identities:
+            raise ValueError("conversation profile interfaces must be unique")
+        identities.add(identity)
+    if len(canonical_json_bytes(profile)) > 4096:
+        raise ValueError("conversation profile exceeds agent metadata limit")
 
 
 def validate_conversation_subject(subject: Mapping[str, Any]) -> None:
@@ -891,8 +1250,11 @@ def validate_conversation_subject(subject: Mapping[str, Any]) -> None:
 def _validate_exact_keys(value: Any, allowed: set, label: str) -> None:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} is invalid")
-    if any(key not in allowed for key in value):
+    keys = set(value.keys())
+    if keys - allowed:
         raise ValueError(f"{label} contains unknown fields")
+    if keys != allowed:
+        raise ValueError(f"{label} is missing required fields")
 
 
 def _validate_service_id(value: Any) -> None:
@@ -968,6 +1330,8 @@ def _normalize_conversation_base_url(value: str) -> str:
         raise ValueError(
             "conversation service URL must use HTTPS, except for loopback development"
         )
+    if parsed.query or parsed.fragment:
+        raise ValueError("conversation service URL cannot contain a query or fragment")
     return urllib.parse.urlunsplit(
         (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
     )
