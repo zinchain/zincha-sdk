@@ -28,7 +28,9 @@ ed25519-dalek = { version = "2", features = ["serde", "rand_core", "pkcs8", "pem
 futures = "0.3"
 async-stream = "0.3"
 hex = "0.4"
+h2 = "0.4"
 hmac = "0.12"
+http = "1"
 pkcs8 = { version = "0.10", features = ["pem"] }
 rand = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "rustls-tls", "stream"] }

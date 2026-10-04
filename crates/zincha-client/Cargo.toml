@@ -36,5 +36,7 @@ x509-parser.workspace = true
 zincha-primitives = { path = "../zincha-primitives" }
 
 [dev-dependencies]
+h2.workspace = true
+http.workspace = true
 rcgen.workspace = true
 tokio-rustls.workspace = true

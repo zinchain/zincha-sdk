@@ -2268,6 +2268,70 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pinned_transport_supports_negotiated_http2() {
+        let (certificate, private_key, pin) = rotation_test_identity();
+        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let unavailable_port = unavailable.local_addr().unwrap().port();
+        drop(unavailable);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let profile = ConversationProfileV2 {
+            version: 2,
+            service_id: "provider/http2-conversations".to_string(),
+            interfaces: vec![
+                ConversationInterface::ZinchaTlsV1 {
+                    host: "127.0.0.1".to_string(),
+                    port: unavailable_port,
+                    certificate_pins: vec![pin.clone()],
+                },
+                ConversationInterface::ZinchaTlsV1 {
+                    host: "127.0.0.1".to_string(),
+                    port,
+                    certificate_pins: vec![pin],
+                },
+            ],
+            privacy_modes: vec![PrivacyMode::PlatformReadable],
+            protocol_versions: vec![1],
+        };
+        let body =
+            serde_json::to_vec(&serde_json::json!({"success": true, "data": &profile})).unwrap();
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let mut server = rustls::ServerConfig::builder_with_provider(provider)
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certificate],
+                rustls::pki_types::PrivatePkcs8KeyDer::from(private_key).into(),
+            )
+            .unwrap();
+        server.alpn_protocols = vec![b"h2".to_vec()];
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server));
+        let task = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let stream = acceptor.accept(stream).await.unwrap();
+            assert_eq!(stream.get_ref().1.alpn_protocol(), Some(b"h2".as_slice()));
+            let mut connection = h2::server::handshake(stream).await.unwrap();
+            let (request, mut respond) = connection.accept().await.unwrap().unwrap();
+            assert_eq!(request.uri().path(), "/v1/profile");
+            assert!(request.headers().get("authorization").is_none());
+            let response = http::Response::builder()
+                .status(200)
+                .header("content-type", "application/json")
+                .body(())
+                .unwrap();
+            let mut response = respond.send_response(response, false).unwrap();
+            response.send_data(body.into(), true).unwrap();
+            while connection.accept().await.is_some() {}
+        });
+
+        ConversationClient::from_profile(&profile, ConversationTransportPolicy::Auto)
+            .await
+            .unwrap();
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn pinned_transport_enforces_complete_rotation_matrix() {
         let (old_certificate, old_key, old_pin) = rotation_test_identity();
         let (next_certificate, next_key, next_pin) = rotation_test_identity();
