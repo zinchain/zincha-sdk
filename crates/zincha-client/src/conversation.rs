@@ -436,6 +436,44 @@ struct PinnedCertificateVerifier {
     algorithms: WebPkiSupportedAlgorithms,
 }
 
+#[derive(Debug)]
+struct ConversationDnsError(std::io::Error);
+
+impl fmt::Display for ConversationDnsError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "conversation endpoint DNS lookup failed: {}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for ConversationDnsError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+#[derive(Debug)]
+struct ConversationDnsResolver;
+
+impl reqwest::dns::Resolve for ConversationDnsResolver {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let host = name.as_str().to_string();
+        Box::pin(async move {
+            let addresses =
+                tokio::net::lookup_host(format!("{host}:0"))
+                    .await
+                    .map_err(|error| {
+                        Box::new(ConversationDnsError(error))
+                            as Box<dyn std::error::Error + Send + Sync>
+                    })?;
+            Ok(Box::new(addresses) as reqwest::dns::Addrs)
+        })
+    }
+}
+
 impl ServerCertVerifier for PinnedCertificateVerifier {
     fn verify_server_cert(
         &self,
@@ -534,6 +572,7 @@ fn pinned_http_client(pins: &[TlsCertificatePin]) -> Result<Client> {
     tls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     tls.enable_early_data = false;
     Client::builder()
+        .dns_resolver(Arc::new(ConversationDnsResolver))
         .use_preconfigured_tls(tls)
         .connect_timeout(std::time::Duration::from_secs(5))
         .timeout(std::time::Duration::from_secs(30))
@@ -562,6 +601,7 @@ impl ConversationClient {
         base_url.set_fragment(None);
         Ok(Self {
             http: Client::builder()
+                .dns_resolver(Arc::new(ConversationDnsResolver))
                 .connect_timeout(std::time::Duration::from_secs(5))
                 .timeout(std::time::Duration::from_secs(30))
                 .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
@@ -589,6 +629,7 @@ impl ConversationClient {
                     (
                         Url::parse(url).context("parse HTTPS conversation interface")?,
                         Client::builder()
+                            .dns_resolver(Arc::new(ConversationDnsResolver))
                             .connect_timeout(std::time::Duration::from_secs(5))
                             .timeout(std::time::Duration::from_secs(30))
                             .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
@@ -945,7 +986,10 @@ impl ConversationClient {
 fn is_reachability_error(error: &anyhow::Error) -> bool {
     let mut request_error = None;
     let mut reachable_io_failure = false;
+    let mut dns_failure = false;
+    let mut tls_failure = false;
     for cause in error.chain() {
+        dns_failure |= cause.downcast_ref::<ConversationDnsError>().is_some();
         if let Some(cause) = cause.downcast_ref::<std::io::Error>() {
             reachable_io_failure |= matches!(
                 cause.kind(),
@@ -957,11 +1001,14 @@ fn is_reachability_error(error: &anyhow::Error) -> bool {
                     | std::io::ErrorKind::HostUnreachable
             );
         }
+        tls_failure |= cause.downcast_ref::<rustls::Error>().is_some();
         if let Some(cause) = cause.downcast_ref::<reqwest::Error>() {
             request_error = Some(cause);
         }
     }
-    request_error.is_some_and(|error| error.is_timeout() || reachable_io_failure)
+    request_error.is_some_and(|error| {
+        !tls_failure && (error.is_timeout() || dns_failure || reachable_io_failure)
+    })
 }
 
 #[derive(Default)]
@@ -2108,6 +2155,16 @@ mod tests {
             .contains("authorization:"));
     }
 
+    #[tokio::test]
+    async fn dns_resolver_tags_lookup_failures_for_safe_auto_fallback() {
+        let name: reqwest::dns::Name = "invalid host name".parse().unwrap();
+        let error = match reqwest::dns::Resolve::resolve(&ConversationDnsResolver, name).await {
+            Ok(_) => panic!("invalid DNS name unexpectedly resolved"),
+            Err(error) => error,
+        };
+        assert!(error.downcast_ref::<ConversationDnsError>().is_some());
+    }
+
     fn rotation_test_identity_for(
         not_before_year: i32,
         not_after_year: i32,
@@ -2301,7 +2358,10 @@ mod tests {
             Ok(_) => panic!("mismatched certificate validity unexpectedly succeeded"),
             Err(error) => error,
         };
-        assert!(format!("{error:#}").contains("validity does not match"));
+        assert!(
+            format!("{error:#}").contains("validity does not match"),
+            "unexpected validity failure: {error:#}"
+        );
         assert_eq!(
             overlap_old_requests.load(std::sync::atomic::Ordering::Relaxed),
             1,
