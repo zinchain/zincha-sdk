@@ -334,6 +334,40 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(encoded.decode(), vector["canonical_json"])
         self.assertEqual(decode_conversation_profile(encoded), vector["profile"])
 
+    def test_live_profile_response_is_bounded_before_decode(self):
+        class OversizedResponse:
+            headers = {"content-length": str(8 * 1024 + 1)}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return None
+
+            def read(self, amount=None):
+                return b"x" * (8 * 1024 + 1)
+
+        class RecordingTransport:
+            request = None
+
+            def open(self, request, timeout):
+                self.request = request
+                return OversizedResponse()
+
+            def close(self):
+                return None
+
+        transport = RecordingTransport()
+        client = ConversationClient(
+            "http://127.0.0.1:8080",
+            access_token="secret",
+            _transport=transport,
+        )
+        with self.assertRaisesRegex(ValueError, "bounded limit"):
+            client.profile()
+        self.assertIsNotNone(transport.request)
+        self.assertNotIn("Authorization", dict(transport.request.header_items()))
+
     def test_pinned_transport_enforces_complete_rotation_matrix(self):
         def create_identity(directory, name):
             key = ed25519.Ed25519PrivateKey.generate()

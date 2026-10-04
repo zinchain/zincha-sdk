@@ -208,6 +208,30 @@ test("browser profile selection verifies live identity before storing credential
   );
 });
 
+test("live profile response is bounded before decode", async () => {
+  const profile: ConversationProfileV2 = {
+    version: 2,
+    service_id: "provider/conversations",
+    interfaces: [{ type: "https", url: "https://conversations.example" }],
+    privacy_modes: ["platform_readable"],
+    protocol_versions: [1],
+  };
+  const requests: Request[] = [];
+  const oversizedFetch: typeof fetch = async (input, init) => {
+    requests.push(new Request(input, init));
+    return new Response("x".repeat(8 * 1024 + 1), {
+      status: 200,
+      headers: { "content-length": String(8 * 1024 + 1) },
+    });
+  };
+  await assert.rejects(
+    ConversationClient.fromProfile(profile, { accessToken: "secret", fetch: oversizedFetch }),
+    /bounded limit/,
+  );
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].headers.get("authorization"), null);
+});
+
 test("conversation client validates session identifiers and operational binding", async () => {
   const account = Keypair.fromSecretBytes(new Uint8Array(32).fill(7));
   const operational = Keypair.fromSecretBytes(new Uint8Array(32).fill(9));
@@ -230,7 +254,7 @@ test("conversation client validates session identifiers and operational binding"
     baseUrl: "http://127.0.0.1:8080",
     fetch: (async () => new Response("{}", { headers: { "content-length": String(65 * 1024 * 1024) } })) as typeof fetch,
   });
-  await assert.rejects(oversized.profile(), /64 MiB/);
+  await assert.rejects(oversized.profile(), /bounded limit/);
 });
 
 test("conversation protocol bytes match cross-language golden", () => {

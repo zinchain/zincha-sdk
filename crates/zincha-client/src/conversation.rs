@@ -43,6 +43,7 @@ const E2E_WRAP_DOMAIN: &str = "zincha-conversation-e2e-wrap-v1";
 const DEFAULT_OUTBOX_MAX_ENTRIES: usize = 1_000;
 const DEFAULT_OUTBOX_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_CONVERSATION_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_PROFILE_RESPONSE_BYTES: usize = 8 * 1024;
 const MAX_SSE_EVENT_BYTES: usize = 256 * 1024;
 const MAX_OUTBOX_ERROR_CHARS: usize = 1_024;
 const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 256;
@@ -787,7 +788,8 @@ impl ConversationClient {
             .await
     }
     pub async fn profile(&self) -> Result<ConversationProfileV2> {
-        self.json::<(), _>(Method::GET, "/v1/profile", None).await
+        self.json_with_limit::<(), _>(Method::GET, "/v1/profile", None, MAX_PROFILE_RESPONSE_BYTES)
+            .await
     }
     pub async fn create_session(&self, request: &SessionRequest) -> Result<SessionResponse> {
         self.json(Method::POST, "/v1/auth/sessions", Some(request))
@@ -852,6 +854,17 @@ impl ConversationClient {
         path: &str,
         body: Option<&B>,
     ) -> Result<T> {
+        self.json_with_limit(method, path, body, MAX_CONVERSATION_RESPONSE_BYTES)
+            .await
+    }
+
+    async fn json_with_limit<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&B>,
+        response_limit: usize,
+    ) -> Result<T> {
         let url = self
             .base_url
             .join(path.trim_start_matches('/'))
@@ -870,21 +883,21 @@ impl ConversationClient {
         let status = response.status();
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_CONVERSATION_RESPONSE_BYTES as u64)
+            .is_some_and(|length| length > response_limit as u64)
         {
-            bail!("conversation response exceeds 64 MiB");
+            bail!("conversation response exceeds bounded limit");
         }
         let mut encoded = Vec::with_capacity(
             response
                 .content_length()
                 .unwrap_or_default()
-                .min(MAX_CONVERSATION_RESPONSE_BYTES as u64) as usize,
+                .min(response_limit as u64) as usize,
         );
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.context("read conversation response")?;
-            if encoded.len().saturating_add(chunk.len()) > MAX_CONVERSATION_RESPONSE_BYTES {
-                bail!("conversation response exceeds 64 MiB");
+            if encoded.len().saturating_add(chunk.len()) > response_limit {
+                bail!("conversation response exceeds bounded limit");
             }
             encoded.extend_from_slice(&chunk);
         }
@@ -2066,6 +2079,33 @@ mod tests {
             .unwrap(),
             profile
         );
+    }
+
+    #[tokio::test]
+    async fn live_profile_response_is_bounded_before_decode() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = vec![0u8; 8 * 1024];
+            let read = stream.read(&mut request).await.unwrap();
+            request.truncate(read);
+            let body = vec![b'x'; MAX_PROFILE_RESPONSE_BYTES + 1];
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream.write_all(headers.as_bytes()).await.unwrap();
+            stream.write_all(&body).await.unwrap();
+            request
+        });
+        let client = ConversationClient::new(format!("http://{address}")).unwrap();
+        let error = client.profile().await.unwrap_err();
+        assert!(format!("{error:#}").contains("bounded limit"));
+        let request = server.await.unwrap();
+        assert!(!String::from_utf8_lossy(&request)
+            .to_ascii_lowercase()
+            .contains("authorization:"));
     }
 
     fn rotation_test_identity_for(

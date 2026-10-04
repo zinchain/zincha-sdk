@@ -13,6 +13,7 @@ const MESSAGE_DOMAIN = "zincha-conversation-message-v1";
 const E2E_CONTENT_DOMAIN = "zincha-conversation-e2e-content-v1";
 const E2E_WRAP_DOMAIN = "zincha-conversation-e2e-wrap-v1";
 const MAX_CONVERSATION_RESPONSE_BYTES = 64 * 1024 * 1024;
+const MAX_PROFILE_RESPONSE_BYTES = 8 * 1024;
 const MAX_SSE_EVENT_BYTES = 256 * 1024;
 const MAX_OUTBOX_ERROR_CHARS = 1_024;
 
@@ -152,7 +153,7 @@ export class ConversationClient {
     return client;
   }
   setAccessToken(token: string): void { this.accessToken = token; }
-  profile(): Promise<ConversationProfileV2> { return this.request("GET", "/v1/profile", undefined, false); }
+  profile(): Promise<ConversationProfileV2> { return this.request("GET", "/v1/profile", undefined, false, false, MAX_PROFILE_RESPONSE_BYTES); }
   issueChallenge(participantAddress: string, subject: ConversationSubjectRef): Promise<ConversationChallenge> { validateConversationAddress(participantAddress); validateConversationSubject(subject); return this.request("POST", "/v1/auth/challenges", { participant_address: participantAddress, subject }, false); }
   createSession(challenge: ConversationChallenge, delegation: ConversationKeyDelegationV1, operational: TransactionSigner): Promise<ConversationSession> {
     validateUuid(challenge.challenge_id, "challenge ID");
@@ -218,25 +219,25 @@ export class ConversationClient {
     }
   }
   private headers(): Record<string, string> { return this.accessToken ? { authorization: `Bearer ${this.accessToken}` } : {}; }
-  private async request<T>(method: string, path: string, body?: unknown, authenticated = true, allowEmpty = false): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, authenticated = true, allowEmpty = false, responseLimit = MAX_CONVERSATION_RESPONSE_BYTES): Promise<T> {
     const headers: Record<string, string> = { accept: "application/json", ...(authenticated ? this.headers() : {}) };
     const encoded = body === undefined ? undefined : JSON.stringify(body); if (encoded !== undefined) headers["content-type"] = "application/json";
     const response = await this.fetchImpl(`${this.baseUrl}${path}`, { method, headers, body: encoded });
     if (allowEmpty && response.ok && response.status === 204) return undefined as T;
-    const value = await readJsonBounded(response) as { success?: boolean; data?: T; error?: string };
+    const value = await readJsonBounded(response, responseLimit) as { success?: boolean; data?: T; error?: string };
     if (!response.ok || value.success !== true) throw new Error(value.error ?? `conversation HTTP ${response.status}`);
     return value.data as T;
   }
 }
 
-async function readJsonBounded(response: Response): Promise<unknown> {
+async function readJsonBounded(response: Response, limit = MAX_CONVERSATION_RESPONSE_BYTES): Promise<unknown> {
   const declared = response.headers.get("content-length");
-  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > MAX_CONVERSATION_RESPONSE_BYTES) throw new Error("conversation response exceeds 64 MiB");
+  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > limit) throw new Error("conversation response exceeds bounded limit");
   if (!response.body) throw new Error("conversation response has no body");
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let length = 0;
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
-    if (length > MAX_CONVERSATION_RESPONSE_BYTES - value.length) { await reader.cancel().catch(() => undefined); throw new Error("conversation response exceeds 64 MiB"); }
+    if (length > limit - value.length) { await reader.cancel().catch(() => undefined); throw new Error("conversation response exceeds bounded limit"); }
     length += value.length; chunks.push(value);
   }
   const encoded = new Uint8Array(length); let offset = 0;

@@ -42,6 +42,7 @@ MESSAGE_DOMAIN = "zincha-conversation-message-v1"
 E2E_CONTENT_DOMAIN = "zincha-conversation-e2e-content-v1"
 E2E_WRAP_DOMAIN = "zincha-conversation-e2e-wrap-v1"
 MAX_CONVERSATION_RESPONSE_BYTES = 64 * 1024 * 1024
+MAX_PROFILE_RESPONSE_BYTES = 8 * 1024
 MAX_ERROR_RESPONSE_BYTES = 256 * 1024
 MAX_OUTBOX_ERROR_CHARS = 1_024
 CLOCK_SKEW_MS = 5 * 60 * 1_000
@@ -502,7 +503,12 @@ class ConversationClient:
         self.close()
 
     def profile(self) -> Dict[str, Any]:
-        return self._request("GET", "/v1/profile", authenticated=False)
+        return self._request(
+            "GET",
+            "/v1/profile",
+            authenticated=False,
+            response_limit=MAX_PROFILE_RESPONSE_BYTES,
+        )
 
     def issue_challenge(
         self, participant_address: str, subject: Mapping[str, Any]
@@ -728,6 +734,7 @@ class ConversationClient:
         *,
         authenticated: bool = True,
         allow_empty: bool = False,
+        response_limit: int = MAX_CONVERSATION_RESPONSE_BYTES,
     ) -> Any:
         encoded = None if body is None else json.dumps(body, separators=(",", ":")).encode()
         headers = {"accept": "application/json"}
@@ -740,7 +747,7 @@ class ConversationClient:
         )
         try:
             with self._transport.open(request, self.timeout) as response:
-                raw = _read_bounded(response, MAX_CONVERSATION_RESPONSE_BYTES)
+                raw = _read_bounded(response, response_limit)
                 if allow_empty and not raw:
                     return None
                 parsed = json.loads(raw)
