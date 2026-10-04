@@ -1168,7 +1168,13 @@ def validate_conversation_profile(profile: Mapping[str, Any]) -> None:
         or 1 not in protocols
         or len(protocols) > 64
         or len(protocols) != len(set(protocols))
-        or any(not isinstance(version, int) or isinstance(version, bool) or version <= 0 for version in protocols)
+        or any(
+            not isinstance(version, int)
+            or isinstance(version, bool)
+            or version <= 0
+            or version > 65535
+            for version in protocols
+        )
     ):
         raise ValueError("conversation profile protocol versions are invalid")
     privacy_modes = profile.get("privacy_modes")

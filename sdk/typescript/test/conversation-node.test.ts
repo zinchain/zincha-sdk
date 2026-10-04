@@ -54,6 +54,18 @@ function profileFor(port: number, pins: ConversationTlsCertificatePin[]): Conver
   };
 }
 
+function errorChainMatches(error: unknown, pattern: RegExp): boolean {
+  const visited = new Set<unknown>();
+  let current = error;
+  while (current !== null && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    const record = current as { message?: unknown; cause?: unknown };
+    if (typeof record.message === "string" && pattern.test(record.message)) return true;
+    current = record.cause;
+  }
+  return false;
+}
+
 test("Node pinned transport enforces rotation and verifies before application data", async () => {
   const oldCertificatePem = readFileSync(new URL("../../testdata/conversation-tls-test-cert.pem", import.meta.url));
   const oldPrivateKeyPem = readFileSync(new URL("../../testdata/conversation-tls-test-key.pem", import.meta.url));
@@ -92,10 +104,25 @@ test("Node pinned transport enforces rotation and verifies before application da
     profile = profileFor(nextServer.port, [nextPin]);
     await createNodeConversationClient(profile, { policy: "zincha_tls_only" });
 
+    const requestsBeforeTimeFailures = oldRequests.length;
+    const actualNow = Date.now;
+    profile = profileFor(oldServer.port, [oldPin]);
+    try {
+      Date.now = () => oldPin.not_before_ms - 5 * 60 * 1_000 - 1;
+      await assert.rejects(createNodeConversationClient(profile), (error) => errorChainMatches(error, /outside its advertised validity/i));
+      Date.now = () => oldPin.not_after_ms + 5 * 60 * 1_000 + 1;
+      await assert.rejects(createNodeConversationClient(profile), (error) => errorChainMatches(error, /outside its advertised validity/i));
+    } finally {
+      Date.now = actualNow;
+    }
+    profile = profileFor(oldServer.port, [{ ...oldPin, not_before_ms: oldPin.not_before_ms + 1_000 }]);
+    await assert.rejects(createNodeConversationClient(profile), (error) => errorChainMatches(error, /validity does not match/i));
+    assert.equal(oldRequests.length, requestsBeforeTimeFailures, "invalid certificate time must fail before HTTP application data");
+
     const requestsBeforeRemovedPin = oldRequests.length;
     profile = profileFor(oldServer.port, [nextPin]);
     profile.interfaces.push({ type: "https", url: `https://127.0.0.1:${unavailableAddress.port}/after-pin-failure` });
-    await assert.rejects(createNodeConversationClient(profile, { policy: "auto" }), /fetch failed|pin mismatch/i);
+    await assert.rejects(createNodeConversationClient(profile, { policy: "auto" }), (error) => errorChainMatches(error, /pin mismatch/i));
     assert.equal(oldRequests.length, requestsBeforeRemovedPin, "removed old pin must fail before HTTP application data");
     assert.equal(nextRequests.length, 2, "new certificate must serve overlap and new-only phases");
   } finally {

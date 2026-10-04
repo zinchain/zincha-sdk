@@ -7,6 +7,7 @@ import stat
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -264,6 +265,37 @@ class ConversationTests(unittest.TestCase):
                     ],
                 }
             )
+        with self.assertRaisesRegex(ValueError, "invalid"):
+            encode_conversation_profile(
+                {
+                    **profile,
+                    "interfaces": [
+                        {
+                            **profile["interfaces"][0],
+                            "certificate_pins": [
+                                {**duplicate_pin, "sha256": "AB" * 32}
+                            ],
+                        }
+                    ],
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "invalid"):
+            encode_conversation_profile(
+                {
+                    **profile,
+                    "interfaces": [
+                        {
+                            **profile["interfaces"][0],
+                            "certificate_pins": [
+                                {
+                                    **duplicate_pin,
+                                    "not_after_ms": duplicate_pin["not_before_ms"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            )
         with self.assertRaisesRegex(ValueError, "URL exceeds"):
             encode_conversation_profile(
                 {
@@ -280,6 +312,13 @@ class ConversationTests(unittest.TestCase):
             encode_conversation_profile(
                 {**profile, "protocol_versions": list(range(1, 66))}
             )
+        with self.assertRaisesRegex(ValueError, "protocol versions"):
+            encode_conversation_profile({**profile, "protocol_versions": [1, 0]})
+        with self.assertRaisesRegex(ValueError, "protocol versions"):
+            encode_conversation_profile({**profile, "protocol_versions": [1, 65536]})
+        encode_conversation_profile({**profile, "service_id": "💻" * 256})
+        with self.assertRaisesRegex(ValueError, "service ID"):
+            encode_conversation_profile({**profile, "service_id": "💻" * 257})
         client = ConversationClient("http://127.0.0.1:8080/base")
         with self.assertRaisesRegex(ValueError, "identifier"):
             client.conversation("../profile")
@@ -462,6 +501,36 @@ class ConversationTests(unittest.TestCase):
                     client = ConversationClient.from_profile(profile, policy="auto")
                     self.assertIsNone(client.access_token)
                     client.close()
+
+                old_requests_before_time_failures = len(old_server[3])
+                profile = profile_for(old_port, [old_pin])
+                profile_holder["value"] = profile
+                with mock.patch(
+                    "zincha.conversation.now_ms",
+                    return_value=old_pin["not_before_ms"] - 5 * 60 * 1000 - 1,
+                ):
+                    with self.assertRaisesRegex(ssl.SSLError, "outside"):
+                        ConversationClient.from_profile(profile, policy="auto")
+                with mock.patch(
+                    "zincha.conversation.now_ms",
+                    return_value=old_pin["not_after_ms"] + 5 * 60 * 1000 + 1,
+                ):
+                    with self.assertRaisesRegex(ssl.SSLError, "outside"):
+                        ConversationClient.from_profile(profile, policy="auto")
+                mismatched_validity = profile_for(
+                    old_port,
+                    [{**old_pin, "not_before_ms": old_pin["not_before_ms"] + 1000}],
+                )
+                profile_holder["value"] = mismatched_validity
+                with self.assertRaisesRegex(ssl.SSLError, "validity does not match"):
+                    ConversationClient.from_profile(
+                        mismatched_validity, policy="auto"
+                    )
+                self.assertEqual(
+                    len(old_server[3]),
+                    old_requests_before_time_failures,
+                    "invalid certificate time must fail before HTTP data",
+                )
 
                 old_requests_before_removal = len(old_server[3])
                 old_removed = profile_for(

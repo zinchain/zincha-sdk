@@ -160,8 +160,14 @@ test("conversation profiles and client URLs are strictly validated", () => {
   const direct = profile.interfaces[0];
   if (direct.type !== "zincha_tls_v1") throw new Error("test profile changed type");
   assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ ...direct, certificate_pins: [direct.certificate_pins[0], direct.certificate_pins[0]] }] }), /duplicated/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ ...direct, certificate_pins: [{ ...direct.certificate_pins[0], sha256: "AB".repeat(32) }] }] }), /invalid/);
+  assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ ...direct, certificate_pins: [{ ...direct.certificate_pins[0], not_after_ms: direct.certificate_pins[0].not_before_ms }] }] }), /invalid/);
   assert.throws(() => encodeConversationProfile({ ...profile, interfaces: [{ type: "https", url: `https://conversations.example/${"x".repeat(4096)}` }] }), /URL exceeds/);
   assert.throws(() => encodeConversationProfile({ ...profile, protocol_versions: Array.from({ length: 65 }, (_, index) => index + 1) }), /protocol versions/);
+  assert.throws(() => encodeConversationProfile({ ...profile, protocol_versions: [1, 0] }), /protocol versions/);
+  assert.throws(() => encodeConversationProfile({ ...profile, protocol_versions: [1, 65_536] }), /protocol versions/);
+  assert.doesNotThrow(() => encodeConversationProfile({ ...profile, service_id: "💻".repeat(256) }));
+  assert.throws(() => encodeConversationProfile({ ...profile, service_id: "💻".repeat(257) }), /service ID/);
   const client = new ConversationClient({ baseUrl: "http://127.0.0.1:8080/base", fetch: (() => undefined) as never });
   assert.throws(() => client.conversation("../profile"), /identifier/);
   assert.throws(() => new ConversationClient({ baseUrl: "http://conversations.example", fetch: (() => undefined) as never }), /HTTPS/);

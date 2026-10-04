@@ -1526,6 +1526,7 @@ pub fn validate_conversation_profile(profile: &ConversationProfileV2) -> Result<
             .any(|(index, mode)| profile.privacy_modes[..index].contains(mode))
         || profile.protocol_versions.is_empty()
         || profile.protocol_versions.len() > MAX_PROTOCOL_VERSIONS
+        || profile.protocol_versions.contains(&0)
         || profile
             .protocol_versions
             .iter()
@@ -1635,7 +1636,8 @@ pub fn validate_conversation_id(value: &str) -> Result<()> {
 }
 
 fn validate_service_id(value: &str) -> Result<()> {
-    if value.trim().is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
+    if value.trim().is_empty() || value.chars().count() > 256 || value.chars().any(char::is_control)
+    {
         bail!("conversation profile service ID is invalid");
     }
     Ok(())
@@ -1983,6 +1985,24 @@ mod tests {
         };
         certificate_pins.push(certificate_pins[0].clone());
         assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        let ConversationInterface::ZinchaTlsV1 {
+            certificate_pins, ..
+        } = &mut invalid.interfaces[0]
+        else {
+            unreachable!()
+        };
+        certificate_pins[0].sha256 = "AB".repeat(32);
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        let ConversationInterface::ZinchaTlsV1 {
+            certificate_pins, ..
+        } = &mut invalid.interfaces[0]
+        else {
+            unreachable!()
+        };
+        certificate_pins[0].not_after_ms = certificate_pins[0].not_before_ms;
+        assert!(validate_conversation_profile(&invalid).is_err());
         invalid.interfaces = vec![ConversationInterface::Https {
             url: "https://user:secret@conversations.example".into(),
         }];
@@ -2003,6 +2023,14 @@ mod tests {
         assert!(validate_conversation_profile(&invalid).is_err());
         invalid = profile.clone();
         invalid.protocol_versions = (1..=65).collect();
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        invalid.protocol_versions = vec![1, 0];
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        invalid.service_id = "💻".repeat(256);
+        assert!(validate_conversation_profile(&invalid).is_ok());
+        invalid.service_id.push('💻');
         assert!(validate_conversation_profile(&invalid).is_err());
         assert!(ConversationClient::new("http://127.0.0.1:8080/base").is_ok());
         assert!(ConversationClient::new("http://conversations.example").is_err());
@@ -2040,11 +2068,14 @@ mod tests {
         );
     }
 
-    fn rotation_test_identity() -> (CertificateDer<'static>, Vec<u8>, TlsCertificatePin) {
+    fn rotation_test_identity_for(
+        not_before_year: i32,
+        not_after_year: i32,
+    ) -> (CertificateDer<'static>, Vec<u8>, TlsCertificatePin) {
         let key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ED25519).unwrap();
         let mut parameters = rcgen::CertificateParams::new(vec!["127.0.0.1".to_string()]).unwrap();
-        parameters.not_before = rcgen::date_time_ymd(2026, 1, 1);
-        parameters.not_after = rcgen::date_time_ymd(2030, 1, 1);
+        parameters.not_before = rcgen::date_time_ymd(not_before_year, 1, 1);
+        parameters.not_after = rcgen::date_time_ymd(not_after_year, 1, 1);
         let certificate = parameters.self_signed(&key).unwrap();
         let (_, parsed) = x509_parser::parse_x509_certificate(certificate.der()).unwrap();
         let pin = TlsCertificatePin {
@@ -2053,6 +2084,10 @@ mod tests {
             not_after_ms: parsed.validity().not_after.timestamp() * 1_000,
         };
         (certificate.der().clone(), key.serialize_der(), pin)
+    }
+
+    fn rotation_test_identity() -> (CertificateDer<'static>, Vec<u8>, TlsCertificatePin) {
+        rotation_test_identity_for(2026, 2030)
     }
 
     async fn spawn_rotation_profile_server(
@@ -2204,6 +2239,57 @@ mod tests {
             new_only_requests.load(std::sync::atomic::Ordering::Relaxed),
             1
         );
+
+        let mut mismatched_validity = overlap_old.clone();
+        let ConversationInterface::ZinchaTlsV1 {
+            certificate_pins, ..
+        } = mismatched_validity
+            .interfaces
+            .iter_mut()
+            .find(|interface| matches!(interface, ConversationInterface::ZinchaTlsV1 { .. }))
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        certificate_pins[0].not_before_ms += 1_000;
+        let error = match ConversationClient::from_profile(
+            &mismatched_validity,
+            ConversationTransportPolicy::Auto,
+        )
+        .await
+        {
+            Ok(_) => panic!("mismatched certificate validity unexpectedly succeeded"),
+            Err(error) => error,
+        };
+        assert!(format!("{error:#}").contains("validity does not match"));
+        assert_eq!(
+            overlap_old_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1,
+            "mismatched validity must fail before HTTP application data"
+        );
+
+        for (not_before_year, not_after_year) in [(2040, 2041), (2020, 2021)] {
+            let (certificate, key, pin) =
+                rotation_test_identity_for(not_before_year, not_after_year);
+            let (invalid_time, task, requests) =
+                spawn_rotation_profile_server(certificate, key, vec![pin], None).await;
+            tasks.push(task);
+            let error = match ConversationClient::from_profile(
+                &invalid_time,
+                ConversationTransportPolicy::ZinchaTlsOnly,
+            )
+            .await
+            {
+                Ok(_) => panic!("invalid certificate time unexpectedly succeeded"),
+                Err(error) => error,
+            };
+            assert!(format!("{error:#}").contains("outside its advertised validity"));
+            assert_eq!(
+                requests.load(std::sync::atomic::Ordering::Relaxed),
+                0,
+                "invalid certificate time must fail before HTTP application data"
+            );
+        }
 
         let mut old_removed = overlap_old;
         let ConversationInterface::ZinchaTlsV1 {
