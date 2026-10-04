@@ -1543,7 +1543,7 @@ pub fn validate_conversation_profile(profile: &ConversationProfileV2) -> Result<
     for interface in &profile.interfaces {
         let identity = match interface {
             ConversationInterface::Https { url } => {
-                if url.len() > MAX_HTTPS_INTERFACE_URL_LENGTH {
+                if url.chars().count() > MAX_HTTPS_INTERFACE_URL_LENGTH {
                     bail!("HTTPS conversation interface URL exceeds the supported length");
                 }
                 let parsed = Url::parse(url)

@@ -413,7 +413,7 @@ export function validateConversationProfile(profile: ConversationProfileV2): voi
     let identity: string;
     if (entry.type === "https") {
       validateExactKeys(entry, ["type", "url"], "HTTPS conversation interface");
-      if (typeof entry.url !== "string" || entry.url.length > 2048) throw new Error("HTTPS conversation interface URL exceeds the supported length");
+      if (typeof entry.url !== "string" || [...entry.url].length > 2048) throw new Error("HTTPS conversation interface URL exceeds the supported length");
       const normalized = normalizeConversationBaseUrl(String(entry.url));
       if (!normalized.startsWith("https://")) throw new Error("advertised HTTPS interface must use HTTPS");
       identity = `https:${normalized}`;
