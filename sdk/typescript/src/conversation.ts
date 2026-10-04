@@ -143,6 +143,7 @@ export class ConversationClient {
   static async fromProfile(profile: ConversationProfileV2, options: { policy?: ConversationTransportPolicy; accessToken?: string; fetch?: typeof fetch } = {}): Promise<ConversationClient> {
     validateConversationProfile(profile);
     const policy = options.policy ?? "auto";
+    validateConversationTransportPolicy(policy);
     if (policy === "zincha_tls_only") throw new Error("zincha-tls-v1 is unsupported in browser runtimes; use the @zincha/client/conversation-node export");
     const selected = profile.interfaces.find((entry) => entry.type === "https");
     if (!selected) throw new Error("conversation profile has no HTTPS interface supported by this runtime");
@@ -392,6 +393,10 @@ export class ConversationOutbox {
     if (encoder.encode(JSON.stringify(items)).length > this.maxSerializedBytes) throw new Error("conversation outbox byte limit exceeded");
     await this.store.save(items);
   }
+}
+
+export function validateConversationTransportPolicy(policy: unknown): asserts policy is ConversationTransportPolicy {
+  if (policy !== "auto" && policy !== "https_only" && policy !== "zincha_tls_only") throw new Error("conversation transport policy is invalid");
 }
 export class LocalStorageOutboxStore implements OutboxStore {
   private readonly storage: Storage;

@@ -8,6 +8,7 @@ import {
   type ConversationTlsCertificatePin,
   type ConversationTransportPolicy,
   validateConversationProfile,
+  validateConversationTransportPolicy,
   verifyConversationServiceProfile,
 } from "./conversation.ts";
 
@@ -22,6 +23,7 @@ export async function createNodeConversationClient(
 ): Promise<ConversationClient> {
   validateConversationProfile(profile);
   const policy = options.policy ?? "auto";
+  validateConversationTransportPolicy(policy);
   const timeout = options.connectTimeoutMs ?? 5_000;
   let supported = false;
   const unreachable: string[] = [];

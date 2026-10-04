@@ -206,6 +206,10 @@ test("browser profile selection verifies live identity before storing credential
     ConversationClient.fromProfile({ ...profile, interfaces: [profile.interfaces[0]] }, { fetch: fetchImpl }),
     /unsupported in browser runtimes|no HTTPS interface/,
   );
+  await assert.rejects(
+    ConversationClient.fromProfile(profile, { policy: "invalid" as never, fetch: fetchImpl }),
+    /transport policy/,
+  );
 });
 
 test("live profile response is bounded before decode", async () => {
