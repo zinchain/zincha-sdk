@@ -2040,8 +2040,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn pinned_transport_verifies_before_returning_a_client() {
+    fn rotation_test_identity() -> (CertificateDer<'static>, Vec<u8>, TlsCertificatePin) {
         let key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ED25519).unwrap();
         let mut parameters = rcgen::CertificateParams::new(vec!["127.0.0.1".to_string()]).unwrap();
         parameters.not_before = rcgen::date_time_ymd(2026, 1, 1);
@@ -2053,29 +2052,41 @@ mod tests {
             not_before_ms: parsed.validity().not_before.timestamp() * 1_000,
             not_after_ms: parsed.validity().not_after.timestamp() * 1_000,
         };
-        let mut overlap_pin = pin.clone();
-        overlap_pin.sha256 = "11".repeat(32);
-        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let unavailable_port = unavailable.local_addr().unwrap().port();
-        drop(unavailable);
+        (certificate.der().clone(), key.serialize_der(), pin)
+    }
+
+    async fn spawn_rotation_profile_server(
+        certificate: CertificateDer<'static>,
+        private_key: Vec<u8>,
+        pins: Vec<TlsCertificatePin>,
+        unavailable_port: Option<u16>,
+    ) -> (
+        ConversationProfileV2,
+        tokio::task::JoinHandle<()>,
+        Arc<std::sync::atomic::AtomicUsize>,
+    ) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let profile = ConversationProfileV2 {
-            version: 2,
-            service_id: "provider/conversations".to_string(),
-            interfaces: vec![
+        let mut interfaces = vec![ConversationInterface::ZinchaTlsV1 {
+            host: "127.0.0.1".to_string(),
+            port,
+            certificate_pins: pins,
+        }];
+        if let Some(unavailable_port) = unavailable_port {
+            interfaces.insert(
+                0,
                 ConversationInterface::Https {
                     url: format!("https://127.0.0.1:{unavailable_port}"),
                 },
-                ConversationInterface::ZinchaTlsV1 {
-                    host: "127.0.0.1".to_string(),
-                    port,
-                    certificate_pins: vec![overlap_pin, pin],
-                },
-                ConversationInterface::Https {
-                    url: format!("https://127.0.0.1:{unavailable_port}/after-pin-failure"),
-                },
-            ],
+            );
+            interfaces.push(ConversationInterface::Https {
+                url: format!("https://127.0.0.1:{unavailable_port}/after-pin-failure"),
+            });
+        }
+        let profile = ConversationProfileV2 {
+            version: 2,
+            service_id: "provider/conversations".to_string(),
+            interfaces,
             privacy_modes: vec![PrivacyMode::PlatformReadable],
             protocol_versions: vec![1],
         };
@@ -2088,17 +2099,20 @@ mod tests {
             .unwrap()
             .with_no_client_auth()
             .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivatePkcs8KeyDer::from(key.serialize_der()).into(),
+                vec![certificate],
+                rustls::pki_types::PrivatePkcs8KeyDer::from(private_key).into(),
             )
             .unwrap();
         server.alpn_protocols = vec![b"http/1.1".to_vec()];
         let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server));
+        let requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let server_requests = requests.clone();
         let task = tokio::spawn(async move {
             loop {
                 let (stream, _) = listener.accept().await.unwrap();
                 let acceptor = acceptor.clone();
                 let body = body.clone();
+                let requests = server_requests.clone();
                 tokio::spawn(async move {
                     let Ok(mut stream) = acceptor.accept(stream).await else {
                         return;
@@ -2107,6 +2121,7 @@ mod tests {
                     if stream.read(&mut request).await.is_err() {
                         return;
                     }
+                    requests.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let headers = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                         body.len()
@@ -2117,22 +2132,94 @@ mod tests {
                 });
             }
         });
+        (profile, task, requests)
+    }
 
-        let client = ConversationClient::from_profile(&profile, ConversationTransportPolicy::Auto)
+    #[tokio::test]
+    async fn pinned_transport_enforces_complete_rotation_matrix() {
+        let (old_certificate, old_key, old_pin) = rotation_test_identity();
+        let (next_certificate, next_key, next_pin) = rotation_test_identity();
+        assert_ne!(old_pin.sha256, next_pin.sha256);
+        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let unavailable_port = unavailable.local_addr().unwrap().port();
+        drop(unavailable);
+        let mut tasks = Vec::new();
+
+        let (old_only, task, old_only_requests) = spawn_rotation_profile_server(
+            old_certificate.clone(),
+            old_key.clone(),
+            vec![old_pin.clone()],
+            None,
+        )
+        .await;
+        tasks.push(task);
+        ConversationClient::from_profile(&old_only, ConversationTransportPolicy::ZinchaTlsOnly)
             .await
             .unwrap();
-        assert_eq!(client.profile().await.unwrap(), profile);
+        assert_eq!(
+            old_only_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
 
-        let mut wrong = profile.clone();
+        let (overlap_old, task, overlap_old_requests) = spawn_rotation_profile_server(
+            old_certificate.clone(),
+            old_key,
+            vec![old_pin.clone(), next_pin.clone()],
+            Some(unavailable_port),
+        )
+        .await;
+        tasks.push(task);
+        ConversationClient::from_profile(&overlap_old, ConversationTransportPolicy::Auto)
+            .await
+            .unwrap();
+        assert_eq!(
+            overlap_old_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+
+        let (overlap_new, task, overlap_new_requests) = spawn_rotation_profile_server(
+            next_certificate.clone(),
+            next_key.clone(),
+            vec![old_pin, next_pin.clone()],
+            None,
+        )
+        .await;
+        tasks.push(task);
+        ConversationClient::from_profile(&overlap_new, ConversationTransportPolicy::ZinchaTlsOnly)
+            .await
+            .unwrap();
+        assert_eq!(
+            overlap_new_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+
+        let (new_only, task, new_only_requests) =
+            spawn_rotation_profile_server(next_certificate, next_key, vec![next_pin.clone()], None)
+                .await;
+        tasks.push(task);
+        ConversationClient::from_profile(&new_only, ConversationTransportPolicy::ZinchaTlsOnly)
+            .await
+            .unwrap();
+        assert_eq!(
+            new_only_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+
+        let mut old_removed = overlap_old;
         let ConversationInterface::ZinchaTlsV1 {
             certificate_pins, ..
-        } = &mut wrong.interfaces[1]
+        } = old_removed
+            .interfaces
+            .iter_mut()
+            .find(|interface| matches!(interface, ConversationInterface::ZinchaTlsV1 { .. }))
+            .unwrap()
         else {
             unreachable!()
         };
-        certificate_pins.truncate(1);
+        *certificate_pins = vec![next_pin];
         let error =
-            match ConversationClient::from_profile(&wrong, ConversationTransportPolicy::Auto).await
+            match ConversationClient::from_profile(&old_removed, ConversationTransportPolicy::Auto)
+                .await
             {
                 Ok(_) => panic!("wrong certificate pin unexpectedly succeeded"),
                 Err(error) => error,
@@ -2141,7 +2228,14 @@ mod tests {
             format!("{error:#}").contains("certificate pin mismatch"),
             "pin failure must be terminal instead of falling through: {error:#}"
         );
-        task.abort();
+        assert_eq!(
+            overlap_old_requests.load(std::sync::atomic::Ordering::Relaxed),
+            1,
+            "removed old pin must fail before HTTP application data"
+        );
+        for task in tasks {
+            task.abort();
+        }
     }
 
     #[test]

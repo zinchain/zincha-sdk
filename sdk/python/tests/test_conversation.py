@@ -295,26 +295,40 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(encoded.decode(), vector["canonical_json"])
         self.assertEqual(decode_conversation_profile(encoded), vector["profile"])
 
-    def test_pinned_transport_verifies_the_serving_socket(self):
-        key = ed25519.Ed25519PrivateKey.generate()
-        current = datetime.now(timezone.utc).replace(microsecond=0)
-        certificate = (
-            x509.CertificateBuilder()
-            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]))
-            .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]))
-            .public_key(key.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(current - timedelta(minutes=1))
-            .not_valid_after(current + timedelta(days=30))
-            .add_extension(
-                x509.SubjectAlternativeName([x509.IPAddress(__import__("ipaddress").ip_address("127.0.0.1"))]),
-                critical=False,
+    def test_pinned_transport_enforces_complete_rotation_matrix(self):
+        def create_identity(directory, name):
+            key = ed25519.Ed25519PrivateKey.generate()
+            current = datetime.now(timezone.utc).replace(microsecond=0)
+            certificate = (
+                x509.CertificateBuilder()
+                .subject_name(
+                    x509.Name(
+                        [x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]
+                    )
+                )
+                .issuer_name(
+                    x509.Name(
+                        [x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")]
+                    )
+                )
+                .public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(current - timedelta(minutes=1))
+                .not_valid_after(current + timedelta(days=30))
+                .add_extension(
+                    x509.SubjectAlternativeName(
+                        [
+                            x509.IPAddress(
+                                __import__("ipaddress").ip_address("127.0.0.1")
+                            )
+                        ]
+                    ),
+                    critical=False,
+                )
+                .sign(key, algorithm=None)
             )
-            .sign(key, algorithm=None)
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            certificate_path = os.path.join(directory, "certificate.pem")
-            key_path = os.path.join(directory, "key.pem")
+            certificate_path = os.path.join(directory, name + "-certificate.pem")
+            key_path = os.path.join(directory, name + "-key.pem")
             with open(certificate_path, "wb") as output:
                 output.write(certificate.public_bytes(serialization.Encoding.PEM))
             with open(key_path, "wb") as output:
@@ -325,50 +339,22 @@ class ConversationTests(unittest.TestCase):
                         serialization.NoEncryption(),
                     )
                 )
+            pin = {
+                "sha256": certificate.fingerprint(hashes.SHA256()).hex(),
+                "not_before_ms": int(
+                    certificate.not_valid_before_utc.timestamp() * 1000
+                ),
+                "not_after_ms": int(
+                    certificate.not_valid_after_utc.timestamp() * 1000
+                ),
+            }
+            return certificate_path, key_path, pin
+
+        def start_server(certificate_path, key_path, profile_holder):
             listener = socket.socket()
             listener.bind(("127.0.0.1", 0))
             listener.listen()
             listener.settimeout(0.2)
-            port = listener.getsockname()[1]
-            unavailable = socket.socket()
-            unavailable.bind(("127.0.0.1", 0))
-            unavailable_port = unavailable.getsockname()[1]
-            unavailable.close()
-            profile = {
-                "version": 2,
-                "service_id": "provider/conversations",
-                "interfaces": [
-                    {
-                        "type": "https",
-                        "url": "https://127.0.0.1:%d/before-pinned"
-                        % unavailable_port,
-                    },
-                    {
-                        "type": "zincha_tls_v1",
-                        "host": "127.0.0.1",
-                        "port": port,
-                        "certificate_pins": [
-                            {
-                                "sha256": "11" * 32,
-                                "not_before_ms": int(certificate.not_valid_before_utc.timestamp() * 1000),
-                                "not_after_ms": int(certificate.not_valid_after_utc.timestamp() * 1000),
-                            },
-                            {
-                                "sha256": certificate.fingerprint(hashes.SHA256()).hex(),
-                                "not_before_ms": int(certificate.not_valid_before_utc.timestamp() * 1000),
-                                "not_after_ms": int(certificate.not_valid_after_utc.timestamp() * 1000),
-                            }
-                        ],
-                    },
-                    {
-                        "type": "https",
-                        "url": "https://127.0.0.1:%d/after-pin-failure"
-                        % unavailable_port,
-                    },
-                ],
-                "privacy_modes": ["platform_readable"],
-                "protocol_versions": [1],
-            }
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.minimum_version = ssl.TLSVersion.TLSv1_3
             context.maximum_version = ssl.TLSVersion.TLSv1_3
@@ -377,13 +363,17 @@ class ConversationTests(unittest.TestCase):
             stopping = threading.Event()
             requests = []
 
-            def handle(connection: socket.socket) -> None:
+            def handle(connection):
                 try:
                     with context.wrap_socket(connection, server_side=True) as stream:
                         request = stream.recv(8192)
                         if not request:
                             return
                         requests.append(request)
+                        encoded = json.dumps(
+                            {"success": True, "data": profile_holder["value"]},
+                            separators=(",", ":"),
+                        ).encode()
                         stream.sendall(
                             (
                                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
@@ -395,7 +385,7 @@ class ConversationTests(unittest.TestCase):
                 except (OSError, ssl.SSLError):
                     connection.close()
 
-            def serve() -> None:
+            def serve():
                 while not stopping.is_set():
                     try:
                         connection, _ = listener.accept()
@@ -405,24 +395,97 @@ class ConversationTests(unittest.TestCase):
                         target=handle, args=(connection,), daemon=True
                     ).start()
 
-            encoded = json.dumps({"success": True, "data": profile}).encode()
             thread = threading.Thread(target=serve, daemon=True)
             thread.start()
-            try:
-                client = ConversationClient.from_profile(profile, policy="auto")
-                self.assertIsNone(client.access_token)
-                client.close()
-                wrong = json.loads(json.dumps(profile))
-                wrong["interfaces"][1]["certificate_pins"] = wrong["interfaces"][1]["certificate_pins"][:1]
-                with self.assertRaisesRegex(ssl.SSLError, "pin mismatch"):
-                    ConversationClient.from_profile(wrong)
-                self.assertEqual(
-                    len(requests), 1, "pin mismatch must fail before HTTP data"
+            return listener, stopping, thread, requests
+
+        def profile_for(port, pins, leading_unreachable=None, trailing_unreachable=None):
+            interfaces = []
+            if leading_unreachable is not None:
+                interfaces.append(
+                    {
+                        "type": "https",
+                        "url": "https://127.0.0.1:%d/before-pinned"
+                        % leading_unreachable,
+                    }
                 )
+            interfaces.append(
+                {
+                    "type": "zincha_tls_v1",
+                    "host": "127.0.0.1",
+                    "port": port,
+                    "certificate_pins": pins,
+                }
+            )
+            if trailing_unreachable is not None:
+                interfaces.append(
+                    {
+                        "type": "https",
+                        "url": "https://127.0.0.1:%d/after-pin-failure"
+                        % trailing_unreachable,
+                    }
+                )
+            return {
+                "version": 2,
+                "service_id": "provider/conversations",
+                "interfaces": interfaces,
+                "privacy_modes": ["platform_readable"],
+                "protocol_versions": [1],
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            old_certificate, old_key, old_pin = create_identity(directory, "old")
+            next_certificate, next_key, next_pin = create_identity(directory, "next")
+            profile_holder = {"value": None}
+            old_server = start_server(old_certificate, old_key, profile_holder)
+            next_server = start_server(next_certificate, next_key, profile_holder)
+            old_port = old_server[0].getsockname()[1]
+            next_port = next_server[0].getsockname()[1]
+            unavailable = socket.socket()
+            unavailable.bind(("127.0.0.1", 0))
+            unavailable_port = unavailable.getsockname()[1]
+            unavailable.close()
+            try:
+                phases = [
+                    profile_for(old_port, [old_pin]),
+                    profile_for(
+                        old_port,
+                        [old_pin, next_pin],
+                        leading_unreachable=unavailable_port,
+                        trailing_unreachable=unavailable_port,
+                    ),
+                    profile_for(next_port, [old_pin, next_pin]),
+                    profile_for(next_port, [next_pin]),
+                ]
+                for profile in phases:
+                    profile_holder["value"] = profile
+                    client = ConversationClient.from_profile(profile, policy="auto")
+                    self.assertIsNone(client.access_token)
+                    client.close()
+
+                old_requests_before_removal = len(old_server[3])
+                old_removed = profile_for(
+                    old_port,
+                    [next_pin],
+                    trailing_unreachable=unavailable_port,
+                )
+                profile_holder["value"] = old_removed
+                with self.assertRaisesRegex(ssl.SSLError, "pin mismatch"):
+                    ConversationClient.from_profile(old_removed, policy="auto")
+                self.assertEqual(
+                    len(old_server[3]),
+                    old_requests_before_removal,
+                    "removed old pin must fail before HTTP data",
+                )
+                requests = old_server[3] + next_server[3]
+                self.assertEqual(len(requests), 4)
+                for request in requests:
+                    self.assertNotIn(b"authorization:", request.lower())
             finally:
-                stopping.set()
-                listener.close()
-                thread.join(timeout=2)
+                for listener, stopping, thread, _ in (old_server, next_server):
+                    stopping.set()
+                    listener.close()
+                    thread.join(timeout=2)
 
     def test_client_validates_session_and_resolution_inputs_before_io(self):
         class RecordingClient(ConversationClient):
