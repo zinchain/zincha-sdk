@@ -238,6 +238,11 @@ class ConversationTests(unittest.TestCase):
         }
         self.assertEqual(decode_conversation_profile(encode_conversation_profile(profile)), profile)
         verify_conversation_service_profile(profile, profile)
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            verify_conversation_service_profile(
+                profile,
+                {**profile, "service_id": "different.example/conversations"},
+            )
         with self.assertRaisesRegex(ValueError, "HTTPS"):
             encode_conversation_profile({**profile, "interfaces": [{"type": "https", "url": "http://conversations.example"}]})
         with self.assertRaises(ValueError):
@@ -246,6 +251,19 @@ class ConversationTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "unknown fields"):
             encode_conversation_profile({**profile, "unexpected": True})
+        duplicate_pin = profile["interfaces"][0]["certificate_pins"][0]
+        with self.assertRaisesRegex(ValueError, "duplicated"):
+            encode_conversation_profile(
+                {
+                    **profile,
+                    "interfaces": [
+                        {
+                            **profile["interfaces"][0],
+                            "certificate_pins": [duplicate_pin, duplicate_pin],
+                        }
+                    ],
+                }
+            )
         with self.assertRaisesRegex(ValueError, "URL exceeds"):
             encode_conversation_profile(
                 {

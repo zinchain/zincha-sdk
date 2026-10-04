@@ -1965,11 +1965,23 @@ mod tests {
             profile
         );
         verify_conversation_service_profile(&profile, &profile).unwrap();
+        let mut mismatched = profile.clone();
+        mismatched.service_id = "different.example/conversations".into();
+        assert!(verify_conversation_service_profile(&profile, &mismatched).is_err());
 
         let mut invalid = profile.clone();
         invalid.interfaces = vec![ConversationInterface::Https {
             url: "http://conversations.example".into(),
         }];
+        assert!(validate_conversation_profile(&invalid).is_err());
+        invalid = profile.clone();
+        let ConversationInterface::ZinchaTlsV1 {
+            certificate_pins, ..
+        } = &mut invalid.interfaces[0]
+        else {
+            unreachable!()
+        };
+        certificate_pins.push(certificate_pins[0].clone());
         assert!(validate_conversation_profile(&invalid).is_err());
         invalid.interfaces = vec![ConversationInterface::Https {
             url: "https://user:secret@conversations.example".into(),
