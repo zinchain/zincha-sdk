@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { connect as tcpConnect } from "node:net";
 import type { TLSSocket } from "node:tls";
 import { Agent, buildConnector, fetch as undiciFetch } from "undici";
 import {
@@ -30,18 +29,22 @@ export async function createNodeConversationClient(
     if ((entry.type === "https" && policy === "zincha_tls_only") || (entry.type === "zincha_tls_v1" && policy === "https_only")) continue;
     supported = true;
     const baseUrl = interfaceUrl(entry);
-    if (!await reachable(baseUrl, timeout)) {
-      unreachable.push(baseUrl);
-      if (policy === "auto") continue;
-      throw new Error(`conversation interface is unreachable: ${baseUrl}`);
-    }
-    const fetchImpl = entry.type === "zincha_tls_v1" ? pinnedFetch(profile.service_id, baseUrl, entry.certificate_pins) : globalThis.fetch;
+    const fetchImpl = entry.type === "zincha_tls_v1" ? pinnedFetch(profile.service_id, baseUrl, entry.certificate_pins, timeout) : globalThis.fetch;
     if (!fetchImpl) throw new Error("Node conversation client requires fetch");
     const client = new ConversationClient({ baseUrl, fetch: fetchImpl });
-    // Once the TCP endpoint is reachable, every TLS, pin, identity, HTTP, or
-    // profile error is terminal. Auto never converts a security failure into
-    // a downgrade to a later interface.
-    const live = await client.profile();
+    let live: ConversationProfileV2;
+    try {
+      live = await client.profile();
+    } catch (cause) {
+      if (policy === "auto" && isReachabilityError(cause)) {
+        unreachable.push(baseUrl);
+        continue;
+      }
+      throw cause;
+    }
+    // TLS, pin, identity, HTTP, and profile errors are terminal. Auto only
+    // advances when the request failed with a recognized network reachability
+    // code; it never opens a speculative probe connection.
     verifyConversationServiceProfile(profile, live);
     if (options.accessToken !== undefined) client.setAccessToken(options.accessToken);
     return client;
@@ -56,18 +59,7 @@ function interfaceUrl(entry: ConversationInterface): string {
   return `https://${host}:${entry.port}`;
 }
 
-async function reachable(value: string, timeoutMs: number): Promise<boolean> {
-  const url = new URL(value);
-  const port = Number(url.port || "443");
-  return new Promise((resolve) => {
-    const socket = tcpConnect({ host: url.hostname.replace(/^\[|\]$/g, ""), port });
-    const timer = setTimeout(() => { socket.destroy(); resolve(false); }, timeoutMs);
-    socket.once("connect", () => { clearTimeout(timer); socket.destroy(); resolve(true); });
-    socket.once("error", () => { clearTimeout(timer); resolve(false); });
-  });
-}
-
-function pinnedFetch(serviceId: string, baseUrl: string, pins: ConversationTlsCertificatePin[]): typeof globalThis.fetch {
+function pinnedFetch(serviceId: string, baseUrl: string, pins: ConversationTlsCertificatePin[], timeoutMs: number): typeof globalThis.fetch {
   const key = `${serviceId}\n${baseUrl}\n${pins.map((pin) => `${pin.sha256}:${pin.not_before_ms}:${pin.not_after_ms}`).join(",")}`;
   const previous = serviceAgentKeys.get(serviceId);
   if (previous !== undefined && previous !== key) {
@@ -82,7 +74,7 @@ function pinnedFetch(serviceId: string, baseUrl: string, pins: ConversationTlsCe
     agents.set(key, agent);
   }
   if (!agent) {
-    const connector = buildConnector({ rejectUnauthorized: false, minVersion: "TLSv1.3", maxVersion: "TLSv1.3", ALPNProtocols: ["http/1.1"] });
+    const connector = buildConnector({ rejectUnauthorized: false, minVersion: "TLSv1.3", maxVersion: "TLSv1.3", ALPNProtocols: ["http/1.1"], timeout: timeoutMs });
     agent = new Agent({
       connect(options, callback) {
         connector(options, (error, socket) => {
@@ -113,6 +105,27 @@ function pinnedFetch(serviceId: string, baseUrl: string, pins: ConversationTlsCe
   const dispatcher = agent;
   return ((input: RequestInfo | URL, init?: RequestInit) =>
     undiciFetch(input as Parameters<typeof undiciFetch>[0], { ...init, dispatcher } as Parameters<typeof undiciFetch>[1]) as unknown as Promise<Response>) as typeof globalThis.fetch;
+}
+
+function isReachabilityError(cause: unknown): boolean {
+  const reachabilityCodes = new Set([
+    "ECONNREFUSED",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+  ]);
+  const visited = new Set<unknown>();
+  let current = cause;
+  while (current !== null && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    const record = current as { code?: unknown; cause?: unknown };
+    if (typeof record.code === "string" && reachabilityCodes.has(record.code)) return true;
+    current = record.cause;
+  }
+  return false;
 }
 
 function verifyPeerCertificate(socket: TLSSocket, pins: ConversationTlsCertificatePin[]): void {

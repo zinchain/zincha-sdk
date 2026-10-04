@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import hmac
 import http.client
@@ -460,21 +461,23 @@ class ConversationClient:
                     base_url, interface["certificate_pins"]
                 )
             supported = True
-            parsed = urllib.parse.urlparse(base_url)
             try:
-                with socket.create_connection(
-                    (parsed.hostname, parsed.port or 443), timeout=min(timeout, 5.0)
-                ):
-                    pass
-            except OSError:
-                unreachable.append(base_url)
-                if policy == "auto":
+                client = cls(base_url, timeout=timeout, _transport=transport)
+                live = client.profile()
+            except Exception as error:
+                transport.close()
+                if policy == "auto" and _is_reachability_error(error):
+                    unreachable.append(base_url)
                     continue
-                raise RuntimeError("conversation interface is unreachable: %s" % base_url)
-            client = cls(base_url, timeout=timeout, _transport=transport)
-            # Any error after the endpoint is reachable is terminal. In
-            # particular, pin and profile failures cannot trigger downgrade.
-            verify_conversation_service_profile(profile, client.profile())
+                raise
+            # TLS, pin, identity, HTTP, and profile errors are terminal. Auto
+            # advances only for recognized reachability failures and never
+            # opens a speculative probe connection.
+            try:
+                verify_conversation_service_profile(profile, live)
+            except Exception:
+                client.close()
+                raise
             client.access_token = access_token
             return client
         if not supported:
@@ -768,6 +771,30 @@ def _read_bounded(response: Any, limit: int) -> bytes:
     if len(raw) > limit:
         raise ValueError("conversation response exceeds bounded limit")
     return raw
+
+
+def _is_reachability_error(error: BaseException) -> bool:
+    current: Optional[BaseException] = error
+    visited = set()
+    allowed_errno = {
+        errno.ECONNREFUSED,
+        errno.EHOSTUNREACH,
+        errno.ENETUNREACH,
+        errno.ETIMEDOUT,
+        errno.EADDRNOTAVAIL,
+    }
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        if isinstance(current, ssl.SSLError):
+            return False
+        if isinstance(current, (socket.gaierror, TimeoutError)):
+            return True
+        if isinstance(current, OSError) and current.errno in allowed_errno:
+            return True
+        reason = getattr(current, "reason", None)
+        chained = current.__cause__ or current.__context__
+        current = reason if isinstance(reason, BaseException) else chained
+    return False
 
 
 def _hkdf_sha256(ikm: bytes, salt: bytes, info: bytes, length: int = 32) -> bytes:

@@ -323,8 +323,10 @@ const conversation = await createNodeConversationClient(profile, { policy: "auto
 ```
 
 Policies are `auto`, `https_only`, and `zincha_tls_only`. `auto` follows
-provider preference and advances only when a TCP endpoint is unreachable. A
-TLS, pin, live-profile, or service-identity failure is terminal.
+provider preference and classifies the real profile request, advancing only on
+explicit refusal, timeout, address, host, or network-unreachable failures. It
+opens no speculative probe connection. A TLS, pin, live-profile, HTTP, or
+service-identity failure is terminal.
 The Node export reuses pinned transports, evicts least-recently-used pools
 above 256 services, and closes the old pool whenever a service's endpoint or
 pin set changes.

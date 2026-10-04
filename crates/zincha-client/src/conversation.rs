@@ -606,33 +606,20 @@ impl ConversationClient {
                 _ => continue,
             };
 
-            // This probe carries no application data. Only a reachability
-            // failure permits Auto to try the next advertised interface.
-            let host = base_url
-                .host_str()
-                .ok_or_else(|| anyhow!("conversation interface has no host"))?;
-            let port = base_url
-                .port_or_known_default()
-                .ok_or_else(|| anyhow!("conversation interface has no port"))?;
-            let reachable = tokio::time::timeout(
-                std::time::Duration::from_secs(5),
-                tokio::net::TcpStream::connect((host, port)),
-            )
-            .await
-            .is_ok_and(|result| result.is_ok());
-            if !reachable {
-                unreachable.push(format!("{host}:{port}"));
-                if policy == ConversationTransportPolicy::Auto {
+            let mut client = Self::with_http(base_url, http)?;
+            let live = match client.profile().await {
+                Ok(profile) => profile,
+                Err(error)
+                    if policy == ConversationTransportPolicy::Auto
+                        && is_reachability_error(&error) =>
+                {
+                    unreachable.push(client.base_url.to_string());
                     continue;
                 }
-                bail!("conversation interface {host}:{port} is unreachable");
-            }
-
-            let mut client = Self::with_http(base_url, http)?;
-            let live = client
-                .profile()
-                .await
-                .context("verify live conversation service profile")?;
+                Err(error) => {
+                    return Err(error).context("verify live conversation service profile")
+                }
+            };
             verify_conversation_service_profile(profile, &live)?;
             client.access_token = None;
             return Ok(client);
@@ -938,6 +925,28 @@ impl ConversationClient {
             .context("conversation request failed")?;
         Ok(())
     }
+}
+
+fn is_reachability_error(error: &anyhow::Error) -> bool {
+    let mut request_error = None;
+    let mut reachable_io_failure = false;
+    for cause in error.chain() {
+        if let Some(cause) = cause.downcast_ref::<std::io::Error>() {
+            reachable_io_failure |= matches!(
+                cause.kind(),
+                std::io::ErrorKind::ConnectionRefused
+                    | std::io::ErrorKind::NotConnected
+                    | std::io::ErrorKind::AddrNotAvailable
+                    | std::io::ErrorKind::TimedOut
+                    | std::io::ErrorKind::NetworkUnreachable
+                    | std::io::ErrorKind::HostUnreachable
+            );
+        }
+        if let Some(cause) = cause.downcast_ref::<reqwest::Error>() {
+            request_error = Some(cause);
+        }
+    }
+    request_error.is_some_and(|error| error.is_timeout() || reachable_io_failure)
 }
 
 #[derive(Default)]
@@ -2042,6 +2051,9 @@ mod tests {
                     port,
                     certificate_pins: vec![overlap_pin, pin],
                 },
+                ConversationInterface::Https {
+                    url: format!("https://127.0.0.1:{unavailable_port}/after-pin-failure"),
+                },
             ],
             privacy_modes: vec![PrivacyMode::PlatformReadable],
             protocol_versions: vec![1],
@@ -2098,10 +2110,15 @@ mod tests {
             unreachable!()
         };
         certificate_pins.truncate(1);
+        let error =
+            match ConversationClient::from_profile(&wrong, ConversationTransportPolicy::Auto).await
+            {
+                Ok(_) => panic!("wrong certificate pin unexpectedly succeeded"),
+                Err(error) => error,
+            };
         assert!(
-            ConversationClient::from_profile(&wrong, ConversationTransportPolicy::Auto)
-                .await
-                .is_err()
+            format!("{error:#}").contains("certificate pin mismatch"),
+            "pin failure must be terminal instead of falling through: {error:#}"
         );
         task.abort();
     }

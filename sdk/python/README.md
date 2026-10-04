@@ -326,8 +326,10 @@ conversation.set_access_token(session["access_token"])
 
 Policies are `auto`, `https_only`, and `zincha_tls_only`. The pinned transport
 uses TLS 1.3 and verifies the leaf DER fingerprint and certificate validity on
-the same socket used for HTTP. Only an unreachable TCP endpoint permits
-`auto` to advance; TLS, pin, and exact live-profile failures are terminal.
+the same socket used for HTTP. `auto` classifies that real profile request and
+advances only for explicit refusal, timeout, address, host, or network-
+unreachable failures; it opens no speculative probe connection. TLS, pin, and
+exact live-profile failures are terminal.
 Call `conversation.close()` when finished, or use the client as a context
 manager, to release pooled HTTPS and SSE connections deterministically.
 The pool permits up to 10,000 active sockets for the SSE target but retains at

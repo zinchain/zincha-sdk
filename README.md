@@ -59,6 +59,10 @@ TLS 1.3 leaf-certificate pinning from authenticated on-chain metadata; browser
 TypeScript selects HTTPS and reports a precise unsupported-runtime error for a
 pinned-only profile. Every profile-driven constructor verifies `/v1/profile`
 before attaching a bearer token or sending workflow data.
+`auto` classifies the real profile request and advances only for explicit
+refusal, timeout, address, host, or network-unreachable failures. It does not
+open a separate probe socket, and TLS, pin, HTTP, and identity failures remain
+terminal.
 Client pools retain at most 256 idle connections per endpoint. The Node pinned
 transport also caps its process cache at 256 service pools and discards a
 service's old pool and TLS resumption state when its endpoint or pin set changes.

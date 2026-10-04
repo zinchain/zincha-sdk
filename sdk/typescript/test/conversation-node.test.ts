@@ -33,37 +33,49 @@ test("Node pinned transport verifies the serving socket before application data"
   });
   const address = server.address();
   assert(address && typeof address !== "string");
+  const unavailable = createServer();
+  await new Promise<void>((resolve, reject) => {
+    unavailable.once("error", reject);
+    unavailable.listen(0, "127.0.0.1", resolve);
+  });
+  const unavailableAddress = unavailable.address();
+  assert(unavailableAddress && typeof unavailableAddress !== "string");
+  await new Promise<void>((resolve) => unavailable.close(() => resolve()));
   profile = {
     version: 2,
     service_id: "provider/conversations-node-test",
-    interfaces: [{
-      type: "zincha_tls_v1",
-      host: "127.0.0.1",
-      port: address.port,
-      certificate_pins: [
-        {
-          sha256: "11".repeat(32),
-          not_before_ms: Date.parse(certificate.validFrom),
-          not_after_ms: Date.parse(certificate.validTo),
-        },
-        {
-          sha256: createHash("sha256").update(certificate.raw).digest("hex"),
-          not_before_ms: Date.parse(certificate.validFrom),
-          not_after_ms: Date.parse(certificate.validTo),
-        },
-      ],
-    }],
+    interfaces: [
+      { type: "https", url: `https://127.0.0.1:${unavailableAddress.port}/before-pinned` },
+      {
+        type: "zincha_tls_v1",
+        host: "127.0.0.1",
+        port: address.port,
+        certificate_pins: [
+          {
+            sha256: "11".repeat(32),
+            not_before_ms: Date.parse(certificate.validFrom),
+            not_after_ms: Date.parse(certificate.validTo),
+          },
+          {
+            sha256: createHash("sha256").update(certificate.raw).digest("hex"),
+            not_before_ms: Date.parse(certificate.validFrom),
+            not_after_ms: Date.parse(certificate.validTo),
+          },
+        ],
+      },
+      { type: "https", url: `https://127.0.0.1:${unavailableAddress.port}/after-pin-failure` },
+    ],
     privacy_modes: ["platform_readable"],
     protocol_versions: [1],
   };
   try {
-    await createNodeConversationClient(profile, { policy: "zincha_tls_only", accessToken: "secret" });
+    await createNodeConversationClient(profile, { policy: "auto", accessToken: "secret" });
     assert.equal(requests.length, 1);
     assert.doesNotMatch(requests[0], /authorization:/i);
 
     const wrong: ConversationProfileV2 = structuredClone(profile);
-    if (wrong.interfaces[0].type !== "zincha_tls_v1") throw new Error("test profile changed type");
-    wrong.interfaces[0].certificate_pins.length = 1;
+    if (wrong.interfaces[1].type !== "zincha_tls_v1") throw new Error("test profile changed type");
+    wrong.interfaces[1].certificate_pins.length = 1;
     await assert.rejects(createNodeConversationClient(wrong, { policy: "auto" }), /fetch failed|pin mismatch/i);
     assert.equal(requests.length, 1, "pin mismatch must fail before HTTP application data");
   } finally {

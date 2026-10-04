@@ -308,10 +308,19 @@ class ConversationTests(unittest.TestCase):
             listener.listen()
             listener.settimeout(0.2)
             port = listener.getsockname()[1]
+            unavailable = socket.socket()
+            unavailable.bind(("127.0.0.1", 0))
+            unavailable_port = unavailable.getsockname()[1]
+            unavailable.close()
             profile = {
                 "version": 2,
                 "service_id": "provider/conversations",
                 "interfaces": [
+                    {
+                        "type": "https",
+                        "url": "https://127.0.0.1:%d/before-pinned"
+                        % unavailable_port,
+                    },
                     {
                         "type": "zincha_tls_v1",
                         "host": "127.0.0.1",
@@ -328,7 +337,12 @@ class ConversationTests(unittest.TestCase):
                                 "not_after_ms": int(certificate.not_valid_after_utc.timestamp() * 1000),
                             }
                         ],
-                    }
+                    },
+                    {
+                        "type": "https",
+                        "url": "https://127.0.0.1:%d/after-pin-failure"
+                        % unavailable_port,
+                    },
                 ],
                 "privacy_modes": ["platform_readable"],
                 "protocol_versions": [1],
@@ -373,12 +387,12 @@ class ConversationTests(unittest.TestCase):
             thread = threading.Thread(target=serve, daemon=True)
             thread.start()
             try:
-                client = ConversationClient.from_profile(profile, policy="zincha_tls_only")
+                client = ConversationClient.from_profile(profile, policy="auto")
                 self.assertIsNone(client.access_token)
                 client.close()
                 wrong = json.loads(json.dumps(profile))
-                wrong["interfaces"][0]["certificate_pins"] = wrong["interfaces"][0]["certificate_pins"][:1]
-                with self.assertRaises(Exception):
+                wrong["interfaces"][1]["certificate_pins"] = wrong["interfaces"][1]["certificate_pins"][:1]
+                with self.assertRaisesRegex(ssl.SSLError, "pin mismatch"):
                     ConversationClient.from_profile(wrong)
                 self.assertEqual(
                     len(requests), 1, "pin mismatch must fail before HTTP data"
