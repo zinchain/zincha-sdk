@@ -20,6 +20,43 @@ pub const RPC_READ_SCOPE_TOOL_USAGE_SESSION_READ: u64 = 1 << 6;
 pub const RPC_READ_SCOPE_TOOL_USAGE_SESSION_LIFECYCLE_READ: u64 = 1 << 7;
 pub const RPC_READ_SCOPE_ALL: u64 = (1 << 8) - 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[repr(u8)]
+pub enum RpcReadScope {
+    TaskRead = 0,
+    TaskLifecycleRead = 1,
+    AgreementRead = 2,
+    AgreementLifecycleRead = 3,
+    ToolJobRead = 4,
+    ToolJobLifecycleRead = 5,
+    ToolUsageSessionRead = 6,
+    ToolUsageSessionLifecycleRead = 7,
+}
+
+impl RpcReadScope {
+    pub const ALL: [Self; 8] = [
+        Self::TaskRead,
+        Self::TaskLifecycleRead,
+        Self::AgreementRead,
+        Self::AgreementLifecycleRead,
+        Self::ToolJobRead,
+        Self::ToolJobLifecycleRead,
+        Self::ToolUsageSessionRead,
+        Self::ToolUsageSessionLifecycleRead,
+    ];
+
+    pub const fn mask(self) -> u64 {
+        1_u64 << self as u8
+    }
+}
+
+pub fn rpc_read_scope_mask(scopes: impl IntoIterator<Item = RpcReadScope>) -> u64 {
+    scopes
+        .into_iter()
+        .fold(0, |mask, scope| mask | scope.mask())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RpcReadDelegationGrantData {
     pub delegate_public_key: [u8; 32],
@@ -138,5 +175,10 @@ mod tests {
         assert!(validate_rpc_read_delegation_service_id(" provider/conversations").is_err());
         assert!(validate_rpc_read_delegation_service_id("").is_err());
         assert_eq!(RPC_READ_SCOPE_ALL, 0xff);
+        assert_eq!(rpc_read_scope_mask(RpcReadScope::ALL), RPC_READ_SCOPE_ALL);
+        assert_eq!(
+            rpc_read_scope_mask([RpcReadScope::TaskRead, RpcReadScope::AgreementRead]),
+            RPC_READ_SCOPE_TASK_READ | RPC_READ_SCOPE_AGREEMENT_READ
+        );
     }
 }
