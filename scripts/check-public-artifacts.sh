@@ -353,6 +353,65 @@ task_response_schema = (
 if task_response_schema.get("$ref") != "#/components/schemas/ApiResponse_Task":
     raise SystemExit("error: GET /v1/tasks/{id} must return ApiResponse_Task")
 
+task_lifecycle_paths = {
+    "/v1/tasks/lifecycle-events": (
+        "get_task_lifecycle_events",
+        None,
+        None,
+    ),
+    "/v1/tasks/{id}/lifecycle-events": (
+        "get_task_lifecycle_events_by_task",
+        "#/components/parameters/IdParam",
+        "task_lifecycle_read",
+    ),
+    "/v1/agents/{address}/tasks/lifecycle-events": (
+        "get_task_lifecycle_events_by_agent",
+        "#/components/parameters/AddressParam",
+        None,
+    ),
+    "/v1/requesters/{address}/tasks/lifecycle-events": (
+        "get_task_lifecycle_events_by_requester",
+        "#/components/parameters/AddressParam",
+        None,
+    ),
+}
+
+for path, (operation_id, path_parameter, delegated_scope) in task_lifecycle_paths.items():
+    operation = (((spec.get("paths") or {}).get(path) or {}).get("get") or {})
+    if not operation:
+        raise SystemExit(f"error: OpenAPI missing GET {path}")
+    if operation.get("operationId") != operation_id:
+        raise SystemExit(f"error: GET {path} must use operationId {operation_id}")
+    if operation.get("x-zincha-audience") != "participant":
+        raise SystemExit(f"error: GET {path} must be participant audience")
+    if operation.get("x-zincha-auth") != "signed_address":
+        raise SystemExit(f"error: GET {path} must require signed_address auth")
+    if not any((item or {}).get("signedAddress") == [] for item in operation.get("security") or []):
+        raise SystemExit(f"error: GET {path} must declare signedAddress security")
+    parameters = operation.get("parameters") or []
+    query_parameters = {
+        parameter.get("name")
+        for parameter in parameters
+        if parameter.get("in") == "query"
+    }
+    if query_parameters != {"after_seq", "through_seq", "limit"}:
+        raise SystemExit(f"error: GET {path} must expose the bounded lifecycle sequence query")
+    if path_parameter is not None and path_parameter not in [
+        parameter.get("$ref") for parameter in parameters
+    ]:
+        raise SystemExit(f"error: GET {path} missing {path_parameter}")
+    response_schema = (
+        (((operation.get("responses") or {}).get("200") or {}).get("content") or {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if response_schema.get("$ref") != "#/components/schemas/ApiResponse_LifecycleEventList":
+        raise SystemExit(f"error: GET {path} must return ApiResponse_LifecycleEventList")
+    if operation.get("x-zincha-delegated-read-scope") != delegated_scope:
+        raise SystemExit(
+            f"error: GET {path} must advertise delegated scope {delegated_scope!r}"
+        )
+
 workflow_detail_paths = {
     "/v1/agreements/{id}": "ApiResponse_AgreementDetail",
     "/v1/tool-jobs/{id}": "ApiResponse_ToolJobDetail",

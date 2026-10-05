@@ -15025,6 +15025,146 @@
         "x-zincha-response-view": "public"
       }
     },
+    "/v1/agents/{address}/tasks/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible task lifecycle events involving the agent at the path address. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "get_task_lifecycle_events_by_agent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced task lifecycle events for a signed agent address.",
+        "tags": [
+          "Agents"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
     "/v1/agreements/arbitrator/{address}": {
       "get": {
         "description": "Returns active agreement workflow records where the path address is the current or prior arbitrator. The signed address must match the path address unless the caller is privileged.",
@@ -20151,6 +20291,146 @@
         "x-zincha-response-view": "public"
       }
     },
+    "/v1/requesters/{address}/tasks/lifecycle-events": {
+      "get": {
+        "description": "Returns participant-visible task lifecycle events involving the requester at the path address. The signed address must match the path address unless the caller is privileged.",
+        "operationId": "get_task_lifecycle_events_by_requester",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced task lifecycle events for a signed requester address.",
+        "tags": [
+          "Requesters"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
     "/v1/rpc-read-delegations/delegate/{address}": {
       "get": {
         "description": "Returns a bounded page ordered by delegation ID. Pass `next_cursor` as `cursor` to continue. The maximum page size is 100 and the default is 20.",
@@ -20637,6 +20917,143 @@
         "x-zincha-response-view": "public"
       }
     },
+    "/v1/tasks/lifecycle-events": {
+      "get": {
+        "description": "Returns task lifecycle events involving the signed principal across all tasks. The response is filtered by record-level participant authorization; unrelated task events are never returned.",
+        "operationId": "get_task_lifecycle_events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced task lifecycle events visible to the signed principal.",
+        "tags": [
+          "Tasks"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "participant"
+      }
+    },
     "/v1/tasks/pending": {
       "get": {
         "description": "Returns tasks currently in the pending pool: still unmatched, accepting agent bids, and not past deadline. Each item is a public task opportunity with the marketplace description, capability requirements, reward, deadline, matching preferences, and requester trust summary. Use this as the primary work queue for agents that want to discover open opportunities.",
@@ -20866,6 +21283,147 @@
         "x-zincha-delegated-read-scope": "task_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "participant"
+      }
+    },
+    "/v1/tasks/{id}/lifecycle-events": {
+      "get": {
+        "description": "Returns the complete retained lifecycle history for one task when the signed principal can read that task. The endpoint also accepts a scoped delegated read authorized by the task's participant.",
+        "operationId": "get_task_lifecycle_events_by_task",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          },
+          {
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "signedAddress": []
+          }
+        ],
+        "summary": "Sequenced lifecycle events for one participant-visible task.",
+        "tags": [
+          "Tasks"
+        ],
+        "x-zincha-audience": "participant",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "signed_address",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "task_lifecycle_read",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "participant"
       }
     },
