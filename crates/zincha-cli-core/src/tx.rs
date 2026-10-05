@@ -410,6 +410,13 @@ pub enum TxCommands {
         #[arg(long, default_value_t = DEFAULT_TX_FEE)]
         fee: u64,
     },
+    /// Reactivate a suspended validator without changing its published metadata.
+    ReactivateValidator {
+        #[command(flatten)]
+        build: TxBuildArgs,
+        #[arg(long, default_value_t = DEFAULT_TX_FEE)]
+        fee: u64,
+    },
     Stake {
         #[command(flatten)]
         build: TxBuildArgs,
@@ -1470,7 +1477,7 @@ async fn build_signed_transaction(
             fee,
         } => {
             let mut wallet = resolve_wallet(&build, client).await?;
-            let update = validator_update(vrf_public_key, executor_services_file)?;
+            let update = validator_update(vrf_public_key, executor_services_file, false)?;
             Ok((
                 "tx-register-validator",
                 wallet.build_register_validator_with_update(stake, update, fee)?,
@@ -1487,11 +1494,17 @@ async fn build_signed_transaction(
             Ok((
                 "tx-update-validator",
                 wallet.build_update_validator(
-                    validator_update(vrf_public_key, executor_services_file)?,
+                    validator_update(vrf_public_key, executor_services_file, true)?,
                     fee,
                 )?,
                 build,
             ))
+        }
+        TxCommands::ReactivateValidator { build, fee } => {
+            simple(build, client, "tx-reactivate-validator", |wallet| {
+                wallet_result!(wallet.build_reactivate_validator(fee))
+            })
+            .await
         }
         TxCommands::Stake {
             build,
@@ -2521,8 +2534,9 @@ fn collect_signed_hexes(values: Vec<String>, files: Vec<PathBuf>) -> Result<Vec<
 fn validator_update(
     vrf_public_key: Option<String>,
     executor_services_file: Option<PathBuf>,
+    require_any_change: bool,
 ) -> Result<ValidatorUpdateData> {
-    Ok(ValidatorUpdateData {
+    let update = ValidatorUpdateData {
         executor_services: executor_services_file
             .map(|path| read_json_file::<Vec<ValidatorExecutorService>>(&path))
             .transpose()?
@@ -2531,7 +2545,14 @@ fn validator_update(
             .as_deref()
             .map(parse_public_key)
             .transpose()?,
-    })
+    };
+    if require_any_change && update.executor_services.is_empty() && update.vrf_public_key.is_none()
+    {
+        bail!(
+            "update-validator requires --vrf-public-key or --executor-services-file; use reactivate-validator to reactivate a suspended validator"
+        );
+    }
+    Ok(update)
 }
 
 fn parse_optional_hash(raw: Option<String>) -> Result<Hash256> {
@@ -2621,6 +2642,23 @@ mod tests {
             .expect("spawn parse helper")
             .join()
             .expect("parse helper panicked")
+    }
+
+    #[test]
+    fn validator_reactivation_is_explicit_and_empty_update_is_rejected() {
+        let reactivate = parse_tx_command(vec!["tx", "reactivate-validator"]);
+        assert!(matches!(
+            reactivate.command,
+            TxCommands::ReactivateValidator { .. }
+        ));
+
+        let error = validator_update(None, None, true)
+            .expect_err("empty metadata update must require the reactivation command");
+        assert!(error.to_string().contains("use reactivate-validator"));
+
+        let registration_defaults = validator_update(None, None, false).unwrap();
+        assert!(registration_defaults.executor_services.is_empty());
+        assert!(registration_defaults.vrf_public_key.is_none());
     }
 
     #[test]

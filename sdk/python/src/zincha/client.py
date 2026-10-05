@@ -2427,6 +2427,35 @@ class ZinchaClient:
     def update_validator_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
         return self.submit_signed_transaction(self.build_update_validator(keypair, **input))
 
+    def build_reactivate_validator(
+        self,
+        keypair: Keypair,
+        *,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        """Build the canonical empty validator update that reactivates a suspended validator."""
+        return self.build_update_validator(
+            keypair,
+            fee_micro_zin=fee_micro_zin,
+            nonce=nonce,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def reactivate_validator_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_reactivate_validator(keypair, **input))
+
     def build_exit_validator(
         self,
         keypair: Keypair,

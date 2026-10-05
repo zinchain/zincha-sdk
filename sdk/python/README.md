@@ -251,11 +251,13 @@ client.stake_and_submit(
 ```
 
 The SDK also exposes `build_register_validator`,
-`build_update_validator`, `build_exit_validator`,
+`build_update_validator`, `build_reactivate_validator`, `build_exit_validator`,
 `build_commit_validator_vrf`, `build_contribute_validator_vrf`,
 `build_stake`, and `build_unstake`, plus matching `_and_submit`
 helpers. `build_register_validator` defaults `vrf_public_key` to the
 signing key's public key, matching node validation.
+Use `build_reactivate_validator` for the intentional empty update that
+reactivates a suspended validator without changing its published metadata.
 
 ## Contracts
 

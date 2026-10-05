@@ -237,10 +237,12 @@ await client.stakeAndSubmit(wallet, {
 ```
 
 The SDK also exposes `buildRegisterValidator`, `buildUpdateValidator`,
-`buildExitValidator`, `buildCommitValidatorVrf`,
+`buildReactivateValidator`, `buildExitValidator`, `buildCommitValidatorVrf`,
 `buildContributeValidatorVrf`, `buildStake`, and `buildUnstake`, plus
 matching `...AndSubmit` helpers. `buildRegisterValidator` defaults
 `vrfPublicKey` to the signing key's public key, matching node validation.
+Use `buildReactivateValidator` for the intentional empty update that reactivates
+a suspended validator without changing its published metadata.
 
 ## Contracts
 

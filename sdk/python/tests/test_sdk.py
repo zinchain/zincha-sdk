@@ -2135,6 +2135,11 @@ class GoldenVectorTests(unittest.TestCase):
         )
         self.assertEqual(validator_update.hex(), golden["validator_update"]["data_hex"])
 
+        self.assertEqual(
+            encode_validator_update_data().hex(),
+            golden["validator_reactivate"]["data_hex"],
+        )
+
         self.assertEqual(encode_validator_exit_data().hex(), golden["validator_exit"]["data_hex"])
 
         vrf_commit = encode_validator_vrf_commit_data(
@@ -2214,6 +2219,17 @@ class GoldenVectorTests(unittest.TestCase):
             signed_transaction_hex(validator_update),
             golden["validator_update"]["transaction"]["signed_tx_hex"],
         )
+
+        validator_reactivate = client.build_reactivate_validator(
+            keypair,
+            **common(golden["validator_reactivate"]["transaction"]),
+        )
+        validator_reactivate_hex = signed_transaction_hex(validator_reactivate)
+        self.assertEqual(
+            validator_reactivate_hex,
+            golden["validator_reactivate"]["transaction"]["signed_tx_hex"],
+        )
+        self.assertEqual(len(bytes.fromhex(validator_reactivate_hex)), 298)
 
         validator_exit = client.build_exit_validator(
             keypair,

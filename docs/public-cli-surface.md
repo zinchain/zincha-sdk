@@ -17,7 +17,7 @@ testing, worker runtime, mempool, consensus, or finality internals.
 | Tools | tool register/update/deregister, invoke, result, usage, subscription plan and subscription commands | Public tool provider/requester workflow. |
 | Capability catalog | capability propose plus curator approve/reject/deprecate | Public catalog extension workflow; catalog entries are curated metadata, while agent/tool/task capability strings remain open. |
 | Agreements/arbitrators | agreement create/accept/execute/dispute/resolve/cancel, arbitrator register/deregister | Public agreement and dispute workflow. |
-| Validators/stake | validator register/update/exit, stake, unstake | Public transactions accepted by the normal submit API. |
+| Validators/stake | validator register/update/reactivate/exit, stake, unstake | Public transactions accepted by the normal submit API. `reactivate-validator` emits the canonical empty validator update without changing published metadata. |
 | Contracts/routes | deploy, call, route call/update, source verification, ABI publish, deactivate | Public contract workflow. |
 | ZIP-20 tokens | create, transfer, approve, mint, update mint authority, burn, destroy | Public token lifecycle. |
 | Transport utilities | `submit-signed`, `submit-batch`, `wait` | Client transport helpers, not node-management commands. |

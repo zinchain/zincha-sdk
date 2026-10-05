@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-10-03
+**Version:** 2026-10-05
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -321,7 +321,7 @@ TypeScript supports high-level builders for:
   and expiry; subscription-plan create/update and subscription start, top-up,
   cancel, resume, and renew
 - capability propose, approve, reject, and deprecate
-- validator register, update, exit, VRF commit, and VRF contribution
+- validator register, update, reactivate, exit, VRF commit, and VRF contribution
 - stake and unstake
 - contract deploy, call, route call, route update, verify, ABI publish, and
   deactivate
@@ -358,6 +358,10 @@ convention: `build_transfer` paired with `transfer_and_submit`,
 `build_create_token` paired with `create_token_and_submit`,
 `build_register_validator` paired with `register_validator_and_submit`,
 `build_deploy_contract` paired with `deploy_contract_and_submit`, and so on.
+Use `buildReactivateValidator` in TypeScript or `build_reactivate_validator`
+in Python to reactivate a suspended validator. These helpers deliberately emit
+the canonical empty `validator_update` payload and do not change validator
+metadata.
 
 ## CLI Quickstart
 
@@ -366,6 +370,7 @@ zincha --release vega info
 zincha --release vega faucet --address zn1...
 zincha --release vega query account zn1...
 zincha --release vega query account-nonce zn1...
+zincha --release vega tx reactivate-validator --key-file validator.key --submit --wait
 zincha --release vega tx wait <tx-hash>
 ```
 

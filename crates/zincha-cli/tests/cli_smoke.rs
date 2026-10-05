@@ -215,6 +215,57 @@ fn tx_transfer_builds_signed_transaction_without_network_submission() {
 }
 
 #[test]
+fn tx_reactivate_validator_matches_the_canonical_298_byte_vector() {
+    let golden: Value = serde_json::from_str(include_str!(
+        "../../../sdk/testdata/golden-staking-validator.json"
+    ))
+    .expect("staking golden vector");
+    let transaction = &golden["validator_reactivate"]["transaction"];
+    let secret_key = golden["secret_hex"].as_str().expect("secret key");
+    let fee = transaction["fee_micro_zin"].as_u64().unwrap().to_string();
+    let nonce = transaction["nonce"].as_u64().unwrap().to_string();
+    let timestamp = transaction["timestamp"].as_u64().unwrap().to_string();
+    let reference_block_height = transaction["reference_block_height"]
+        .as_u64()
+        .unwrap()
+        .to_string();
+
+    let output = zincha()
+        .args([
+            "--json",
+            "tx",
+            "reactivate-validator",
+            "--secret-key",
+            secret_key,
+            "--fee",
+            &fee,
+            "--nonce",
+            &nonce,
+            "--chain-id",
+            transaction["chain_id"].as_str().unwrap(),
+            "--timestamp-ms",
+            &timestamp,
+            "--reference-block-height",
+            &reference_block_height,
+            "--reference-block-hash",
+            transaction["reference_block_hash"].as_str().unwrap(),
+            "--ttl-blocks",
+            "100",
+        ])
+        .output()
+        .expect("run tx reactivate-validator");
+    let payload = json_stdout(&output);
+    let signed_tx_hex = payload["data"]["signed_tx_hex"]
+        .as_str()
+        .expect("signed transaction hex");
+
+    assert_eq!(payload["command"], "tx-reactivate-validator");
+    assert_eq!(signed_tx_hex, transaction["signed_tx_hex"]);
+    assert_eq!(signed_tx_hex.len() / 2, 298);
+    assert!(payload["data"]["submission"].is_null());
+}
+
+#[test]
 fn tx_transfer_rejects_partial_validity_window() {
     let (sender_secret, _sender_address) = generated_keypair();
     let (_recipient_secret, recipient_address) = generated_keypair();

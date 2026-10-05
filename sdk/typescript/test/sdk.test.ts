@@ -1995,6 +1995,11 @@ test("staking/validator encoders match Rust golden vector", () => {
   });
   assert.equal(bytesToHex(validatorUpdate), golden.validator_update.data_hex);
 
+  assert.equal(
+    bytesToHex(encodeValidatorUpdateData({})),
+    golden.validator_reactivate.data_hex,
+  );
+
   assert.equal(bytesToHex(encodeValidatorExitData()), golden.validator_exit.data_hex);
 
   const vrfCommit = encodeValidatorVrfCommitData({
@@ -2070,6 +2075,13 @@ test("staking/validator builders produce Rust-compatible signed transactions", a
     vrfPublicKey: golden.validator_update.input.vrf_public_key,
   });
   assert.equal(signedTransactionHex(validatorUpdate), golden.validator_update.transaction.signed_tx_hex);
+
+  const validatorReactivate = await client.buildReactivateValidator(keypair, {
+    ...common(golden.validator_reactivate.transaction),
+  });
+  const validatorReactivateHex = signedTransactionHex(validatorReactivate);
+  assert.equal(validatorReactivateHex, golden.validator_reactivate.transaction.signed_tx_hex);
+  assert.equal(validatorReactivateHex.length / 2, 298);
 
   const validatorExit = await client.buildExitValidator(keypair, {
     ...common(golden.validator_exit.transaction),

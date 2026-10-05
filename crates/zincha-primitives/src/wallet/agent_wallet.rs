@@ -714,6 +714,12 @@ impl AgentWallet {
         self.sign_transaction(tx)
     }
 
+    /// Build and sign the canonical empty validator update used to reactivate
+    /// a suspended validator without changing its published metadata.
+    pub fn build_reactivate_validator(&mut self, fee: u64) -> Result<SignedTransaction> {
+        self.build_update_validator(ValidatorUpdateData::default(), fee)
+    }
+
     /// Build and sign a validator metadata update that only publishes the wallet's VRF key.
     ///
     /// The VRF key must match this wallet's signing key. The chain will reject
@@ -3728,6 +3734,19 @@ mod tests {
         let decoded: ValidatorUpdateData = bincode::deserialize(&tx.transaction.data).unwrap();
         assert_eq!(decoded.executor_services.len(), 1);
         assert_eq!(decoded.executor_services[0].partition_id, 0);
+    }
+
+    #[test]
+    fn test_build_reactivate_validator() {
+        let mut wallet = test_wallet();
+        let tx = wallet.build_reactivate_validator(100).unwrap();
+        assert!(tx.verify().is_ok());
+        assert_eq!(tx.transaction.tx_type, TxType::ValidatorUpdate);
+        assert_eq!(tx.transaction.amount, 0);
+        assert_eq!(tx.transaction.data.len(), 9);
+        let decoded: ValidatorUpdateData = bincode::deserialize(&tx.transaction.data).unwrap();
+        assert!(decoded.executor_services.is_empty());
+        assert!(decoded.vrf_public_key.is_none());
     }
 
     #[test]

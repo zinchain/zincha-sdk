@@ -120,6 +120,7 @@ zincha info --api-url http://127.0.0.1:9944
 zincha query /v1/chain/info --api-url http://127.0.0.1:9944
 zincha faucet --address zn1... --api-url http://127.0.0.1:9944
 zincha tx transfer --secret-key wallet.key --to zn1... --amount 1000 --fee 1000 --nonce 0
+zincha tx reactivate-validator --key-file validator.key --submit --wait
 ```
 
 ## Repository Boundary

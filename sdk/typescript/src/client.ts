@@ -131,6 +131,7 @@ import {
   type StakeInput,
   type UnstakeInput,
   type ValidatorExitInput,
+  type ValidatorReactivateInput,
   type ValidatorRegisterInput,
   type ValidatorUpdateInput,
   type ValidatorVrfCommitInput,
@@ -1139,6 +1140,26 @@ export class ZinchaClient {
     input: ValidatorUpdateInput,
   ): Promise<SubmitTransactionResponse> {
     return this.submitSignedTransaction(await this.buildUpdateValidator(signer, input));
+  }
+
+  /** Build the canonical empty validator update that reactivates a suspended validator. */
+  async buildReactivateValidator(
+    signer: TransactionSigner,
+    input: ValidatorReactivateInput = {},
+  ): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(
+      signer,
+      "validator_update",
+      input,
+      encodeValidatorUpdateData({}),
+    );
+  }
+
+  async reactivateValidatorAndSubmit(
+    signer: TransactionSigner,
+    input: ValidatorReactivateInput = {},
+  ): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildReactivateValidator(signer, input));
   }
 
   async buildExitValidator(signer: TransactionSigner, input: ValidatorExitInput = {}): Promise<SignedTransaction> {

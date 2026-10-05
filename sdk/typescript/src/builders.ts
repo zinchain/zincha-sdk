@@ -1497,6 +1497,9 @@ export interface ValidatorUpdateInput extends BaseTxOptions {
   vrfPublicKey?: Hex | null;
 }
 
+/** Canonical empty validator update used only to reactivate a suspended validator. */
+export interface ValidatorReactivateInput extends BaseTxOptions {}
+
 export interface ValidatorExitInput extends BaseTxOptions {}
 
 export interface ValidatorVrfCommitInput extends BaseTxOptions {
