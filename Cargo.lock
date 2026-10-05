@@ -2852,8 +2852,13 @@ name = "zincha-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "hex",
+ "rcgen",
+ "rustls",
  "serde_json",
+ "sha2",
  "tokio",
+ "x509-parser",
  "zincha-cli-core",
 ]
 
@@ -2864,12 +2869,16 @@ dependencies = [
  "anyhow",
  "bincode",
  "clap",
+ "futures",
  "hex",
+ "rand 0.8.5",
  "reqwest",
  "rpassword",
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
+ "x25519-dalek",
  "zincha-client",
  "zincha-primitives",
 ]

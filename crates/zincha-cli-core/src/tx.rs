@@ -23,7 +23,7 @@ use zincha_primitives::primitives::{
 use zincha_primitives::wallet::AgentWallet;
 
 const DEFAULT_CHAIN_ID: &str = "zincha-vega-1";
-const DEFAULT_TX_FEE: u64 = 500_000;
+pub(crate) const DEFAULT_TX_FEE: u64 = 500_000;
 const DEFAULT_TTL_BLOCKS: u64 = 128;
 const DEFAULT_TOOL_SLA_MS: u64 = 3_600_000;
 const DEFAULT_TOOL_CHALLENGE_WINDOW_MS: u64 = 900_000;
@@ -2394,7 +2394,10 @@ where
     Ok((label, f(&mut wallet)?, build))
 }
 
-async fn resolve_wallet(build: &TxBuildArgs, client: &ZinchaClient) -> Result<AgentWallet> {
+pub(crate) async fn resolve_wallet(
+    build: &TxBuildArgs,
+    client: &ZinchaClient,
+) -> Result<AgentWallet> {
     let keypair = load_keypair(&build.key_source)?;
     let address = keypair.address();
     if build.offline && (build.chain_id.is_none() || build.nonce.is_none()) {
@@ -2470,7 +2473,7 @@ fn apply_validity_window(
     Ok(())
 }
 
-async fn finish_transaction(
+pub(crate) async fn finish_transaction(
     label: &'static str,
     signed: SignedTransaction,
     build: &TxBuildArgs,

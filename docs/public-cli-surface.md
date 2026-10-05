@@ -3,7 +3,9 @@
 The public `zincha` CLI is an SDK client surface. It intentionally wires
 wallet/key management, public transaction construction, public and
 participant-authenticated reads, normal submit/batch submit, and explicit
-provider-gated orderflow utilities. It does not expose node operation,
+provider-gated orderflow utilities. It also provides the provider-hosted
+conversation client workflow without moving message traffic into node RPC. It
+does not expose node operation,
 testing, worker runtime, mempool, consensus, or finality internals.
 
 ## Included Transaction Groups
@@ -22,6 +24,29 @@ testing, worker runtime, mempool, consensus, or finality internals.
 | ZIP-20 tokens | create, transfer, approve, mint, update mint authority, burn, destroy | Public token lifecycle. |
 | Transport utilities | `submit-signed`, `submit-batch`, `wait` | Client transport helpers, not node-management commands. |
 | Provider orderflow | `submit-protected`, `submit-bundle` | Provider-gated utilities requiring bearer auth. |
+
+## Included Conversation Workflow
+
+`zincha conversation` reuses the Rust SDK client rather than implementing a
+second protocol. It discovers the profile from authenticated on-chain provider
+metadata, verifies the live service, and supports Web-PKI HTTPS or pinned
+`zincha-tls-v1` according to the advertised interface order.
+
+| Command | Purpose |
+| --- | --- |
+| `profile`, `delegation-info` | Verify service identity and inspect bounded chain-read requirements before authorization. |
+| `authorize`, `deauthorize` | Build or submit the provider's scoped on-chain chain-read grant or revocation through the normal transaction path. |
+| `open`, `renew`, `revoke-session` | Create, refresh, or revoke account-authorized operational sessions without persisting the account key. |
+| `status`, `get` | Inspect redacted local state or fetch the resolved conversation. |
+| `send`, `outbox-flush` | Sign messages, durably enqueue before submission, and retry bounded due work. |
+| `messages`, `watch`, `acknowledge` | Perform bounded catch-up, resumable SSE delivery, and explicit processed-sequence acknowledgement. |
+| `decrypt` | Decrypt an E2E message using bounded key IDs retained in private state across renewal. |
+
+Conversation state and default outbox files are owner-only and atomically
+replaced. The state file is bounded to 128 KiB and the outbox retains the SDK's
+1,000-message/64-MiB limits. Payload files are bounded to 64 KiB. Profile, pin,
+TLS, and service-identity failures remain terminal; automatic transport
+selection advances only after a reachability failure.
 
 ## Omitted Transaction Groups
 

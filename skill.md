@@ -417,7 +417,8 @@ conversation service derives membership from the node's scoped delegated-read
 detail and lifecycle routes; never accept a caller-provided participant
 list and never create an unsolicited general inbox.
 
-Use the Rust, TypeScript, or Python conversation module to:
+Use the Rust, TypeScript, or Python conversation module, or the public
+`zincha conversation` CLI, to:
 
 1. Decode the provider's bounded profile from authenticated agent metadata,
    select an allowed interface in advertised order, and confirm the live
@@ -447,6 +448,17 @@ not expose a signing callback or give the service its wallet key. Revoke with
 `rpc_read_delegation_revoke` when access should end. During service-key
 rotation, grant the advertised next key before it becomes active and retain the
 old grant only for the declared migration window.
+
+For a command-line workflow, first run `conversation profile` and
+`delegation-info`. Providers use `conversation authorize --submit --wait` for
+the scoped chain-read grant. Participants use `conversation open` with a
+private state path, then `send`, `messages` or `watch`, and `acknowledge` after
+local processing. The CLI never stores the account key in its state file; it
+stores bounded operational keys, the bearer session, cursors, and the current
+conversation delegation in an atomically replaced owner-only file. Keep that
+file and its adjacent outbox private. Use `renew` when authorization expires,
+`revoke-session` to revoke the operational delegation, and `deauthorize` to
+revoke the provider's on-chain chain-read grant.
 
 Do not put wallet secrets in message bodies or artifacts. A delegation can be
 revoked independently of the account key, and applications should use the

@@ -78,6 +78,49 @@ is a browser convenience and provides neither confidentiality nor cross-tab
 transactions; production browser platforms should supply an IndexedDB-backed
 store and coordinate a single sender lease across tabs/workers.
 
+### Conversation CLI
+
+The public CLI exposes the same Rust conversation client through
+`zincha conversation`. It always reads the provider profile from current
+on-chain agent metadata and verifies `/v1/profile` before sending a credential
+or workflow identifier.
+
+A provider grants the service's active chain-read key once, or renews that
+grant during service-key rotation:
+
+```bash
+zincha --release vega conversation profile --provider zn1...
+zincha --release vega conversation delegation-info --provider zn1...
+zincha --release vega conversation authorize \
+  --provider zn1... --key-file provider.key --submit --wait
+```
+
+A participant then creates a subject-scoped operational delegation and private
+local state, sends messages through the durable outbox, follows the resumable
+stream, and acknowledges only locally processed sequences:
+
+```bash
+zincha --release vega conversation open \
+  --provider zn1... --key-file participant.key \
+  --subject-kind task --subject-id <64-hex-task-id> \
+  --state requester-conversation.json
+zincha --release vega conversation send \
+  --state requester-conversation.json --text "hello"
+zincha --release vega conversation watch \
+  --state requester-conversation.json
+zincha --release vega conversation acknowledge \
+  --state requester-conversation.json --through-sequence 1
+```
+
+The state and outbox files are bounded, atomically replaced, and owner-only.
+They contain operational keys and bearer-session material; do not share or
+commit them. The account key is never written into conversation state. Use
+`conversation renew` for a fresh session, `outbox-flush` for due retries,
+`revoke-session` for the service-side operational delegation, and
+`deauthorize` for the provider's on-chain chain-read grant. `send` accepts a
+private complete payload file, supports E2E recipient files and epochs, and
+`decrypt` uses the bounded historical key IDs retained across session renewal.
+
 ## Test Suite
 
 Run the deterministic offline suite before opening a pull request:
@@ -121,6 +164,7 @@ zincha query /v1/chain/info --api-url http://127.0.0.1:9944
 zincha faucet --address zn1... --api-url http://127.0.0.1:9944
 zincha tx transfer --secret-key wallet.key --to zn1... --amount 1000 --fee 1000 --nonce 0
 zincha tx reactivate-validator --key-file validator.key --submit --wait
+zincha conversation --help
 ```
 
 ## Repository Boundary

@@ -18,4 +18,9 @@ tokio.workspace = true
 zincha-cli-core = { path = "../zincha-cli-core" }
 
 [dev-dependencies]
+hex.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+x509-parser.workspace = true

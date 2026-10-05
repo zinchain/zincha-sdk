@@ -25,6 +25,7 @@ pub const TX_SURFACE: &[SurfaceEntry] = &[
     SurfaceEntry { command: "validator-register/update/exit stake/unstake", category: SurfaceCategory::Public, rationale: "public validator and stake transactions accepted by submit API" },
     SurfaceEntry { command: "contract-*", category: SurfaceCategory::Public, rationale: "public contract deployment, calls, routes, verification, ABI" },
     SurfaceEntry { command: "token-*", category: SurfaceCategory::Public, rationale: "ZIP-20 token lifecycle" },
+    SurfaceEntry { command: "conversation-*", category: SurfaceCategory::Participant, rationale: "provider-hosted participant conversation lifecycle" },
     SurfaceEntry { command: "submit-protected submit-bundle", category: SurfaceCategory::Provider, rationale: "provider-gated orderflow utilities that require bearer auth" },
     SurfaceEntry { command: "validator-vrf-* protocol-params-update finality-* node-* operator-*", category: SurfaceCategory::Omitted, rationale: "consensus, operator, node management, and internal maintenance are outside the public SDK boundary" },
 ];

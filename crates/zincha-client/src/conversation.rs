@@ -1577,7 +1577,11 @@ impl FileOutbox {
         if bytes.len() as u64 > self.max_bytes {
             bail!("conversation outbox byte limit exceeded");
         }
-        if let Some(parent) = self.path.parent() {
+        if let Some(parent) = self
+            .path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             fs::create_dir_all(parent).context("create outbox directory")?;
         }
         let mut suffix = [0u8; 16];
@@ -1599,7 +1603,11 @@ impl FileOutbox {
             drop(file);
             fs::rename(&temp, &self.path).context("replace conversation outbox")?;
             #[cfg(unix)]
-            if let Some(parent) = self.path.parent() {
+            if let Some(parent) = self
+                .path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+            {
                 fs::File::open(parent)
                     .and_then(|directory| directory.sync_all())
                     .context("sync outbox directory")?;

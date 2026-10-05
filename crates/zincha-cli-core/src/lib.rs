@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use std::env;
 use zincha_client::ZinchaClient;
 
+mod conversation;
 mod output;
 mod query;
 mod secret;
@@ -39,6 +40,8 @@ pub struct Cli {
 pub enum Commands {
     Keygen(wallet::KeygenCommand),
     Wallet(wallet::WalletCommand),
+    /// Use participant-authorized provider-hosted conversations.
+    Conversation(conversation::ConversationCommand),
     Tx(tx::TxCommand),
     Query(query::QueryCommand),
     Info,
@@ -73,6 +76,14 @@ pub async fn run_cli(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Keygen(command) => wallet::run_keygen(command, &context),
         Commands::Wallet(command) => wallet::run_wallet(command, &context),
+        Commands::Conversation(command) => {
+            conversation::run_conversation(
+                command,
+                client(api_url, release, bearer_token)?,
+                &context,
+            )
+            .await
+        }
         Commands::Tx(command) => {
             tx::run_tx(command, client(api_url, release, bearer_token)?, &context).await
         }
