@@ -116,6 +116,8 @@ define_tx_types! {
     CapabilityApprove = (68, "capability_approve"),
     CapabilityReject = (69, "capability_reject"),
     CapabilityDeprecate = (70, "capability_deprecate"),
+    RpcReadDelegationGrant = (71, "rpc_read_delegation_grant"),
+    RpcReadDelegationRevoke = (72, "rpc_read_delegation_revoke"),
 }
 
 impl Serialize for TxType {

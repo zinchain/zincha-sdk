@@ -27,6 +27,10 @@ from zincha import (
     encode_capability_deprecate_data,
     encode_capability_propose_data,
     encode_capability_reject_data,
+    derive_rpc_read_delegation_id,
+    delegated_request_headers,
+    encode_rpc_read_delegation_grant_data,
+    encode_rpc_read_delegation_revoke_data,
     encode_task_accept_data,
     encode_task_cancel_data,
     encode_task_dispute_data,
@@ -315,6 +319,9 @@ class PythonSdkTests(unittest.TestCase):
         client.arbitrators(cursor="a6", limit=7)
         client.market_rates(cursor="a7", limit=8)
         client.capability_search("reasoning", cursor="a8", limit=9, status="all")
+        client.rpc_read_delegations_by_delegator(GOLDEN["sender"], cursor="a9", limit=10)
+        client.rpc_read_delegations_by_delegate(GOLDEN["recipient"], cursor="aa", limit=11)
+        client.rpc_read_delegation_lifecycle_events(GOLDEN["recipient"], after_seq=12, limit=13)
 
         self.assertEqual(
             calls,
@@ -328,6 +335,12 @@ class PythonSdkTests(unittest.TestCase):
                 "http://node.test/v1/arbitrators?cursor=a6&limit=7",
                 "http://node.test/v1/market-rates?cursor=a7&limit=8",
                 "http://node.test/v1/capabilities/search?q=reasoning&cursor=a8&limit=9&status=all",
+                "http://node.test/v1/rpc-read-delegations/delegator/%s?cursor=a9&limit=10"
+                % GOLDEN["sender"],
+                "http://node.test/v1/rpc-read-delegations/delegate/%s?cursor=aa&limit=11"
+                % GOLDEN["recipient"],
+                "http://node.test/v1/rpc-read-delegations/delegate/%s/lifecycle-events?after_seq=12&limit=13"
+                % GOLDEN["recipient"],
             ],
         )
         self.assertTrue(all("offset=" not in url for url in calls))
@@ -2291,6 +2304,44 @@ class GoldenVectorTests(unittest.TestCase):
                 reference_block_hash="11" * 32,
                 max_valid_block_height=100,
             )
+
+    def test_rpc_read_delegation_matches_shared_golden_vector(self):
+        vector = json.loads(
+            (Path(__file__).resolve().parents[2] / "testdata" / "golden-rpc-read-delegation-v1.json").read_text()
+        )
+        self.assertEqual(
+            derive_rpc_read_delegation_id(vector["delegator"], vector["delegate_public_key"], vector["service_id"]),
+            vector["delegation_id"],
+        )
+        self.assertEqual(
+            encode_rpc_read_delegation_grant_data(
+                delegate_public_key=vector["delegate_public_key"],
+                service_id=vector["service_id"],
+                scope_mask=vector["scope_mask"],
+                expires_at_ms=vector["expires_at_ms"],
+            ).hex(),
+            vector["grant_data_hex"],
+        )
+        self.assertEqual(
+            encode_rpc_read_delegation_revoke_data(delegation_id=vector["delegation_id"]).hex(),
+            vector["revoke_data_hex"],
+        )
+        signer = Keypair.from_secret_hex(vector["delegate_secret_key"])
+        self.assertEqual(signer.public_key_hex(), vector["delegate_public_key"])
+        self.assertEqual(signer.address(), vector["delegate_address"])
+        request = vector["delegated_request"]
+        headers = delegated_request_headers(
+            signer,
+            request["method"],
+            request["request_target"],
+            vector["delegation_id"],
+            body=bytes.fromhex(request["body_hex"]),
+            timestamp_ms=request["timestamp_ms"],
+            nonce=request["nonce"],
+        )
+        self.assertEqual(headers["x-zincha-body-sha256"], request["body_sha256"])
+        self.assertEqual(headers["x-zincha-signature"], request["signature"])
+
 
 
 if __name__ == "__main__":

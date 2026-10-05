@@ -1,0 +1,21 @@
+{
+  "delegator": "zn10707070707070707070707070707070707070707",
+  "delegate_secret_key": "0101010101010101010101010101010101010101010101010101010101010101",
+  "delegate_public_key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+  "delegate_address": "zn1aabe933be154a4b5094e1c4abf42866505f3c97e",
+  "service_id": "provider-agent/conversations",
+  "scope_mask": 255,
+  "expires_at_ms": 1791000000000,
+  "delegation_id": "1f913502d635f2ff44bed3839672ac59fb18c5a089017e963c665c1e3d1b6091",
+  "grant_data_hex": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c1c0000000000000070726f76696465722d6167656e742f636f6e766572736174696f6e73ff000000000000000036ebffa0010000",
+  "revoke_data_hex": "1f913502d635f2ff44bed3839672ac59fb18c5a089017e963c665c1e3d1b6091",
+  "delegated_request": {
+    "method": "GET",
+    "request_target": "/v1/tasks/abababababababababababababababababababababababababababababababab?view=detail",
+    "timestamp_ms": 1790000000000,
+    "nonce": "00112233445566778899aabbccddeeff",
+    "body_hex": "",
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signature": "5ae509adb95278476c4faa87ad7ad271aed71fac612b97e82a14808f7b3dad933e1304614bd38883cc4318d042fcfb10cf76cc0f0469b2990d3f9654a768ff0d"
+  }
+}

@@ -33,7 +33,13 @@ use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
-use zincha_primitives::crypto::Keypair;
+use zincha_primitives::{
+    crypto::{Keypair, PublicKey},
+    primitives::RPC_READ_DELEGATION_MIN_LIFETIME_MS,
+    wallet::AgentWallet,
+};
+
+use crate::ZinchaClient;
 
 const DELEGATION_DOMAIN: &str = "zincha-conversation-delegation-v1";
 const CHALLENGE_DOMAIN: &str = "zincha-conversation-challenge-v1";
@@ -126,6 +132,28 @@ pub struct ConversationProfileV2 {
     pub interfaces: Vec<ConversationInterface>,
     pub privacy_modes: Vec<PrivacyMode>,
     pub protocol_versions: Vec<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChainReadKeyInfo {
+    pub public_key: String,
+    pub address: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConversationDelegationInfo {
+    pub protocol_version: u16,
+    pub service_id: String,
+    pub network: String,
+    pub chain_id: String,
+    pub active_key: ChainReadKeyInfo,
+    pub next_key: Option<ChainReadKeyInfo>,
+    pub required_scopes: Vec<String>,
+    pub required_scope_mask: u64,
+    pub default_grant_lifetime_ms: u64,
+    pub maximum_grant_lifetime_ms: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -830,6 +858,49 @@ impl ConversationClient {
     }
     pub async fn profile(&self) -> Result<ConversationProfileV2> {
         self.json_with_limit::<(), _>(Method::GET, "/v1/profile", None, MAX_PROFILE_RESPONSE_BYTES)
+            .await
+    }
+    pub async fn delegation_info(&self) -> Result<ConversationDelegationInfo> {
+        self.json_with_limit::<(), _>(
+            Method::GET,
+            "/v1/delegation-info",
+            None,
+            MAX_PROFILE_RESPONSE_BYTES,
+        )
+        .await
+    }
+    pub async fn grant_conversation_read_access(
+        &self,
+        node: &ZinchaClient,
+        wallet: &mut AgentWallet,
+        lifetime_ms: Option<u64>,
+        fee: u64,
+    ) -> Result<Value> {
+        let info = self.delegation_info().await?;
+        let lifetime_ms = lifetime_ms.unwrap_or(info.default_grant_lifetime_ms);
+        if lifetime_ms < RPC_READ_DELEGATION_MIN_LIFETIME_MS
+            || lifetime_ms > info.maximum_grant_lifetime_ms
+        {
+            bail!("conversation grant lifetime is outside service bounds");
+        }
+        let delegate_public_key: [u8; 32] = hex::decode(&info.active_key.public_key)
+            .context("decode conversation chain-read public key")?
+            .try_into()
+            .map_err(|_| anyhow!("conversation chain-read public key must be 32 bytes"))?;
+        let delegate_public_key = PublicKey::from_bytes(&delegate_public_key)
+            .context("parse conversation chain-read public key")?;
+        let expires_at_ms = u64::try_from(now_ms())
+            .context("system time precedes the Unix epoch")?
+            .checked_add(lifetime_ms)
+            .context("conversation grant expiry overflows")?;
+        let transaction = wallet.build_rpc_read_delegation_grant(
+            delegate_public_key,
+            info.service_id,
+            info.required_scope_mask,
+            expires_at_ms,
+            fee,
+        )?;
+        node.submit_signed_transaction_hex(&AgentWallet::tx_to_hex(&transaction)?)
             .await
     }
     pub async fn create_session(&self, request: &SessionRequest) -> Result<SessionResponse> {

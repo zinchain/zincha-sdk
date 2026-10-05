@@ -11,6 +11,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from .bincode import BigNumberish
+
 from .builders import (
     CAPABILITY_PARENT_UNSET,
     AgreementMilestone,
@@ -31,6 +33,8 @@ from .builders import (
     encode_capability_deprecate_data,
     encode_capability_propose_data,
     encode_capability_reject_data,
+    encode_rpc_read_delegation_grant_data,
+    encode_rpc_read_delegation_revoke_data,
     encode_task_accept_data,
     encode_task_cancel_data,
     encode_task_dispute_data,
@@ -80,7 +84,7 @@ from .builders import (
     encode_validator_vrf_commit_data,
     encode_validator_vrf_contribution_data,
 )
-from .crypto import Keypair, normalize_address, signed_request_headers
+from .crypto import Keypair, delegated_request_headers, normalize_address, signed_request_headers
 from .release import is_mainnet_release, parse_release_name, release_spec
 from .transaction import (
     SignedTransaction,
@@ -167,6 +171,7 @@ class ZinchaClient:
         body: Any = None,
         bearer_token: Optional[str] = None,
         signed: bool = False,
+        delegation_id: Optional[str] = None,
         timeout: Optional[float] = None,
     ) -> Any:
         return self._request_from_base_url(
@@ -177,6 +182,7 @@ class ZinchaClient:
             body=body,
             bearer_token=bearer_token,
             signed=signed,
+            delegation_id=delegation_id,
             timeout=timeout,
         )
 
@@ -190,6 +196,7 @@ class ZinchaClient:
         body: Any = None,
         bearer_token: Optional[str] = None,
         signed: bool = False,
+        delegation_id: Optional[str] = None,
         timeout: Optional[float] = None,
     ) -> Any:
         request_target = _build_request_target(path, query)
@@ -202,11 +209,17 @@ class ZinchaClient:
         bearer = bearer_token if bearer_token is not None else self.bearer_token
         if bearer:
             headers["authorization"] = "Bearer %s" % bearer
-        if signed:
+        if signed or delegation_id is not None:
             if self.signer is None:
                 raise ValueError("signed request requires a client signer")
             headers.update(
-                signed_request_headers(
+                delegated_request_headers(
+                    self.signer,
+                    method,
+                    request_target,
+                    delegation_id,
+                    encoded_body or b"",
+                ) if delegation_id is not None else signed_request_headers(
                     self.signer,
                     method,
                     request_target,
@@ -242,6 +255,7 @@ class ZinchaClient:
         query: Optional[Mapping[str, Any]] = None,
         bearer_token: Optional[str] = None,
         signed: bool = False,
+        delegation_id: Optional[str] = None,
         timeout: Optional[float] = None,
     ) -> Any:
         return self.request(
@@ -250,6 +264,7 @@ class ZinchaClient:
             query=query,
             bearer_token=bearer_token,
             signed=signed,
+            delegation_id=delegation_id,
             timeout=timeout,
         )
 
@@ -261,6 +276,7 @@ class ZinchaClient:
         query: Optional[Mapping[str, Any]] = None,
         bearer_token: Optional[str] = None,
         signed: bool = False,
+        delegation_id: Optional[str] = None,
         timeout: Optional[float] = None,
     ) -> Any:
         return self.request(
@@ -270,6 +286,7 @@ class ZinchaClient:
             body=body,
             bearer_token=bearer_token,
             signed=signed,
+            delegation_id=delegation_id,
             timeout=timeout,
         )
 
@@ -777,6 +794,76 @@ class ZinchaClient:
 
     def deprecate_capability_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
         return self.submit_signed_transaction(self.build_deprecate_capability(keypair, **input))
+
+    def build_grant_rpc_read_delegation(
+        self,
+        keypair: Keypair,
+        *,
+        delegate_public_key: str,
+        service_id: str,
+        scope_mask: BigNumberish,
+        expires_at_ms: BigNumberish,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="rpc_read_delegation_grant",
+            data=encode_rpc_read_delegation_grant_data(
+                delegate_public_key=delegate_public_key,
+                service_id=service_id,
+                scope_mask=scope_mask,
+                expires_at_ms=expires_at_ms,
+            ),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def grant_rpc_read_delegation_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_grant_rpc_read_delegation(keypair, **input))
+
+    def build_revoke_rpc_read_delegation(
+        self,
+        keypair: Keypair,
+        *,
+        delegation_id: str,
+        fee_micro_zin: int = 0,
+        nonce: Optional[int] = None,
+        chain_id: Optional[str] = None,
+        timestamp_ms: Optional[int] = None,
+        max_priority_fee_per_gas: int = 0,
+        reference_block_height: Optional[int] = None,
+        reference_block_hash: Optional[str] = None,
+        max_valid_block_height: Optional[int] = None,
+    ) -> SignedTransaction:
+        return self._build_typed_transaction(
+            keypair,
+            tx_type="rpc_read_delegation_revoke",
+            data=encode_rpc_read_delegation_revoke_data(delegation_id=delegation_id),
+            nonce=nonce,
+            fee_micro_zin=fee_micro_zin,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            chain_id=chain_id,
+            timestamp_ms=timestamp_ms,
+            reference_block_height=reference_block_height,
+            reference_block_hash=reference_block_hash,
+            max_valid_block_height=max_valid_block_height,
+        )
+
+    def revoke_rpc_read_delegation_and_submit(self, keypair: Keypair, **input: Any) -> Dict[str, Any]:
+        return self.submit_signed_transaction(self.build_revoke_rpc_read_delegation(keypair, **input))
 
     def build_submit_task(
         self,
@@ -2602,6 +2689,36 @@ class ZinchaClient:
 
     def arbitrators(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
         return self.get("/v1/arbitrators", query={"cursor": cursor, "limit": limit})
+
+    def rpc_read_delegation(self, delegation_id: str) -> Any:
+        return self.get("/v1/rpc-read-delegations/%s" % delegation_id.lower())
+
+    def rpc_read_delegations_by_delegator(
+        self, address: str, *, cursor: Optional[str] = None, limit: Optional[int] = None
+    ) -> Any:
+        return self.get(
+            "/v1/rpc-read-delegations/delegator/%s" % normalize_address(address),
+            query={"cursor": cursor, "limit": limit},
+        )
+
+    def rpc_read_delegations_by_delegate(
+        self, address: str, *, cursor: Optional[str] = None, limit: Optional[int] = None
+    ) -> Any:
+        return self.get(
+            "/v1/rpc-read-delegations/delegate/%s" % normalize_address(address),
+            query={"cursor": cursor, "limit": limit},
+        )
+
+    def rpc_read_delegation_lifecycle_events(
+        self, delegate_address: str, *, after_seq: int = 0, limit: int = 100
+    ) -> Any:
+        if after_seq < 0 or limit < 1 or limit > 500:
+            raise ValueError("delegation lifecycle page cursor or limit is invalid")
+        return self.get(
+            "/v1/rpc-read-delegations/delegate/%s/lifecycle-events"
+            % normalize_address(delegate_address),
+            query={"after_seq": after_seq, "limit": limit},
+        )
 
     def market_rates(self, *, cursor: Optional[str] = None, limit: Optional[int] = None) -> Any:
         return self.get("/v1/market-rates", query={"cursor": cursor, "limit": limit})

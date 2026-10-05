@@ -1826,6 +1826,54 @@
         ],
         "type": "object"
       },
+      "ApiResponse_RpcReadDelegation": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RpcReadDelegation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "ApiResponse_RpcReadDelegationList": {
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RpcReadDelegationList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "ApiResponse_SubmitBatchResult": {
         "properties": {
           "data": {
@@ -10253,6 +10301,137 @@
         ],
         "type": "object"
       },
+      "RpcReadDelegation": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "created_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "delegate": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "delegate_public_key": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "delegation_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "delegator": {
+            "pattern": "^zn1[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "expires_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scope_mask": {
+            "format": "int64",
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "service_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "service_id_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "storage_deposit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updated_at_block": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "delegation_id",
+          "delegator",
+          "delegate",
+          "delegate_public_key",
+          "service_id",
+          "service_id_hash",
+          "scope_mask",
+          "created_at_block",
+          "updated_at_block",
+          "expires_at_ms",
+          "storage_deposit",
+          "active"
+        ],
+        "type": "object"
+      },
+      "RpcReadDelegationList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RpcReadDelegation"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "pagination": {
+            "additionalProperties": false,
+            "properties": {
+              "cursor": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "has_more": {
+                "type": "boolean"
+              },
+              "limit": {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "next_cursor": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "limit",
+              "cursor",
+              "next_cursor",
+              "has_more"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "type": "object"
+      },
       "RuntimePressureSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -15430,6 +15609,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "agreement_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
@@ -15570,6 +15750,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "agreement_lifecycle_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "participant"
@@ -19970,6 +20151,492 @@
         "x-zincha-response-view": "public"
       }
     },
+    "/v1/rpc-read-delegations/delegate/{address}": {
+      "get": {
+        "description": "Returns a bounded page ordered by delegation ID. Pass `next_cursor` as `cursor` to continue. The maximum page size is 100 and the default is 20.",
+        "operationId": "get_rpc_read_delegations_by_delegate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "description": "Exclusive delegation-ID cursor from the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RpcReadDelegationList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "List RPC read delegations assigned to one delegate.",
+        "tags": [
+          "RPC Read Delegations"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/rpc-read-delegations/delegate/{address}/lifecycle-events": {
+      "get": {
+        "description": "Returns bounded, sequenced grant, renewal, revocation, and expiry events for the delegate address. Use the sequence cursor to resume without scanning state.",
+        "operationId": "get_rpc_read_delegation_lifecycle_events",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "description": "Start sequence, exclusive.",
+            "in": "query",
+            "name": "after_seq",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional inclusive upper sequence bound.",
+            "in": "query",
+            "name": "through_seq",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LifecycleEventList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveHistoryUnavailableResponse"
+                }
+              }
+            },
+            "description": "Archive history unavailable on this node"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "List lifecycle events for one RPC read-delegate address.",
+        "tags": [
+          "RPC Read Delegations"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "expensive_read",
+        "x-zincha-requires-archive-history": true,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/rpc-read-delegations/delegator/{address}": {
+      "get": {
+        "description": "Returns a bounded page ordered by delegation ID. Pass `next_cursor` as `cursor` to continue. The maximum page size is 100 and the default is 20.",
+        "operationId": "get_rpc_read_delegations_by_delegator",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AddressParam"
+          },
+          {
+            "description": "Exclusive delegation-ID cursor from the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RpcReadDelegationList"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "List RPC read delegations created by one delegator.",
+        "tags": [
+          "RPC Read Delegations"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
+    "/v1/rpc-read-delegations/{id}": {
+      "get": {
+        "description": "Returns the canonical grant record, including its delegate key, service, scope mask, expiry, and refundable storage deposit. Expired grants may remain queryable briefly until bounded canonical housekeeping retires them; `active` reflects the node's current wall-clock observation.",
+        "operationId": "get_rpc_read_delegation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RpcReadDelegation"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad request (validation failure, malformed input)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required when deployment API auth is enabled"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authenticated principal is not allowed to access this endpoint"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited (see Retry-After header)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "summary": "Return one RPC read delegation by its stable ID.",
+        "tags": [
+          "RPC Read Delegations"
+        ],
+        "x-zincha-audience": "public",
+        "x-zincha-audit-log": false,
+        "x-zincha-auth": "bearer",
+        "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-rate-limit-class": "cheap_read",
+        "x-zincha-requires-archive-history": false,
+        "x-zincha-response-view": "public"
+      }
+    },
     "/v1/tasks/pending": {
       "get": {
         "description": "Returns tasks currently in the pending pool: still unmatched, accepting agent bids, and not past deadline. Each item is a public task opportunity with the marketplace description, capability requirements, reward, deadline, matching preferences, and requester trust summary. Use this as the primary work queue for agents that want to discover open opportunities.",
@@ -20196,6 +20863,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "task_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
@@ -22277,6 +22945,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "tool_job_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
@@ -22417,6 +23086,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "tool_job_lifecycle_read",
         "x-zincha-rate-limit-class": "expensive_read",
         "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "participant"
@@ -23860,6 +24530,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "tool_usage_session_read",
         "x-zincha-rate-limit-class": "cheap_read",
         "x-zincha-requires-archive-history": false,
         "x-zincha-response-view": "participant"
@@ -24000,6 +24671,7 @@
         "x-zincha-audit-log": false,
         "x-zincha-auth": "signed_address",
         "x-zincha-auth-behavior": "global_api_auth_when_configured",
+        "x-zincha-delegated-read-scope": "tool_usage_session_lifecycle_read",
         "x-zincha-rate-limit-class": "expensive_read",
         "x-zincha-requires-archive-history": true,
         "x-zincha-response-view": "participant"
@@ -25684,6 +26356,10 @@
     {
       "description": "Chain identity, current state, and network statistics.",
       "name": "Chain"
+    },
+    {
+      "description": "Scoped, revocable on-chain authority for a service key to perform participant-protected reads.",
+      "name": "RPC Read Delegations"
     },
     {
       "description": "Block history queries.",

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
 from .bincode import BigNumberish, BincodeWriter, as_u32, as_u64
-from .crypto import hex_to_bytes, normalize_address, raw_address_hex
+from .crypto import bytes_to_hex, hex_to_bytes, normalize_address, raw_address_hex, sha256
 from .transaction import Transaction, create_transaction
 
 ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
@@ -64,6 +64,79 @@ class AgreementPayout:
 class AgreementReputationEffect:
     party: str
     outcome: str
+
+
+RPC_READ_SCOPES = {
+    "task_read": 1 << 0,
+    "task_lifecycle_read": 1 << 1,
+    "agreement_read": 1 << 2,
+    "agreement_lifecycle_read": 1 << 3,
+    "tool_job_read": 1 << 4,
+    "tool_job_lifecycle_read": 1 << 5,
+    "tool_usage_session_read": 1 << 6,
+    "tool_usage_session_lifecycle_read": 1 << 7,
+}
+RPC_READ_SCOPE_ALL = 0xFF
+
+
+def rpc_read_scope_mask(scopes: Sequence[str]) -> int:
+    mask = 0
+    for scope in scopes:
+        try:
+            mask |= RPC_READ_SCOPES[scope]
+        except KeyError as error:
+            raise ValueError("unknown RPC read scope: %s" % scope) from error
+    if mask == 0:
+        raise ValueError("at least one RPC read scope is required")
+    return mask
+
+
+def _validate_rpc_read_service_id(service_id: str) -> None:
+    if (
+        not service_id
+        or service_id.strip() != service_id
+        or len(service_id) > 256
+        or any(ord(character) < 32 or ord(character) == 127 for character in service_id)
+    ):
+        raise ValueError("delegation service_id is invalid")
+
+
+def encode_rpc_read_delegation_grant_data(
+    *, delegate_public_key: str, service_id: str, scope_mask: BigNumberish, expires_at_ms: BigNumberish
+) -> bytes:
+    _validate_rpc_read_service_id(service_id)
+    mask = as_u64(scope_mask, "scope_mask")
+    if mask == 0 or mask & ~RPC_READ_SCOPE_ALL:
+        raise ValueError("scope_mask contains no known scope")
+    writer = BincodeWriter()
+    writer.write_raw(hex_to_bytes(delegate_public_key, 32))
+    writer.write_string(service_id)
+    writer.write_u64(mask)
+    writer.write_u64(expires_at_ms)
+    return writer.finish()
+
+
+def encode_rpc_read_delegation_revoke_data(*, delegation_id: str) -> bytes:
+    writer = BincodeWriter()
+    writer.write_raw(hex_to_bytes(delegation_id, 32))
+    return writer.finish()
+
+
+def derive_rpc_read_delegation_id(
+    delegator: str, delegate_public_key: str, service_id: str
+) -> str:
+    _validate_rpc_read_service_id(service_id)
+    service = service_id.encode("utf-8")
+    material = b"".join(
+        (
+            b"zincha-rpc-read-delegation-id-v1",
+            hex_to_bytes(raw_address_hex(delegator), 20),
+            hex_to_bytes(delegate_public_key, 32),
+            len(service).to_bytes(4, "big"),
+            service,
+        )
+    )
+    return bytes_to_hex(sha256(material))
 
 
 # ─── Capability + Hash256 helpers ───────────────────────────────────

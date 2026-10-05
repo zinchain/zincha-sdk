@@ -3206,6 +3206,70 @@ impl AgentWallet {
             .map_err(|error| ZinchaError::InvalidCapability(format!("{label}: {error}")))
     }
 
+    /// Grant or renew narrowly scoped chain-read access for a service key.
+    pub fn build_rpc_read_delegation_grant(
+        &mut self,
+        delegate_public_key: PublicKey,
+        service_id: String,
+        scope_mask: u64,
+        expires_at_ms: u64,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        validate_rpc_read_delegation_service_id(&service_id)
+            .map_err(ZinchaError::InvalidTransaction)?;
+        if scope_mask == 0 || scope_mask & !RPC_READ_SCOPE_ALL != 0 {
+            return Err(ZinchaError::InvalidTransaction(
+                "RPC read delegation scope mask contains no known scope".into(),
+            ));
+        }
+        let data = RpcReadDelegationGrantData {
+            delegate_public_key: *delegate_public_key.as_bytes(),
+            service_id,
+            scope_mask,
+            expires_at_ms,
+        };
+        let tx = Transaction {
+            tx_type: TxType::RpcReadDelegationGrant,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&data)?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
+    /// Revoke a scoped chain-read grant owned by this wallet.
+    pub fn build_rpc_read_delegation_revoke(
+        &mut self,
+        delegation_id: Hash256,
+        fee: u64,
+    ) -> Result<SignedTransaction> {
+        let tx = Transaction {
+            tx_type: TxType::RpcReadDelegationRevoke,
+            sender: self.address(),
+            recipient: Address::zero(),
+            amount: 0,
+            fee,
+            max_priority_fee_per_gas: 0,
+            nonce: self.next_nonce(),
+            timestamp: self.transaction_timestamp_ms(),
+            reference_block_height: 0,
+            reference_block_hash: Default::default(),
+            max_valid_block_height: 0,
+            data: bincode::serialize(&RpcReadDelegationRevokeData { delegation_id })?,
+            chain_id: self.chain_id.clone(),
+        };
+        self.sign_transaction(tx)
+    }
+
     // -----------------------------------------------------------------------
     // Serialization helpers for RPC submission
     // -----------------------------------------------------------------------

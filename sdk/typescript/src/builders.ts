@@ -10,7 +10,7 @@
 // pins it to a fixture produced by the Rust SDK.
 
 import { BincodeWriter, asU32, asU64 } from "./bincode.ts";
-import { hexToBytes, normalizeAddress, rawAddressHex } from "./crypto.ts";
+import { bytesToHex, hexToBytes, normalizeAddress, rawAddressHex, sha256 } from "./crypto.ts";
 import { createTransaction } from "./transaction.ts";
 import type {
   AddressString,
@@ -82,6 +82,75 @@ export interface BaseTxOptions {
   referenceBlockHash?: Hex;
   /** Explicit maximum valid block height. */
   maxValidBlockHeight?: BigNumberish;
+}
+
+export const RPC_READ_SCOPES = {
+  task_read: 1n << 0n,
+  task_lifecycle_read: 1n << 1n,
+  agreement_read: 1n << 2n,
+  agreement_lifecycle_read: 1n << 3n,
+  tool_job_read: 1n << 4n,
+  tool_job_lifecycle_read: 1n << 5n,
+  tool_usage_session_read: 1n << 6n,
+  tool_usage_session_lifecycle_read: 1n << 7n,
+} as const;
+
+export type RpcReadScopeName = keyof typeof RPC_READ_SCOPES;
+export const RPC_READ_SCOPE_ALL = 0xffn;
+
+export function rpcReadScopeMask(scopes: readonly RpcReadScopeName[]): bigint {
+  const mask = scopes.reduce((value, scope) => value | RPC_READ_SCOPES[scope], 0n);
+  if (mask === 0n) throw new Error("at least one RPC read scope is required");
+  return mask;
+}
+
+export interface RpcReadDelegationGrantInput extends BaseTxOptions {
+  delegatePublicKey: Hex;
+  serviceId: string;
+  scopeMask: BigNumberish;
+  expiresAtMs: BigNumberish;
+}
+
+export interface RpcReadDelegationRevokeInput extends BaseTxOptions {
+  delegationId: Hex;
+}
+
+function validateRpcReadServiceId(serviceId: string): void {
+  if (!serviceId || serviceId.trim() !== serviceId || [...serviceId].length > 256 || /[\u0000-\u001f\u007f]/u.test(serviceId)) {
+    throw new Error("delegation serviceId is invalid");
+  }
+}
+
+export function encodeRpcReadDelegationGrantData(input: RpcReadDelegationGrantInput): Uint8Array {
+  validateRpcReadServiceId(input.serviceId);
+  const scopeMask = asU64(input.scopeMask, "scopeMask");
+  if (scopeMask === 0n || (scopeMask & ~RPC_READ_SCOPE_ALL) !== 0n) throw new Error("scopeMask contains no known scope");
+  const w = new BincodeWriter();
+  w.writeRaw(hexToBytes(input.delegatePublicKey, 32));
+  w.writeString(input.serviceId);
+  w.writeU64(scopeMask);
+  w.writeU64(input.expiresAtMs);
+  return w.finish();
+}
+
+export function encodeRpcReadDelegationRevokeData(input: RpcReadDelegationRevokeInput): Uint8Array {
+  const w = new BincodeWriter();
+  w.writeRaw(hexToBytes(input.delegationId, 32));
+  return w.finish();
+}
+
+export function deriveRpcReadDelegationId(delegator: string, delegatePublicKey: Hex, serviceId: string): Hex {
+  validateRpcReadServiceId(serviceId);
+  const domain = new TextEncoder().encode("zincha-rpc-read-delegation-id-v1");
+  const address = hexToBytes(rawAddressHex(delegator), 20);
+  const key = hexToBytes(delegatePublicKey, 32);
+  const service = new TextEncoder().encode(serviceId);
+  const length = new Uint8Array(4);
+  new DataView(length.buffer).setUint32(0, service.length, false);
+  const bytes = new Uint8Array(domain.length + address.length + key.length + length.length + service.length);
+  let offset = 0;
+  for (const part of [domain, address, key, length, service]) { bytes.set(part, offset); offset += part.length; }
+  return bytesToHex(sha256(bytes));
 }
 
 /* ─── Capability + Hash256 helpers ───────────────────────────────── */

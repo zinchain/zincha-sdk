@@ -22,6 +22,10 @@ import {
   encodeCapabilityDeprecateData,
   encodeCapabilityProposeData,
   encodeCapabilityRejectData,
+  deriveRpcReadDelegationId,
+  delegatedRequestHeadersAsync,
+  encodeRpcReadDelegationGrantData,
+  encodeRpcReadDelegationRevokeData,
   encodeTaskAcceptData,
   encodeTaskCancelData,
   encodeTaskDisputeData,
@@ -348,6 +352,9 @@ test("high-cardinality list helpers use cursor pagination", async () => {
   await client.tokens({ cursor: "a5", limit: 6 });
   await client.arbitrators({ cursor: "a6", limit: 7 });
   await client.marketRates({ cursor: "a7", limit: 8 });
+  await client.rpcReadDelegationsByDelegator(golden.sender, { cursor: "a8", limit: 9 });
+  await client.rpcReadDelegationsByDelegate(golden.recipient, { cursor: "a9", limit: 10 });
+  await client.rpcReadDelegationLifecycleEvents(golden.recipient, 11, 12);
 
   assert.deepEqual(
     calls.map(({ url }) => url),
@@ -359,6 +366,9 @@ test("high-cardinality list helpers use cursor pagination", async () => {
       "http://node.test/v1/tokens?cursor=a5&limit=6",
       "http://node.test/v1/arbitrators?cursor=a6&limit=7",
       "http://node.test/v1/market-rates?cursor=a7&limit=8",
+      `http://node.test/v1/rpc-read-delegations/delegator/${golden.sender}?cursor=a8&limit=9`,
+      `http://node.test/v1/rpc-read-delegations/delegate/${golden.recipient}?cursor=a9&limit=10`,
+      `http://node.test/v1/rpc-read-delegations/delegate/${golden.recipient}/lifecycle-events?after_seq=11&limit=12`,
     ],
   );
   assert.ok(calls.every(({ url }) => !url.includes("offset=")));
@@ -2125,4 +2135,30 @@ test("staking/validator builders produce Rust-compatible signed transactions", a
     referenceBlockHash: "11".repeat(32),
     maxValidBlockHeight: 100,
   }));
+});
+
+test("RPC read delegation matches the shared golden vector", async () => {
+  const vector = JSON.parse(readFileSync(new URL("../../testdata/golden-rpc-read-delegation-v1.json", import.meta.url), "utf8"));
+  assert.equal(deriveRpcReadDelegationId(vector.delegator, vector.delegate_public_key, vector.service_id), vector.delegation_id);
+  assert.equal(bytesToHex(encodeRpcReadDelegationGrantData({
+    delegatePublicKey: vector.delegate_public_key,
+    serviceId: vector.service_id,
+    scopeMask: BigInt(vector.scope_mask),
+    expiresAtMs: BigInt(vector.expires_at_ms),
+  })), vector.grant_data_hex);
+  assert.equal(bytesToHex(encodeRpcReadDelegationRevokeData({ delegationId: vector.delegation_id })), vector.revoke_data_hex);
+  const signer = Keypair.fromSecretHex(vector.delegate_secret_key);
+  assert.equal(signer.publicKeyHex(), vector.delegate_public_key);
+  assert.equal(signer.address(), vector.delegate_address);
+  const request = vector.delegated_request;
+  const headers = await delegatedRequestHeadersAsync(signer, {
+    method: request.method,
+    requestTarget: request.request_target,
+    body: Uint8Array.from(Buffer.from(request.body_hex, "hex")),
+    delegationId: vector.delegation_id,
+    timestampMs: request.timestamp_ms,
+    nonce: request.nonce,
+  });
+  assert.equal(headers["x-zincha-body-sha256"], request.body_sha256);
+  assert.equal(headers["x-zincha-signature"], request.signature);
 });

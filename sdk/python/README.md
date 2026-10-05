@@ -310,6 +310,10 @@ runtime or provide an application database for horizontally scaled workers.
 
 ```python
 conversation = ConversationClient.from_profile(profile, policy="auto")
+node = ZinchaClient.for_release("vega")
+# One grant or renewal per provider/service key. Wait for transaction finality
+# before asking the service to resolve private workflow state.
+conversation.grant_conversation_read_access(node, account)
 challenge = conversation.issue_challenge(account.address(), subject)
 delegation = create_conversation_delegation(
     account=account,
@@ -323,6 +327,14 @@ delegation = create_conversation_delegation(
 session = conversation.create_session(challenge, delegation, operational)
 conversation.set_access_token(session["access_token"])
 ```
+
+`delegation_info()` returns the authenticated service ID, chain identity,
+active/next chain-read keys, required fixed scope mask, and grant lifetime
+bounds. `grant_conversation_read_access()` defaults to 30 days and submits a
+type 71 grant. Use `derive_rpc_read_delegation_id()` and
+`revoke_rpc_read_delegation_and_submit()` to end access. Grant IDs, transaction
+payloads, and delegated-request signatures are fixed by the shared
+cross-language golden vector.
 
 Policies are `auto`, `https_only`, and `zincha_tls_only`. The pinned transport
 uses TLS 1.3 and verifies the leaf DER fingerprint and certificate validity on

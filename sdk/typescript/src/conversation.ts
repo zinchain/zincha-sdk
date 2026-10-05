@@ -4,6 +4,7 @@ import { hkdf } from "@noble/hashes/hkdf";
 import { sha256 as nobleSha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, randomBytes, sha256Hex } from "./crypto.ts";
 import type { TransactionSigner } from "./types.ts";
+import type { ZinchaClient } from "./client.ts";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -25,6 +26,13 @@ export type ConversationInterface =
   | { type: "https"; url: string }
   | { type: "zincha_tls_v1"; host: string; port: number; certificate_pins: ConversationTlsCertificatePin[] };
 export interface ConversationProfileV2 { version: 2; service_id: string; interfaces: ConversationInterface[]; privacy_modes: ConversationPrivacyMode[]; protocol_versions: number[] }
+export interface ConversationChainReadKey { public_key: string; address: string }
+export interface ConversationDelegationInfo {
+  protocol_version: 1; service_id: string; network: string; chain_id: string;
+  active_key: ConversationChainReadKey; next_key?: ConversationChainReadKey | null;
+  required_scopes: string[]; required_scope_mask: number;
+  default_grant_lifetime_ms: number; maximum_grant_lifetime_ms: number;
+}
 export type ConversationTransportPolicy = "auto" | "https_only" | "zincha_tls_only";
 export interface ConversationKeyDelegationV1 {
   version: 1; delegation_id: string; participant_address: string; participant_public_key: string;
@@ -155,6 +163,19 @@ export class ConversationClient {
   }
   setAccessToken(token: string): void { this.accessToken = token; }
   profile(): Promise<ConversationProfileV2> { return this.request("GET", "/v1/profile", undefined, false, false, MAX_PROFILE_RESPONSE_BYTES); }
+  delegationInfo(): Promise<ConversationDelegationInfo> { return this.request("GET", "/v1/delegation-info", undefined, false, false, MAX_PROFILE_RESPONSE_BYTES); }
+  async grantConversationReadAccess(node: ZinchaClient, signer: TransactionSigner, options: { lifetimeMs?: number; feeMicroZin?: bigint | number | string } = {}): Promise<unknown> {
+    const info = await this.delegationInfo();
+    const lifetime = options.lifetimeMs ?? info.default_grant_lifetime_ms;
+    if (!Number.isSafeInteger(lifetime) || lifetime < 3_600_000 || lifetime > info.maximum_grant_lifetime_ms) throw new Error("conversation grant lifetime is outside service bounds");
+    return node.grantRpcReadDelegationAndSubmit(signer, {
+      delegatePublicKey: info.active_key.public_key,
+      serviceId: info.service_id,
+      scopeMask: BigInt(info.required_scope_mask),
+      expiresAtMs: Date.now() + lifetime,
+      feeMicroZin: options.feeMicroZin,
+    });
+  }
   issueChallenge(participantAddress: string, subject: ConversationSubjectRef): Promise<ConversationChallenge> { validateConversationAddress(participantAddress); validateConversationSubject(subject); return this.request("POST", "/v1/auth/challenges", { participant_address: participantAddress, subject }, false); }
   createSession(challenge: ConversationChallenge, delegation: ConversationKeyDelegationV1, operational: TransactionSigner): Promise<ConversationSession> {
     validateUuid(challenge.challenge_id, "challenge ID");

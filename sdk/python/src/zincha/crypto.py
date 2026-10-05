@@ -269,3 +269,47 @@ def signed_request_headers(
         "x-zincha-nonce": request_nonce,
         "x-zincha-body-sha256": body_hash,
     }
+
+
+def delegated_request_headers(
+    signer: SignedRequestSigner,
+    method: str,
+    request_target: str,
+    delegation_id: str,
+    body: Optional[Union[BytesLike, str]] = None,
+    nonce: Optional[str] = None,
+    timestamp_ms: Optional[int] = None,
+) -> Dict[str, str]:
+    if body is None:
+        body_bytes = b""
+    elif isinstance(body, str):
+        body_bytes = body.encode("utf-8")
+    else:
+        body_bytes = bytes(body)
+    normalized_id = hex_to_bytes(delegation_id, 32).hex()
+    timestamp = int(timestamp_ms if timestamp_ms is not None else time.time() * 1000)
+    request_nonce = nonce if nonce is not None else secrets.token_hex(16)
+    body_hash = sha256_hex(body_bytes)
+    public_key = signer.public_key_hex()
+    message = "\n".join(
+        [
+            "zincha-rpc-delegated-read-v1",
+            method.upper(),
+            request_target,
+            str(timestamp),
+            request_nonce,
+            body_hash,
+            signer.address(),
+            public_key,
+            normalized_id,
+        ]
+    ).encode("utf-8")
+    return {
+        "x-zincha-address": signer.address(),
+        "x-zincha-public-key": public_key,
+        "x-zincha-signature": signer.sign(message).hex(),
+        "x-zincha-timestamp-ms": str(timestamp),
+        "x-zincha-nonce": request_nonce,
+        "x-zincha-body-sha256": body_hash,
+        "x-zincha-delegation-id": normalized_id,
+    }

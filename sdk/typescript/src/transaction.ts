@@ -95,6 +95,8 @@ export const TX_TYPE_WIRE_CODES: Record<TxTypeName, number> = {
   capability_approve: 68,
   capability_reject: 69,
   capability_deprecate: 70,
+  rpc_read_delegation_grant: 71,
+  rpc_read_delegation_revoke: 72,
 };
 
 export function createTransferTransaction(

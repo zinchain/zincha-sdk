@@ -9,13 +9,14 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use zincha_primitives::crypto::{hash_bytes, Keypair};
+use zincha_primitives::crypto::{hash_bytes, Hash256, Keypair};
 use zincha_primitives::release::{canonical_rpc_url_for_alias, canonical_websocket_url_for_alias};
 
 pub mod conversation;
 
 const USER_AGENT: &str = concat!("zincha-sdk-rust/", env!("CARGO_PKG_VERSION"));
 const SIGNED_REQUEST_PREFIX: &str = "zincha-rpc-signed-request-v1";
+const DELEGATED_REQUEST_PREFIX: &str = "zincha-rpc-delegated-read-v1";
 
 #[derive(Clone)]
 pub struct ZinchaClient {
@@ -99,20 +100,32 @@ impl ZinchaClient {
             request = request.bearer_auth(token);
         }
 
-        if options.signed {
+        if options.signed || options.delegation_id.is_some() {
             let signer = options
                 .signer
                 .as_deref()
                 .or(self.signer.as_deref())
                 .ok_or_else(|| anyhow::anyhow!("signed request requires a signer"))?;
-            let headers = signed_request_headers(
-                signer,
-                method.as_str(),
-                &request_target,
-                body_bytes.as_deref().unwrap_or_default(),
-                options.timestamp_ms,
-                options.nonce.as_deref(),
-            )?;
+            let headers = if let Some(delegation_id) = options.delegation_id.as_deref() {
+                delegated_request_headers(
+                    signer,
+                    method.as_str(),
+                    &request_target,
+                    body_bytes.as_deref().unwrap_or_default(),
+                    delegation_id,
+                    options.timestamp_ms,
+                    options.nonce.as_deref(),
+                )?
+            } else {
+                signed_request_headers(
+                    signer,
+                    method.as_str(),
+                    &request_target,
+                    body_bytes.as_deref().unwrap_or_default(),
+                    options.timestamp_ms,
+                    options.nonce.as_deref(),
+                )?
+            };
             for (name, value) in headers {
                 request = request.header(name, value);
             }
@@ -174,6 +187,53 @@ impl ZinchaClient {
     pub async fn arbitrators(&self, query: CursorPageQuery) -> Result<Value> {
         self.request(Method::GET, "/v1/arbitrators", query.into_request_options())
             .await
+    }
+
+    pub async fn rpc_read_delegation(&self, delegation_id: &str) -> Result<Value> {
+        self.get(&format!("/v1/rpc-read-delegations/{delegation_id}"))
+            .await
+    }
+
+    pub async fn rpc_read_delegations_by_delegator(
+        &self,
+        address: &str,
+        query: CursorPageQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/rpc-read-delegations/delegator/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn rpc_read_delegations_by_delegate(
+        &self,
+        address: &str,
+        query: CursorPageQuery,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/rpc-read-delegations/delegate/{address}"),
+            query.into_request_options(),
+        )
+        .await
+    }
+
+    pub async fn rpc_read_delegation_lifecycle_events(
+        &self,
+        delegate_address: &str,
+        after_seq: u64,
+        limit: u64,
+    ) -> Result<Value> {
+        self.request(
+            Method::GET,
+            &format!("/v1/rpc-read-delegations/delegate/{delegate_address}/lifecycle-events"),
+            RequestOptions::default()
+                .query_param("after_seq", after_seq.to_string())
+                .query_param("limit", limit.to_string()),
+        )
+        .await
     }
 
     pub async fn market_rates(&self, query: CursorPageQuery) -> Result<Value> {
@@ -586,6 +646,7 @@ pub struct RequestOptions {
     pub signer: Option<Arc<Keypair>>,
     pub timestamp_ms: Option<u64>,
     pub nonce: Option<String>,
+    pub delegation_id: Option<String>,
 }
 
 impl RequestOptions {
@@ -621,6 +682,11 @@ impl RequestOptions {
 
     pub fn nonce(mut self, nonce: impl Into<String>) -> Self {
         self.nonce = Some(nonce.into());
+        self
+    }
+
+    pub fn delegated(mut self, delegation_id: impl Into<String>) -> Self {
+        self.delegation_id = Some(delegation_id.into());
         self
     }
 }
@@ -1050,6 +1116,50 @@ pub fn signed_request_headers(
         ),
         ("x-zincha-nonce".to_string(), parts.nonce),
         ("x-zincha-body-sha256".to_string(), parts.body_sha256),
+    ]))
+}
+
+pub fn delegated_request_headers(
+    signer: &Keypair,
+    method: &str,
+    request_target: &str,
+    body_bytes: &[u8],
+    delegation_id: &str,
+    timestamp_ms: Option<u64>,
+    nonce: Option<&str>,
+) -> Result<BTreeMap<String, String>> {
+    let delegation_id = Hash256::from_hex(delegation_id)
+        .context("delegation ID must be a 32-byte hexadecimal hash")?
+        .to_hex();
+    let timestamp_ms = timestamp_ms.unwrap_or_else(unix_timestamp_millis);
+    let nonce = nonce.map(str::to_string).unwrap_or_else(random_nonce_hex);
+    let body_sha256 = hash_bytes(body_bytes).to_hex();
+    let address = signer.address().to_string();
+    let public_key = hex::encode(signer.public_key().as_bytes());
+    let message = [
+        DELEGATED_REQUEST_PREFIX.to_string(),
+        method.to_ascii_uppercase(),
+        request_target.to_string(),
+        timestamp_ms.to_string(),
+        nonce.clone(),
+        body_sha256.clone(),
+        address.clone(),
+        public_key.clone(),
+        delegation_id.clone(),
+    ]
+    .join("\n");
+    let signature = hex::encode(signer.sign(message.as_bytes()).to_bytes());
+    Ok(BTreeMap::from([
+        ("x-zincha-address".to_string(), address),
+        ("x-zincha-public-key".to_string(), public_key),
+        ("x-zincha-signature".to_string(), signature),
+        (
+            "x-zincha-timestamp-ms".to_string(),
+            timestamp_ms.to_string(),
+        ),
+        ("x-zincha-nonce".to_string(), nonce),
+        ("x-zincha-body-sha256".to_string(), body_sha256),
+        ("x-zincha-delegation-id".to_string(), delegation_id),
     ]))
 }
 

@@ -338,6 +338,7 @@ export interface RequestOptions {
   body?: unknown;
   bearerToken?: string;
   signed?: boolean;
+  delegationId?: Hex;
   signal?: AbortSignal;
 }
 
@@ -496,4 +497,6 @@ export type TxTypeName =
   | "capability_propose"
   | "capability_approve"
   | "capability_reject"
-  | "capability_deprecate";
+  | "capability_deprecate"
+  | "rpc_read_delegation_grant"
+  | "rpc_read_delegation_revoke";

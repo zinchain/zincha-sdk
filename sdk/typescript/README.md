@@ -300,6 +300,10 @@ an application-held key, and elect one sender lease per account/conversation.
 // Browser: selects the first HTTPS interface and verifies /v1/profile before
 // any access token or workflow identifier is sent.
 const conversation = await ConversationClient.fromProfile(profile);
+const node = ZinchaClient.forRelease("vega");
+// One grant or renewal per provider/service key. Wait for transaction finality
+// before asking the service to resolve private workflow state.
+await conversation.grantConversationReadAccess(node, account);
 const challenge = await conversation.issueChallenge(account.address(), subject);
 const delegation = await createConversationDelegation({
   account,
@@ -313,6 +317,14 @@ const delegation = await createConversationDelegation({
 const session = await conversation.createSession(challenge, delegation, operational);
 conversation.setAccessToken(session.access_token);
 ```
+
+`delegationInfo()` returns the authenticated service ID, chain identity,
+active/next chain-read keys, required fixed scope mask, and grant lifetime
+bounds. `grantConversationReadAccess()` defaults to 30 days and submits a type
+71 grant. Use the node client's `buildRevokeRpcReadDelegation` or
+`revokeRpcReadDelegationAndSubmit` with `deriveRpcReadDelegationId(...)` to end
+access. Grant IDs, transaction payloads, and delegated-request signatures are
+fixed by the shared cross-language golden vector.
 
 Node applications can also use pinned TLS 1.3 without placing Node modules in
 browser bundles:

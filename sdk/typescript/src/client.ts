@@ -1,4 +1,4 @@
-import { bytesToHex, hexToBytes, normalizeAddress, signedRequestHeadersAsync } from "./crypto.ts";
+import { bytesToHex, delegatedRequestHeadersAsync, hexToBytes, normalizeAddress, signedRequestHeadersAsync } from "./crypto.ts";
 import { isMainnetRelease, parseReleaseName, releaseSpec } from "./release.ts";
 import {
   createTransferTransaction,
@@ -70,6 +70,8 @@ import {
   encodeCapabilityDeprecateData,
   encodeCapabilityProposeData,
   encodeCapabilityRejectData,
+  encodeRpcReadDelegationGrantData,
+  encodeRpcReadDelegationRevokeData,
   type AgentDeregisterInput,
   type AgentUpdateInput,
   type AgreementAcceptInput,
@@ -82,6 +84,8 @@ import {
   type CapabilityDeprecateInput,
   type CapabilityProposeInput,
   type CapabilityRejectInput,
+  type RpcReadDelegationGrantInput,
+  type RpcReadDelegationRevokeInput,
   type ContractCallInput,
   type ContractDeactivateInput,
   type ContractDeployInput,
@@ -226,15 +230,13 @@ export class ZinchaClient {
     if (bearer) {
       headers.authorization = `Bearer ${bearer}`;
     }
-    if (options.signed) {
+    if (options.signed || options.delegationId !== undefined) {
       if (!this.signer) {
         throw new Error("signed request requires a client signer");
       }
-      Object.assign(headers, await signedRequestHeadersAsync(this.signer, {
-        method,
-        requestTarget,
-        body: body ?? "",
-      }));
+      Object.assign(headers, options.delegationId !== undefined
+        ? await delegatedRequestHeadersAsync(this.signer, { method, requestTarget, body: body ?? "", delegationId: options.delegationId })
+        : await signedRequestHeadersAsync(this.signer, { method, requestTarget, body: body ?? "" }));
     }
 
     const response = await this.fetchImpl(url, {
@@ -296,6 +298,27 @@ export class ZinchaClient {
   accountTransactions(address: string, query?: TransactionHistoryQuery): Promise<unknown> {
     return this.get(`/v1/accounts/${normalizeAddress(address)}/transactions`, {
       query: transactionHistoryQuery(query),
+    });
+  }
+
+  rpcReadDelegation(delegationId: string): Promise<unknown> {
+    return this.get(`/v1/rpc-read-delegations/${delegationId.toLowerCase()}`);
+  }
+
+  rpcReadDelegationsByDelegator(address: string, query?: CursorPageQuery): Promise<unknown> {
+    return this.get(`/v1/rpc-read-delegations/delegator/${normalizeAddress(address)}`, { query: cursorPageQuery(query) });
+  }
+
+  rpcReadDelegationsByDelegate(address: string, query?: CursorPageQuery): Promise<unknown> {
+    return this.get(`/v1/rpc-read-delegations/delegate/${normalizeAddress(address)}`, { query: cursorPageQuery(query) });
+  }
+
+  rpcReadDelegationLifecycleEvents(delegateAddress: string, afterSeq = 0, limit = 100): Promise<unknown> {
+    if (!Number.isSafeInteger(afterSeq) || afterSeq < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
+      throw new Error("delegation lifecycle page cursor or limit is invalid");
+    }
+    return this.get(`/v1/rpc-read-delegations/delegate/${normalizeAddress(delegateAddress)}/lifecycle-events`, {
+      query: { after_seq: afterSeq, limit },
     });
   }
 
@@ -500,6 +523,22 @@ export class ZinchaClient {
   /** Convenience: build + submit a curator-only `capability_deprecate` transaction. */
   async deprecateCapabilityAndSubmit(signer: TransactionSigner, input: CapabilityDeprecateInput): Promise<SubmitTransactionResponse> {
     return this.submitSignedTransaction(await this.buildDeprecateCapability(signer, input));
+  }
+
+  async buildGrantRpcReadDelegation(signer: TransactionSigner, input: RpcReadDelegationGrantInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "rpc_read_delegation_grant", input, encodeRpcReadDelegationGrantData(input));
+  }
+
+  async grantRpcReadDelegationAndSubmit(signer: TransactionSigner, input: RpcReadDelegationGrantInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildGrantRpcReadDelegation(signer, input));
+  }
+
+  async buildRevokeRpcReadDelegation(signer: TransactionSigner, input: RpcReadDelegationRevokeInput): Promise<SignedTransaction> {
+    return this.buildTypedTransaction(signer, "rpc_read_delegation_revoke", input, encodeRpcReadDelegationRevokeData(input));
+  }
+
+  async revokeRpcReadDelegationAndSubmit(signer: TransactionSigner, input: RpcReadDelegationRevokeInput): Promise<SubmitTransactionResponse> {
+    return this.submitSignedTransaction(await this.buildRevokeRpcReadDelegation(signer, input));
   }
 
   /**

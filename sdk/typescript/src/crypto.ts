@@ -24,6 +24,7 @@ export const ADDRESS_PREFIX = "zn1";
 
 /** Domain tag that prefixes every authenticated-request signature payload. */
 export const SIGNED_REQUEST_DOMAIN = "zincha-rpc-signed-request-v1";
+export const DELEGATED_REQUEST_DOMAIN = "zincha-rpc-delegated-read-v1";
 
 export function stripHexPrefix(hex: string): string {
   return hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
@@ -288,4 +289,39 @@ export async function signedRequestHeadersAsync(
   const built = signedRequestMessage(signer, input);
   const signature = await signer.sign(built.message);
   return headersFor(built, signature);
+}
+
+/** Build and sign the canonical delegated-read request without changing the direct-request domain. */
+export async function delegatedRequestHeadersAsync(
+  signer: TransactionSigner,
+  input: SignedRequestHeadersInput & { delegationId: Hex },
+): Promise<Record<string, string>> {
+  const body = typeof input.body === "string" ? new TextEncoder().encode(input.body) : input.body ?? new Uint8Array();
+  const timestampMs = input.timestampMs ?? Date.now();
+  const nonce = input.nonce ?? bytesToHex(randomBytes(16));
+  const bodyHash = sha256Hex(body);
+  const publicKey = signer.publicKeyHex();
+  const address = signer.address();
+  const delegationId = bytesToHex(hexToBytes(input.delegationId, 32));
+  const message = new TextEncoder().encode([
+    DELEGATED_REQUEST_DOMAIN,
+    input.method.toUpperCase(),
+    input.requestTarget,
+    String(timestampMs),
+    nonce,
+    bodyHash,
+    address,
+    publicKey,
+    delegationId,
+  ].join("\n"));
+  const signature = await signer.sign(message);
+  return {
+    "x-zincha-address": address,
+    "x-zincha-public-key": publicKey,
+    "x-zincha-signature": bytesToHex(signature),
+    "x-zincha-timestamp-ms": String(timestampMs),
+    "x-zincha-nonce": nonce,
+    "x-zincha-body-sha256": bodyHash,
+    "x-zincha-delegation-id": delegationId,
+  };
 }

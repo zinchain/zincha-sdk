@@ -48,8 +48,10 @@ All three SDKs implement the versioned provider-hosted conversation protocol:
 account-authorized operational keys, exact message signing, resumable SSE,
 durable idempotent outboxes, profile discovery, and optional X25519/HKDF/
 XChaCha20-Poly1305 end-to-end encryption. Conversation traffic remains off
-chain; the node's existing participant-protected workflow reads remain the
-authorization source. All implementations reject non-contributory X25519 keys
+chain; the node's scoped on-chain read grants and existing participant checks
+remain the authorization source. The SDKs derive stable grant IDs, build grant
+and revoke transactions, query grants and lifecycle state, and sign the exact
+`zincha-rpc-delegated-read-v1` request form. All implementations reject non-contributory X25519 keys
 and validate the complete typed plaintext schema before signing or after
 decryption.
 

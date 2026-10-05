@@ -3,6 +3,7 @@ pub mod agreement;
 pub mod capability;
 pub mod contract;
 pub mod entity;
+pub mod rpc_delegation;
 pub mod task;
 pub mod token;
 pub mod tool;
@@ -33,6 +34,16 @@ pub use contract::{
     ContractVerificationRecord, ContractVerifyData, FunctionSignature, PublishedContractSource,
 };
 pub use entity::{EntityLinkData, EntityLinkRecord};
+pub use rpc_delegation::{
+    rpc_read_delegate_address, rpc_read_delegation_id, validate_rpc_read_delegation_service_id,
+    RpcReadDelegation, RpcReadDelegationGrantData, RpcReadDelegationRevokeData,
+    MAX_RPC_READ_DELEGATIONS_PER_DELEGATOR, RPC_READ_DELEGATION_DEFAULT_LIFETIME_MS,
+    RPC_READ_DELEGATION_MAX_LIFETIME_MS, RPC_READ_DELEGATION_MIN_LIFETIME_MS,
+    RPC_READ_SCOPE_AGREEMENT_LIFECYCLE_READ, RPC_READ_SCOPE_AGREEMENT_READ, RPC_READ_SCOPE_ALL,
+    RPC_READ_SCOPE_TASK_LIFECYCLE_READ, RPC_READ_SCOPE_TASK_READ,
+    RPC_READ_SCOPE_TOOL_JOB_LIFECYCLE_READ, RPC_READ_SCOPE_TOOL_JOB_READ,
+    RPC_READ_SCOPE_TOOL_USAGE_SESSION_LIFECYCLE_READ, RPC_READ_SCOPE_TOOL_USAGE_SESSION_READ,
+};
 pub use task::{
     MatchPreferences, SubTaskDef, Task, TaskAcceptData, TaskDecomposeData, TaskDisputeData,
     TaskFinalizeData, TaskFulfillData, TaskResolveData, TaskStatus, TaskSubmitData,

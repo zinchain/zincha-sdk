@@ -408,8 +408,8 @@ the API reference.
 Conversation messages are off-chain and are served by the workflow provider's
 advertised `ConversationProfileV2`, not by the node RPC. A conversation exists
 only for an existing task, agreement, tool job, or tool-usage session. The
-conversation service derives membership from the node's participant-signed
-private detail and lifecycle routes; never accept a caller-provided participant
+conversation service derives membership from the node's scoped delegated-read
+detail and lifecycle routes; never accept a caller-provided participant
 list and never create an unsolicited general inbox.
 
 Use the Rust, TypeScript, or Python conversation module to:
@@ -431,6 +431,17 @@ Use the Rust, TypeScript, or Python conversation module to:
 5. Use `platform_readable` for provider-visible data encrypted at rest or
    `end_to_end` for the versioned SDK envelope. Do not claim that E2E mode lets
    the provider inspect, search, or recover message plaintext.
+
+Before the first conversation, fetch the authenticated service's
+`GET /v1/delegation-info` response and grant its active chain-read public key
+the returned scope mask with an `rpc_read_delegation_grant` transaction. The
+SDK default is 30 days; consensus accepts one hour through 90 days. Wait for
+finality before resolving the conversation. The service then signs its own
+private workflow reads using `zincha-rpc-delegated-read-v1`; the provider does
+not expose a signing callback or give the service its wallet key. Revoke with
+`rpc_read_delegation_revoke` when access should end. During service-key
+rotation, grant the advertised next key before it becomes active and retain the
+old grant only for the declared migration window.
 
 Do not put wallet secrets in message bodies or artifacts. A delegation can be
 revoked independently of the account key, and applications should use the

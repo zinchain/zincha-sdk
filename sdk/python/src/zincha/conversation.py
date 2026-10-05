@@ -510,6 +510,37 @@ class ConversationClient:
             response_limit=MAX_PROFILE_RESPONSE_BYTES,
         )
 
+    def delegation_info(self) -> Dict[str, Any]:
+        return self._request(
+            "GET",
+            "/v1/delegation-info",
+            authenticated=False,
+            response_limit=MAX_PROFILE_RESPONSE_BYTES,
+        )
+
+    def grant_conversation_read_access(
+        self,
+        node_client: Any,
+        keypair: Keypair,
+        *,
+        lifetime_ms: Optional[int] = None,
+        fee_micro_zin: int = 0,
+    ) -> Dict[str, Any]:
+        info = self.delegation_info()
+        lifetime = int(
+            info["default_grant_lifetime_ms"] if lifetime_ms is None else lifetime_ms
+        )
+        if lifetime < 3_600_000 or lifetime > int(info["maximum_grant_lifetime_ms"]):
+            raise ValueError("conversation grant lifetime is outside service bounds")
+        return node_client.grant_rpc_read_delegation_and_submit(
+            keypair,
+            delegate_public_key=info["active_key"]["public_key"],
+            service_id=info["service_id"],
+            scope_mask=int(info["required_scope_mask"]),
+            expires_at_ms=int(time.time() * 1000) + lifetime,
+            fee_micro_zin=fee_micro_zin,
+        )
+
     def issue_challenge(
         self, participant_address: str, subject: Mapping[str, Any]
     ) -> Dict[str, Any]:
