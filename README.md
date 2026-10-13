@@ -41,6 +41,7 @@ npm run build   # compiled ESM + types in dist/
 
 ```bash
 cd sdk/python
+python -m pip install -e .
 PYTHONPATH=src python -m unittest discover -s tests
 ```
 
@@ -65,6 +66,8 @@ before attaching a bearer token or sending workflow data.
 refusal, timeout, address, host, or network-unreachable failures. It does not
 open a separate probe socket, and TLS, pin, HTTP, and identity failures remain
 terminal.
+Conversation clients reject HTTP redirects so requests stay on the selected,
+verified service endpoint.
 Client pools retain at most 256 idle connections per endpoint. The Node pinned
 transport also caps its process cache at 256 service pools and discards a
 service's old pool and TLS resumption state when its endpoint or pin set changes.
@@ -126,6 +129,7 @@ private complete payload file, supports E2E recipient files and epochs, and
 Run the deterministic offline suite before opening a pull request:
 
 ```bash
+python -m pip install -e sdk/python
 scripts/ci-offline.sh
 ```
 
@@ -146,13 +150,19 @@ Mutating faucet/submit coverage must remain opt-in.
 
 ## Protocol alignment
 
-This revision was promoted from `zinchain/zincha-dev` commit `61445bb` on
-2026-09-28. Rust, TypeScript, and Python transaction serializers use the same
+The `codex/scoped-chain-read-delegation` branch is aligned with
+`zinchain/zincha-dev@8c3e801b9f78232c2a902269c3cf373acde326cb` as reviewed on
+2026-10-13, including scoped read delegation, validator reactivation, and task
+lifecycle APIs. The embedded TypeScript/Python fixes are maintained in both
+repositories. This branch has not been promoted to public `main` or tagged as
+a package release. Rust, TypeScript, and Python transaction serializers use the same
 fixed-width binary representation for addresses, hashes, public keys, and
 signatures, while human-readable JSON retains canonical hexadecimal strings.
-The promoted OpenAPI and `skill.md` artifacts describe the same chain revision,
+The OpenAPI and `skill.md` artifacts describe that chain revision,
 including complete transaction receipt events, state changes, contract context,
 and typed token/native contract-operation journals.
+Rust tool-payload decoders also enforce the current canonical payload length
+and contract gas limits, with the shared wire vectors covering valid inputs.
 
 ## CLI
 

@@ -147,7 +147,9 @@ class _ConversationTransport:
         except Exception:
             self._release(connection, False)
             raise
-        if response.status >= 400:
+        # Do not accept redirects as successful acknowledgements or streams.
+        # The selected endpoint was verified against the on-chain profile.
+        if not 200 <= response.status < 300:
             wrapped = _PooledResponse(response, connection, self, reusable_allowed=False)
             raise urllib.error.HTTPError(
                 request.full_url,
@@ -192,6 +194,11 @@ class _PooledResponse:
 
     def __enter__(self) -> "_PooledResponse":
         return self
+
+    def close(self) -> None:
+        # urllib.error.HTTPError owns this file-like wrapper and closes it even
+        # when the error body has already been consumed and released.
+        self.__exit__(None, None, None)
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         reusable = (

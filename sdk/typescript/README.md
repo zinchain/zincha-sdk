@@ -4,7 +4,7 @@ The TypeScript SDK is release-aware and uses the Rust node protocol as the
 source of truth for transaction serialization, hashes, and signatures.
 
 It is isomorphic — the same code runs in Node.js 22.6+, browsers, and the
-MetaMask Snaps sandbox — with two audited pure-JS runtime dependencies
+MetaMask Snaps sandbox — with three pure-JS cryptographic runtime dependencies
 (`@noble/curves`, `@noble/hashes`, and `@noble/ciphers`). Any `TransactionSigner` (an in-process
 `Keypair`, or an external wallet such as the Zincha MetaMask Snap) can sign.
 The current serializer writes addresses, hashes, and public keys in the
@@ -341,6 +341,8 @@ provider preference and classifies the real profile request, advancing only on
 explicit refusal, timeout, address, host, or network-unreachable failures. It
 opens no speculative probe connection. A TLS, pin, live-profile, HTTP, or
 service-identity failure is terminal.
+HTTP redirects are rejected so credentials and workflow data remain on the
+selected, verified endpoint.
 The Node export reuses pinned transports, evicts least-recently-used pools
 above 256 services, and closes the old pool whenever a service's endpoint or
 pin set changes.
@@ -355,6 +357,8 @@ catch-up after `resync_required`, and throws
 `ConversationAuthorizationRequiredError` instead of retrying an expired or
 revoked session. Persist a fully signed message with `ConversationOutbox`
 before submission and use `flush()` for capped idempotent retries.
+Each SSE connection owns its UTF-8 decoder. Leaving a `for await` loop closes
+its reader; pass an `AbortSignal` to interrupt a pending network read.
 
 ## Releases
 
@@ -373,16 +377,18 @@ Faucet helpers fail closed for mainnet releases.
 From the repository root:
 
 ```bash
+pnpm --dir sdk/typescript install --frozen-lockfile
 node --experimental-strip-types --test sdk/typescript/test/*.test.ts
 pnpm --dir sdk/typescript run typecheck
-cargo test --test sdk_vectors
 ```
 
 The runtime tests use Node's native type-stripping test runner and require
 Node.js 22.6 or newer. The separate TypeScript compiler gate validates the
 exported response and builder contracts under strict mode.
 
-Regenerate the Rust golden vectors after intentional protocol changes:
+The public SDK's Rust checks run with `cargo test --workspace --all-targets`.
+Regenerate the shared Rust golden vectors in the chain source repository after
+intentional protocol changes, then promote the reviewed fixtures to the SDK:
 
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors

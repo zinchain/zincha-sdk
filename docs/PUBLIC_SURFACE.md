@@ -13,10 +13,13 @@ The SDK repository exposes client-side APIs only:
 - TypeScript and Python SDKs with golden-vector parity tests.
 - The generated public OpenAPI artifact.
 
-The 2026-09-28 promotion is aligned to `zinchain/zincha-dev@61445bb`. Its
-machine-readable artifacts and all three transaction serializers share that
-protocol source; golden-vector and artifact-contract tests enforce the copied
-wire and response shapes.
+The scoped delegation branch is aligned to
+`zinchain/zincha-dev@8c3e801b9f78232c2a902269c3cf373acde326cb` as reviewed on
+2026-10-13. It includes scoped read grants/revocation, validator reactivation,
+task lifecycle APIs, and conversation clients. Its OpenAPI and onboarding
+artifacts match that chain revision. Golden-vector and artifact-contract tests
+check the wire and response shapes. These branch updates are not a promotion
+to public `main` or a package release.
 
 The SDK repository does not expose:
 

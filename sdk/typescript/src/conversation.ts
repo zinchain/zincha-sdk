@@ -197,29 +197,37 @@ export class ConversationClient {
     let cursor = after; let delay = 250;
     while (!signal?.aborted) {
       try {
-        const response = await this.fetchImpl(`${this.baseUrl}/v1/conversations/${id}/events?after=${cursor}&limit=100`, { headers: { ...this.headers(), accept: "text/event-stream" }, signal });
+        const response = await this.fetchImpl(`${this.baseUrl}/v1/conversations/${id}/events?after=${cursor}&limit=100`, { headers: { ...this.headers(), accept: "text/event-stream" }, signal, redirect: "manual" });
+        if (!response.ok) await response.body?.cancel().catch(() => undefined);
         if (response.status === 401 || response.status === 403) throw new ConversationAuthorizationRequiredError(`conversation SSE HTTP ${response.status}`);
         if (!response.ok && response.status !== 408 && response.status !== 429 && response.status < 500) throw new ConversationStreamError(response.status);
         if (!response.ok || !response.body) throw new Error(`conversation SSE HTTP ${response.status}`);
         const reader = response.body.getReader(); let buffer = ""; let resync = false;
-        readLoop: for (;;) {
-          const { value, done } = await reader.read(); if (done) break;
-          if (value.length > MAX_SSE_EVENT_BYTES || buffer.length > MAX_SSE_EVENT_BYTES - value.length) throw new Error("conversation SSE event exceeds 256 KiB");
-          buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
-          if (buffer.length > MAX_SSE_EVENT_BYTES) throw new Error("conversation SSE event exceeds 256 KiB");
-          for (;;) {
-            const boundary = buffer.indexOf("\n\n"); if (boundary < 0) break;
-            const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
-            const event = parseSse(block);
-            if (event.event === "authorization_required") throw new ConversationAuthorizationRequiredError("conversation authorization must be renewed");
-            if (event.event === "resync_required") { resync = true; break readLoop; }
-            if (event.event === "message" && event.data) {
-              const message = JSON.parse(event.data) as ConversationMessage;
-              if (message.sequence > cursor) { cursor = message.sequence; yield message; }
+        // Incremental UTF-8 state belongs to this connection, not other streams
+        // or ordinary JSON requests made while a character is split over chunks.
+        const streamDecoder = new TextDecoder();
+        try {
+          readLoop: for (;;) {
+            const { value, done } = await reader.read(); if (done) break;
+            if (value.length > MAX_SSE_EVENT_BYTES || buffer.length > MAX_SSE_EVENT_BYTES - value.length) throw new Error("conversation SSE event exceeds 256 KiB");
+            buffer = (buffer + streamDecoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
+            if (buffer.length > MAX_SSE_EVENT_BYTES) throw new Error("conversation SSE event exceeds 256 KiB");
+            for (;;) {
+              const boundary = buffer.indexOf("\n\n"); if (boundary < 0) break;
+              const block = buffer.slice(0, boundary); buffer = buffer.slice(boundary + 2);
+              const event = parseSse(block);
+              if (event.event === "authorization_required") throw new ConversationAuthorizationRequiredError("conversation authorization must be renewed");
+              if (event.event === "resync_required") { resync = true; break readLoop; }
+              if (event.event === "message" && event.data) {
+                const message = JSON.parse(event.data) as ConversationMessage;
+                if (message.sequence > cursor) { cursor = message.sequence; yield message; }
+              }
             }
           }
+        } finally {
+          await reader.cancel().catch(() => undefined);
+          reader.releaseLock();
         }
-        await reader.cancel().catch(() => undefined);
         if (resync) {
           for (;;) {
             const previousCursor = cursor;
@@ -244,7 +252,7 @@ export class ConversationClient {
   private async request<T>(method: string, path: string, body?: unknown, authenticated = true, allowEmpty = false, responseLimit = MAX_CONVERSATION_RESPONSE_BYTES): Promise<T> {
     const headers: Record<string, string> = { accept: "application/json", ...(authenticated ? this.headers() : {}) };
     const encoded = body === undefined ? undefined : JSON.stringify(body); if (encoded !== undefined) headers["content-type"] = "application/json";
-    const response = await this.fetchImpl(`${this.baseUrl}${path}`, { method, headers, body: encoded });
+    const response = await this.fetchImpl(`${this.baseUrl}${path}`, { method, headers, body: encoded, redirect: "manual" });
     if (allowEmpty && response.ok && response.status === 204) return undefined as T;
     const value = await readJsonBounded(response, responseLimit) as { success?: boolean; data?: T; error?: string };
     if (!response.ok || value.success !== true) throw new Error(value.error ?? `conversation HTTP ${response.status}`);
@@ -254,13 +262,21 @@ export class ConversationClient {
 
 async function readJsonBounded(response: Response, limit = MAX_CONVERSATION_RESPONSE_BYTES): Promise<unknown> {
   const declared = response.headers.get("content-length");
-  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > limit) throw new Error("conversation response exceeds bounded limit");
+  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > limit) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error("conversation response exceeds bounded limit");
+  }
   if (!response.body) throw new Error("conversation response has no body");
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let length = 0;
-  for (;;) {
-    const { value, done } = await reader.read(); if (done) break;
-    if (length > limit - value.length) { await reader.cancel().catch(() => undefined); throw new Error("conversation response exceeds bounded limit"); }
-    length += value.length; chunks.push(value);
+  try {
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      if (length > limit - value.length) throw new Error("conversation response exceeds bounded limit");
+      length += value.length; chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
   const encoded = new Uint8Array(length); let offset = 0;
   for (const chunk of chunks) { encoded.set(chunk, offset); offset += chunk.length; }

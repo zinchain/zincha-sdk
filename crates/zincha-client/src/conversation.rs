@@ -600,6 +600,7 @@ fn pinned_http_client(pins: &[TlsCertificatePin]) -> Result<Client> {
     tls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     tls.enable_early_data = false;
     Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
         .dns_resolver(Arc::new(ConversationDnsResolver))
         .use_preconfigured_tls(tls)
         .connect_timeout(std::time::Duration::from_secs(5))
@@ -629,6 +630,7 @@ impl ConversationClient {
         base_url.set_fragment(None);
         Ok(Self {
             http: Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
                 .dns_resolver(Arc::new(ConversationDnsResolver))
                 .connect_timeout(std::time::Duration::from_secs(5))
                 .timeout(std::time::Duration::from_secs(30))
@@ -657,6 +659,7 @@ impl ConversationClient {
                     (
                         Url::parse(url).context("parse HTTPS conversation interface")?,
                         Client::builder()
+                            .redirect(reqwest::redirect::Policy::none())
                             .dns_resolver(Arc::new(ConversationDnsResolver))
                             .connect_timeout(std::time::Duration::from_secs(5))
                             .timeout(std::time::Duration::from_secs(30))
@@ -1044,12 +1047,10 @@ impl ConversationClient {
         if let Some(body) = body {
             request = request.json(body);
         }
-        request
-            .send()
-            .await
-            .context("send conversation request")?
-            .error_for_status()
-            .context("conversation request failed")?;
+        let response = request.send().await.context("send conversation request")?;
+        if !response.status().is_success() {
+            bail!("conversation HTTP {}: request failed", response.status());
+        }
         Ok(())
     }
 }
@@ -2205,6 +2206,76 @@ mod tests {
             .unwrap(),
             profile
         );
+    }
+
+    #[tokio::test]
+    async fn conversation_requests_reject_redirects_without_following_them() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let followed = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&followed);
+        let server = tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = vec![0u8; 8 * 1024];
+                let read = stream.read(&mut request).await.unwrap();
+                let redirected =
+                    String::from_utf8_lossy(&request[..read]).contains(" /unverified ");
+                let (status, location, body) = if redirected {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    ("200 OK", "", serde_json::json!({
+                        "success": true,
+                        "data": {
+                            "version": 2, "service_id": "provider/conversations",
+                            "interfaces": [{"type": "https", "url": "https://conversations.example"}],
+                            "privacy_modes": ["platform_readable"], "protocol_versions": [1]
+                        }
+                    }).to_string())
+                } else {
+                    (
+                        "307 Temporary Redirect",
+                        "Location: /unverified\r\n",
+                        serde_json::json!({
+                            "success": false, "error": "redirect refused"
+                        })
+                        .to_string(),
+                    )
+                };
+                let response = format!(
+                    "HTTP/1.1 {status}\r\n{location}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+        let client = ConversationClient::new(format!("http://{address}"))
+            .unwrap()
+            .with_access_token("test-token");
+        let id = "ab".repeat(32);
+        assert!(client
+            .profile()
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("307"));
+        assert!(client
+            .acknowledge(&id, 1)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("307"));
+        let event = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.events(id, 0).next(),
+        )
+        .await
+        .expect("redirect must fail without retries")
+        .unwrap();
+        assert!(event.unwrap_err().to_string().contains("307"));
+        assert_eq!(followed.load(Ordering::SeqCst), 0);
+        server.abort();
     }
 
     #[tokio::test]

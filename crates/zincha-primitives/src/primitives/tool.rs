@@ -1,7 +1,17 @@
-use serde::{Deserialize, Serialize};
+use bincode::Options;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::agent::Capability;
 use crate::crypto::{Address, Hash256};
+
+fn decode_canonical_tool_payload<T: DeserializeOwned>(
+    bytes: &[u8],
+) -> std::result::Result<T, bincode::Error> {
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
+        .reject_trailing_bytes()
+        .deserialize(bytes)
+}
 
 fn default_tool_sla_ms() -> u64 {
     3_600_000
@@ -1083,13 +1093,12 @@ pub struct ToolSubscriptionResumeData {
     ///
     /// When the subscription's paid period has already lapsed, resume starts a
     /// fresh period from the current block time and may require new funding.
-    #[serde(default)]
     pub reserve_amount: u64,
 }
 
 impl ToolSubscriptionResumeData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
@@ -1101,7 +1110,7 @@ pub struct ToolSubscriptionRenewData {
 
 impl ToolRegisterData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
@@ -1116,7 +1125,6 @@ pub struct ToolInvokeData {
     ///
     /// Required only when the tool uses `MeteredUsage`. Ignored for other
     /// settlement modes.
-    #[serde(default)]
     pub max_metered_units: Option<u64>,
     /// Maximum gas budget for contract-backed tool execution.
     ///
@@ -1127,7 +1135,6 @@ pub struct ToolInvokeData {
     ///
     /// Amounts must sum to the tool's listed `price_per_call`. Ignored for all
     /// other settlement modes.
-    #[serde(default)]
     pub milestones: Vec<ToolMilestoneDef>,
 }
 
@@ -1149,7 +1156,10 @@ pub fn validate_contract_tool_gas_limit(gas_limit: u64) -> std::result::Result<u
 
 impl ToolInvokeData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        let data: Self = decode_canonical_tool_payload(bytes)?;
+        validate_contract_tool_gas_limit(data.gas_limit)
+            .map_err(|error| Box::new(bincode::ErrorKind::Custom(error)))?;
+        Ok(data)
     }
 }
 
@@ -1198,7 +1208,7 @@ pub struct ToolUpdateData {
 
 impl ToolUpdateData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
@@ -1426,7 +1436,6 @@ pub struct ToolResultSubmitData {
     #[serde(default)]
     pub result_metadata: Vec<u8>,
     /// Required for milestone-escrowed jobs; ignored for one-shot jobs.
-    #[serde(default)]
     pub milestone_index: Option<u32>,
 }
 
@@ -1435,7 +1444,6 @@ pub struct ToolResultSubmitData {
 pub struct ToolResultAcceptData {
     pub job_id: Hash256,
     /// Required for milestone-escrowed jobs; ignored for one-shot jobs.
-    #[serde(default)]
     pub milestone_index: Option<u32>,
 }
 
@@ -1445,7 +1453,6 @@ pub struct ToolResultDisputeData {
     pub job_id: Hash256,
     pub reason: String,
     /// Required for milestone-escrowed jobs; ignored for one-shot jobs.
-    #[serde(default)]
     pub milestone_index: Option<u32>,
 }
 
@@ -1457,31 +1464,30 @@ pub struct ToolResultResolveData {
     pub provider_wins: bool,
     pub reason: String,
     /// Required for milestone-escrowed jobs; ignored for one-shot jobs.
-    #[serde(default)]
     pub milestone_index: Option<u32>,
 }
 
 impl ToolResultSubmitData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
 impl ToolResultAcceptData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
 impl ToolResultDisputeData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 
 impl ToolResultResolveData {
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
+        decode_canonical_tool_payload(bytes)
     }
 }
 

@@ -3,7 +3,10 @@
 The Python SDK is release-aware and uses the Rust node protocol as the source
 of truth for transaction serialization, hashes, and signatures.
 
-It has no external runtime dependencies, targets Python 3.9+, and writes
+It targets Python 3.9+ and uses `cryptography`, `jcs`, and `PyNaCl` for
+conversation transport, canonical JSON, and encryption. Install the package
+with `python -m pip install -e sdk/python` from the repository root to install
+these runtime dependencies. It writes
 addresses, hashes, public keys, and signatures in the current fixed-width binary
 form required by protocol/storage format 58. Its signed transactions are checked
 byte-for-byte against the Rust-generated golden vectors.
@@ -344,6 +347,8 @@ the same socket used for HTTP. `auto` classifies that real profile request and
 advances only for explicit refusal, timeout, address, host, or network-
 unreachable failures; it opens no speculative probe connection. TLS, pin, and
 exact live-profile failures are terminal.
+HTTP redirects are rejected, including for acknowledgements and event streams;
+requests remain on the selected, verified endpoint.
 Call `conversation.close()` when finished, or use the client as a context
 manager, to release pooled HTTPS and SSE connections deterministically.
 The pool permits up to 10,000 active sockets for the SSE target but retains at
@@ -353,8 +358,7 @@ most 256 idle sockets, keeping ordinary warmed residency bounded.
 X25519/HKDF-SHA256/XChaCha20-Poly1305 envelope as the Rust and TypeScript SDKs.
 Non-contributory X25519 keys and malformed typed plaintext parts are rejected
 before signing or after decryption.
-The conversation extras depend on `cryptography`, `jcs`, and `PyNaCl`, as
-declared by the package.
+These conversation dependencies are included in the package's default install.
 `events()` resumes by durable sequence, performs paged catch-up after
 `resync_required`, and raises `ConversationAuthorizationRequiredError` when a
 session must be renewed. Enqueue fully signed messages before submission and
@@ -377,13 +381,15 @@ Faucet helpers fail closed for mainnet releases.
 From the repository root:
 
 ```bash
+python3 -m pip install -e sdk/python
 PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests
-cargo test --test sdk_vectors
 ```
 
 The Python and TypeScript SDKs consume the same Rust-generated golden fixtures.
+The public SDK's Rust checks run with `cargo test --workspace --all-targets`.
 After an intentional protocol change and aligned serializer updates, regenerate
-them with:
+the shared fixtures in the chain source repository with the command below,
+then promote the reviewed fixtures to the public SDK:
 
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors

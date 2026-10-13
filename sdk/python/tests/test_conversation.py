@@ -7,6 +7,7 @@ import stat
 import tempfile
 import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from zincha import Keypair
 from zincha.conversation import (
     SQLiteConversationOutbox,
     ConversationClient,
+    ConversationAuthorizationRequiredError,
     create_conversation_delegation,
     decode_conversation_profile,
     decrypt_conversation_e2e,
@@ -35,6 +37,57 @@ from zincha.conversation import (
 
 
 class ConversationTests(unittest.TestCase):
+    def test_requests_and_sse_reject_redirects_and_preserve_auth_errors(self):
+        paths = []
+        status = 307
+
+        class RedirectHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                paths.append(self.path)
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                if "/events?" in self.path:
+                    body = b'event: message\ndata: {"sequence":1}\n\n'
+                elif "acknowledgements" in self.path:
+                    body = b""
+                else:
+                    body = b'{"success":true,"data":{}}'
+                self.send_response(status)
+                self.send_header("Location", "/unverified")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            do_POST = do_GET
+
+            def log_message(self, *_args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), RedirectHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with ConversationClient(
+                "http://127.0.0.1:%d" % server.server_port,
+                access_token="test-token",
+            ) as client:
+                with self.assertRaisesRegex(RuntimeError, "HTTP 307"):
+                    client.profile()
+                with self.assertRaisesRegex(RuntimeError, "HTTP 307"):
+                    client.acknowledge("ab" * 32, 1)
+                with self.assertRaisesRegex(RuntimeError, "HTTP 307"):
+                    next(client.events("ab" * 32))
+                status = 401
+                with self.assertRaisesRegex(RuntimeError, "HTTP 401"):
+                    client.profile()
+                with self.assertRaises(ConversationAuthorizationRequiredError):
+                    next(client.events("ab" * 32))
+            self.assertEqual(len(paths), 5)
+            self.assertNotIn("/unverified", paths)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
     def test_delegation_and_message_use_separate_keys(self):
         account = Keypair.from_secret_bytes(bytes([7]) * 32)
         operational = Keypair.from_secret_bytes(bytes([9]) * 32)
