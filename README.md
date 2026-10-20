@@ -153,7 +153,7 @@ Mutating faucet/submit coverage must remain opt-in.
 The scoped-chain-read-delegation work was promoted to `main` on 2026-10-19
 at SDK source `75a55450b815368413f5ee4843928b5f08b2c597`. Its documentation and
 public artifacts are aligned with
-`zinchain/zincha-dev@a958caff2f4872c106560a539ab74f48352b0f4c`, including scoped
+`zinchain/zincha-dev@57a7c33f6c966cdac1e9178bc4df913dcaa8bed7`, including scoped
 read delegation, validator reactivation, task lifecycle APIs, conversation
 clients/CLI, and transaction-history readiness diagnostics. Embedded
 TypeScript/Python sources are maintained in both repositories. Source promotion
