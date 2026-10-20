@@ -28,6 +28,34 @@ spec = json.loads(spec_path.read_text())
 if spec.get("openapi") != "3.1.0":
     raise SystemExit("error: openapi/openapi.json must be OpenAPI 3.1.0")
 
+operation_ids = {}
+for path, item in (spec.get("paths") or {}).items():
+    for method, operation in item.items():
+        if method not in {"get", "put", "post", "delete", "options", "head", "patch", "trace"}:
+            continue
+        operation_id = operation.get("operationId")
+        if not isinstance(operation_id, str) or not operation_id:
+            raise SystemExit(f"error: {method} {path} lacks an operationId")
+        if operation_id in operation_ids:
+            raise SystemExit(
+                f"error: duplicate operationId {operation_id}: "
+                f"{operation_ids[operation_id]} and {method} {path}"
+            )
+        operation_ids[operation_id] = f"{method} {path}"
+for path, expected in (("/health", "health_check"), ("/live", "health_check_live")):
+    if spec["paths"][path]["get"]["operationId"] != expected:
+        raise SystemExit(f"error: {path} must preserve operationId {expected}")
+
+history_data = (
+    spec.get("components", {}).get("schemas", {})
+    .get("TransactionHistoryUnavailableResponse", {}).get("properties", {}).get("data", {})
+)
+restore_field = "transaction_history_archive_restore_diagnostic"
+if restore_field not in history_data.get("required", []):
+    raise SystemExit(f"error: history-unavailable data must require {restore_field}")
+if history_data.get("properties", {}).get(restore_field, {}).get("type") != ["string", "null"]:
+    raise SystemExit(f"error: {restore_field} must allow string or null")
+
 description = ((spec.get("info") or {}).get("description") or "")
 for required in (
     "https://zincha.com/docs",

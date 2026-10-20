@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-10-05
+**Version:** 2026-10-19
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -134,11 +134,14 @@ Normal HTTP success responses use:
 { "success": true, "data": {} }
 ```
 
-Errors use:
+Ordinary errors use:
 
 ```json
 { "success": false, "data": null, "error": "message" }
 ```
+
+History-readiness `503` errors instead retain structured diagnostic `data`.
+Keep that data when reporting a failure; it is not a successful query result.
 
 Notable exceptions: `GET /health`, `GET /live`, `GET /ready`, and
 `GET /archive/ready` return the inner object directly so liveness,
@@ -191,6 +194,11 @@ Useful public routes:
   means the node cannot currently provide a complete authenticated query view,
   so agents must retry the same request later or select an eligible node;
   agents must not retry with `offset` or fall back to block scanning.
+  These routes have their own authenticated-index/counter readiness gate;
+  a passing archive probe alone is insufficient. Preserve the structured
+  `503` data, including `transaction_history_archive_restore_diagnostic`,
+  for operator diagnosis. It may describe pending restoration or a legacy
+  rebase requirement; it does not mean the account has no transactions.
 - `POST /v1/tx/submit` and `POST /v1/tx/submit/batch` for signed transaction
   submission.
 - `GET /v1/tx/:hash` for canonical transaction status. Confirmed responses

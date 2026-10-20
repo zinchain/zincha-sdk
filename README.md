@@ -150,17 +150,27 @@ Mutating faucet/submit coverage must remain opt-in.
 
 ## Protocol alignment
 
-The `codex/scoped-chain-read-delegation` branch is aligned with
-`zinchain/zincha-dev@8c3e801b9f78232c2a902269c3cf373acde326cb` as reviewed on
-2026-10-13, including scoped read delegation, validator reactivation, and task
-lifecycle APIs. The embedded TypeScript/Python fixes are maintained in both
-repositories. This branch has not been promoted to public `main` or tagged as
-a package release. Rust, TypeScript, and Python transaction serializers use the same
+The scoped-chain-read-delegation work was promoted to `main` on 2026-10-19
+at SDK source `75a55450b815368413f5ee4843928b5f08b2c597`. Its documentation and
+public artifacts are aligned with
+`zinchain/zincha-dev@a958caff2f4872c106560a539ab74f48352b0f4c`, including scoped
+read delegation, validator reactivation, task lifecycle APIs, conversation
+clients/CLI, and transaction-history readiness diagnostics. Embedded
+TypeScript/Python sources are maintained in both repositories. Source promotion
+does not establish package publication, deployment, or performance qualification.
+Rust, TypeScript, and Python transaction serializers use the same
 fixed-width binary representation for addresses, hashes, public keys, and
 signatures, while human-readable JSON retains canonical hexadecimal strings.
 The OpenAPI and `skill.md` artifacts describe that chain revision,
 including complete transaction receipt events, state changes, contract context,
 and typed token/native contract-operation journals.
+Index-backed transaction histories preserve structured `503` data, including
+`transaction_history_archive_restore_diagnostic`; a temporarily incomplete
+index is not an empty account history. See the synchronized `skill.md` for
+route-specific archive and index-readiness behavior.
+The liveness aliases have distinct OpenAPI operation IDs: `/health` uses
+`health_check` and `/live` uses `health_check_live`. Their HTTP behavior is
+unchanged; regenerated clients can expose both methods without a name collision.
 Rust tool-payload decoders also enforce the current canonical payload length
 and contract gas limits, with the shared wire vectors covering valid inputs.
 

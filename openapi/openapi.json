@@ -13105,6 +13105,13 @@
               "handler": {
                 "type": "string"
               },
+              "transaction_history_archive_restore_diagnostic": {
+                "description": "Durable diagnostic describing why checkpoint transaction-history restoration is waiting or requires an explicit legacy rebase.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "transaction_history_indexed_through_height": {
                 "description": "Highest canonical block height covered by hot transaction-history indexes.",
                 "format": "int64",
@@ -13140,7 +13147,8 @@
               "transaction_history_ready",
               "transaction_history_indexed_through_height",
               "transaction_history_repair_required",
-              "transaction_history_rebuild_in_progress"
+              "transaction_history_rebuild_in_progress",
+              "transaction_history_archive_restore_diagnostic"
             ],
             "type": "object"
           },
@@ -14014,7 +14022,7 @@
     "/live": {
       "get": {
         "description": "Returns 200 if the node process is alive and able to serve HTTP. Does not check chain progress, consensus participation, or downstream connectivity. Intended for cloud load balancer liveness checks.",
-        "operationId": "health_check",
+        "operationId": "health_check_live",
         "responses": {
           "200": {
             "content": {
