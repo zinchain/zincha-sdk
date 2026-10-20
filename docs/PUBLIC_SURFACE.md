@@ -15,7 +15,7 @@ The SDK repository exposes client-side APIs only:
 
 The scoped delegation work is on `main`, promoted on 2026-10-19 at SDK source
 `75a55450b815368413f5ee4843928b5f08b2c597`. The reviewed upstream chain source is
-`zinchain/zincha-dev@57a7c33f6c966cdac1e9178bc4df913dcaa8bed7`. It includes
+`zinchain/zincha-dev@4d27fb897ed7b9fb7c4875a62b46ba6d235fec9b`. It includes
 scoped read grants/revocation, validator reactivation, task lifecycle APIs,
 conversation clients/CLI, and transaction-history readiness diagnostics.
 OpenAPI and onboarding artifacts are synchronized with that source.

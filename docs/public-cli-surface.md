@@ -73,6 +73,13 @@ participant reads. Generic `zincha query <path>` remains as an escape hatch.
 | Events/transactions/validators | `query events`, `query tx`, `query validators` |
 | Participant reads | `query participant <path>` with a signer and local address-scope checks. |
 
+`query account <address>` reads `/v1/accounts/{address}/balance`, returning
+the committed balance and state metadata in one request. It does not fetch a
+nonce; use `query account-nonce <address>` for the next usable signing nonce.
+`query validators` returns the node's validator array, including `stake`
+(micro-ZIN), `voting_power`, and the nullable `vrf_public_key`. The validator
+`address` is raw 40-character hex; prefix it with `zn1` for address arguments.
+
 Operator, provider-read, testing, readiness-internal, mempool, pipeline,
 consensus, finality, orderflow-stats, and node-memory endpoints are not wired
 as typed query commands.

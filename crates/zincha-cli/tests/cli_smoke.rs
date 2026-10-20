@@ -226,6 +226,35 @@ fn help_and_version_are_available() {
 }
 
 #[test]
+fn query_account_reads_committed_balance() {
+    let address = format!("zn1{}", "11".repeat(20));
+    let balance = serde_json::json!({
+        "address": address,
+        "balance_micro_zin": 12_345_678,
+        "balance_zin": 12.345678,
+        "state_height": 42,
+        "state_hash": "22".repeat(32),
+        "state_root": "33".repeat(32),
+        "consistency": "committed",
+    });
+    let (listener, url) = bound_mock_server();
+    let server = serve_mock(
+        listener,
+        vec![MockResponse {
+            method: "GET",
+            path: format!("/v1/accounts/{address}/balance"),
+            data: balance.clone(),
+        }],
+    );
+    let output = zincha()
+        .args(["--api-url", &url, "--json", "query", "account", &address])
+        .output()
+        .expect("run account query");
+    server.join().expect("balance server");
+    assert_eq!(json_stdout(&output)["data"], balance);
+}
+
+#[test]
 fn conversation_help_exposes_the_complete_participant_workflow() {
     let output = zincha()
         .args(["conversation", "--help"])

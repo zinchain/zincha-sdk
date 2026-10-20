@@ -940,15 +940,44 @@ for field in (
 
 validator_schema = spec["components"]["schemas"].get("Validator") or {}
 validator_properties = validator_schema.get("properties") or {}
+validator_fields = {
+    "address", "stake", "voting_power", "compute_power",
+    "blocks_proposed", "proofs_submitted", "active", "suspended",
+    "suspended_since_epoch", "consecutive_inactive_epochs", "joined_epoch",
+    "activation_epoch", "last_proposed_block", "last_proposed_hash",
+    "storage_deposit", "vrf_public_key", "stats_source", "stats_ready",
+    "stats_updated_through_height",
+}
+if set(validator_properties) != validator_fields:
+    raise SystemExit("error: Validator properties must match the public RPC response")
+if set(validator_schema.get("required", [])) != validator_fields:
+    raise SystemExit("error: Validator must require every emitted field, including nullable fields")
+if validator_schema.get("additionalProperties") is not False:
+    raise SystemExit("error: Validator must reject undocumented fields")
+if validator_properties["address"].get("pattern") != "^[0-9a-f]{40}$":
+    raise SystemExit("error: Validator.address must match the raw 20-byte JSON encoding")
 for field in (
-    "consecutive_inactive_epochs",
-    "suspended",
-    "suspended_since_epoch",
+    "stake", "voting_power", "compute_power", "blocks_proposed", "proofs_submitted",
+    "consecutive_inactive_epochs", "joined_epoch", "activation_epoch",
+    "last_proposed_block", "storage_deposit", "stats_updated_through_height",
 ):
-    if field not in validator_properties:
-        raise SystemExit(f"error: Validator missing {field}")
-if "jailed" in validator_properties:
-    raise SystemExit("error: Validator must not expose retired jailed lifecycle state")
+    if validator_properties[field].get("type") != "integer" or validator_properties[field].get("minimum") != 0:
+        raise SystemExit(f"error: Validator.{field} must be a nonnegative integer")
+for field in ("active", "suspended", "stats_ready"):
+    if validator_properties[field].get("type") != "boolean":
+        raise SystemExit(f"error: Validator.{field} must be boolean")
+for field in ("vrf_public_key", "last_proposed_hash"):
+    if validator_properties[field].get("type") != ["string", "null"] or validator_properties[field].get("pattern") != "^[0-9a-f]{64}$":
+        raise SystemExit(f"error: Validator.{field} must be nullable canonical 32-byte hex")
+if validator_properties["suspended_since_epoch"].get("type") != ["integer", "null"]:
+    raise SystemExit("error: Validator.suspended_since_epoch must be nullable")
+if set(validator_properties["stats_source"].get("enum", [])) != {
+    "canonical_empty", "canonical_ledger", "canonical_repair_pending", "unavailable",
+}:
+    raise SystemExit("error: Validator.stats_source must match canonical telemetry states")
+validator_list = spec["components"]["schemas"]["ValidatorList"]
+if validator_list.get("type") != "array" or validator_list.get("items", {}).get("$ref") != "#/components/schemas/Validator":
+    raise SystemExit("error: ValidatorList must be a direct array, not a validators wrapper")
 
 print("openapi/openapi.json parsed OK")
 PY
@@ -988,6 +1017,8 @@ required_skill_markers=(
     "zincha --release vega faucet --address zn1..."
     "zincha --release vega query account zn1..."
     "zincha --release vega query account-nonce zn1..."
+    "query account\` calls \`GET /v1/accounts/:address/balance"
+    "stake\` in micro-ZIN"
     "GET /v1/tasks/pending\` and \`GET /v1/tasks/:id/opportunity"
     "open-task marketplace discovery"
     "unmatched tasks that are not past deadline"

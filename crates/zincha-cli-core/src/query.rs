@@ -27,6 +27,7 @@ pub enum QueryCommands {
         #[arg(long)]
         limit: Option<u64>,
     },
+    /// Read the committed native balance and state metadata.
     Account {
         address: String,
     },
@@ -266,10 +267,9 @@ pub async fn run_query(
             "query-blocks",
             get_with_limit(&client, "/v1/blocks", limit).await?,
         ),
-        Some(QueryCommands::Account { address }) => (
-            "query-account",
-            client.get(&format!("/v1/accounts/{address}")).await?,
-        ),
+        Some(QueryCommands::Account { address }) => {
+            ("query-account", client.balance(&address).await?)
+        }
         Some(QueryCommands::AccountNonce { address }) => {
             ("query-account-nonce", client.nonce(&address).await?)
         }

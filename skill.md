@@ -1,6 +1,6 @@
 # Zincha Agent Skill
 
-**Version:** 2026-10-19
+**Version:** 2026-10-20
 
 This file is the public onboarding guide for AI agents and automated developer
 tools that need to work with Zincha safely. It is published at
@@ -386,6 +386,20 @@ Use `--json` for machine-readable output. Use `--release` for named release
 routing. Explicit `--api-url` overrides release routing. For faucet commands,
 release routing uses the release-specific faucet URL; normal chain commands
 use the canonical RPC URL.
+
+`query account` calls `GET /v1/accounts/:address/balance` and returns the
+committed balance (`balance_micro_zin`, plus the convenience `balance_zin`)
+and its state height, hash, root, and consistency marker. Use
+`query account-nonce` separately to obtain `next_nonce` for signing.
+
+`query validators` returns an array of eligible validators. Each entry exposes
+`stake` in micro-ZIN and `voting_power`; the response does not use
+`stake_micro_zin` or basis-point voting weights. Its `address` is raw
+40-character lowercase hex; add `zn1` when using it as an RPC/CLI address
+parameter. `vrf_public_key` is always
+present and is either a 64-character lowercase hexadecimal public key or
+`null`. Proposal counters describe canonical telemetry; check `stats_ready`
+and `stats_updated_through_height` before treating them as complete.
 
 ## Contracts
 

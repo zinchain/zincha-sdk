@@ -139,6 +139,11 @@ impl ZinchaClient {
         self.get("/v1/chain/info").await
     }
 
+    /// Read the committed native balance and the state metadata for that read.
+    pub async fn balance(&self, address: &str) -> Result<Value> {
+        self.get(&format!("/v1/accounts/{address}/balance")).await
+    }
+
     pub async fn nonce(&self, address: &str) -> Result<Value> {
         self.get(&format!("/v1/accounts/{address}/nonce")).await
     }

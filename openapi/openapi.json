@@ -13769,13 +13769,21 @@
         "type": "object"
       },
       "Validator": {
-        "additionalProperties": true,
-        "description": "One active validator. Fields mirror the public read view of the validator record.",
+        "additionalProperties": false,
+        "description": "One eligible validator from the current consensus view, with canonical proposal telemetry.",
         "properties": {
+          "activation_epoch": {
+            "description": "First epoch in which the validator may lead or vote.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "active": {
             "type": "boolean"
           },
           "address": {
+            "description": "Raw 20-byte address as lowercase hexadecimal. Add the zn1 prefix when using it in public address path parameters.",
+            "pattern": "^[0-9a-f]{40}$",
             "type": "string"
           },
           "blocks_proposed": {
@@ -13783,17 +13791,19 @@
             "minimum": 0,
             "type": "integer"
           },
+          "compute_power": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "consecutive_inactive_epochs": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "equivocations": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "last_active_block": {
+          "joined_epoch": {
             "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
           "last_proposed_block": {
@@ -13803,41 +13813,44 @@
           },
           "last_proposed_hash": {
             "description": "Canonical hash of the most recent block proposed by this validator.",
+            "pattern": "^[0-9a-f]{64}$",
             "type": [
               "string",
               "null"
             ]
-          },
-          "moniker": {
-            "description": "Operator-chosen display name.",
-            "type": "string"
-          },
-          "participation_rate": {
-            "description": "Fraction of recent blocks voted on.",
-            "format": "double",
-            "maximum": 1,
-            "minimum": 0,
-            "type": "number"
           },
           "proofs_submitted": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "stake_micro_zin": {
+          "stake": {
+            "description": "Staked amount in micro-ZIN (1 ZIN = 1,000,000 micro-ZIN).",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "stats_ready": {
-            "description": "False when canonical block rows are incomplete and proposal counters should not be treated as complete.",
+            "description": "False when the canonical telemetry index is incomplete or unavailable and proposal counters should not be treated as complete.",
             "type": "boolean"
           },
           "stats_source": {
-            "description": "Source for proposal counters. canonical_ledger means indexed canonical metadata; canonical_rebuild means rebuilt from canonical block rows.",
+            "description": "canonical_empty means no canonical header exists; canonical_ledger means the index is current; canonical_repair_pending means bounded background repair is incomplete; unavailable means the telemetry read failed. The request does not rebuild history.",
+            "enum": [
+              "canonical_empty",
+              "canonical_ledger",
+              "canonical_repair_pending",
+              "unavailable"
+            ],
             "type": "string"
           },
           "stats_updated_through_height": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_deposit": {
+            "description": "Storage deposit locked for the validator entry, in micro-ZIN.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -13854,17 +13867,41 @@
               "null"
             ]
           },
-          "voting_weight_basis_points": {
-            "description": "Voting weight in basis points (0 to 10000). Capped per release to prevent dominance.",
-            "maximum": 10000,
+          "voting_power": {
+            "description": "Voting power in the current eligible validator set, after the configured concentration cap. This is not a basis-point percentage.",
+            "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "vrf_public_key": {
+            "description": "Canonical 32-byte validator VRF public key as lowercase hexadecimal, or null when absent.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "address",
-          "stake_micro_zin",
-          "active"
+          "stake",
+          "voting_power",
+          "compute_power",
+          "blocks_proposed",
+          "proofs_submitted",
+          "active",
+          "suspended",
+          "suspended_since_epoch",
+          "consecutive_inactive_epochs",
+          "joined_epoch",
+          "activation_epoch",
+          "last_proposed_block",
+          "last_proposed_hash",
+          "storage_deposit",
+          "vrf_public_key",
+          "stats_source",
+          "stats_ready",
+          "stats_updated_through_height"
         ],
         "type": "object"
       },
@@ -17322,7 +17359,7 @@
     },
     "/v1/consensus/validators": {
       "get": {
-        "description": "Returns the validators currently participating in consensus, with stake amount, voting weight, participation rate, and recent behavior summary. Use this for network health dashboards and to identify well-performing validators for staking delegation decisions.",
+        "description": "Returns an array of validators eligible in the current consensus epoch, including stake in micro-ZIN, voting and compute power, the nullable VRF public key, activation and suspension metadata, and canonical proposal counters. Check stats_ready and stats_updated_through_height before treating the counters as complete.",
         "operationId": "list_validators",
         "responses": {
           "200": {
@@ -17402,7 +17439,7 @@
           },
           {}
         ],
-        "summary": "Current active validator set.",
+        "summary": "Current eligible validator set.",
         "tags": [
           "Consensus"
         ],

@@ -60,7 +60,7 @@ pub const TYPED_QUERY_ENDPOINTS: &[QueryEndpoint] = &[
     QueryEndpoint {
         command: "account",
         method: "GET",
-        path_template: "/v1/accounts/{address}",
+        path_template: "/v1/accounts/{address}/balance",
         category: SurfaceCategory::Public,
     },
     QueryEndpoint {
@@ -372,5 +372,26 @@ mod tests {
             .map(|entry| entry.command.to_string())
             .collect();
         assert_eq!(clap_commands, manifest_commands);
+    }
+
+    #[test]
+    fn account_query_manifest_targets_documented_balance_endpoint() {
+        let spec: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../openapi/openapi.json"
+        )))
+        .expect("public OpenAPI artifact");
+        let account = TYPED_QUERY_ENDPOINTS
+            .iter()
+            .find(|endpoint| endpoint.command == "account")
+            .expect("account query");
+        let operation = &spec["paths"][account.path_template]["get"];
+        assert_eq!(account.method, "GET");
+        assert_eq!(account.category, SurfaceCategory::Public);
+        assert_eq!(operation["operationId"], "get_balance");
+        assert_eq!(
+            operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/ApiResponse_BalanceResponse"
+        );
     }
 }

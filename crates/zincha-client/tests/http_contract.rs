@@ -123,6 +123,29 @@ async fn chain_info_gets_public_endpoint_and_unwraps_data() {
 }
 
 #[tokio::test]
+async fn balance_uses_committed_balance_route_and_preserves_state_metadata() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"address":"zn11111111111111111111111111111111111111111","balance_micro_zin":12345678,"balance_zin":12.345678,"state_height":42,"state_hash":"2222222222222222222222222222222222222222222222222222222222222222","state_root":"3333333333333333333333333333333333333333333333333333333333333333","consistency":"committed"},"error":null}"#,
+    );
+    let client = ZinchaClient::new(&url).expect("client");
+    let address = format!("zn1{}", "11".repeat(20));
+    let balance = client.balance(&address).await.expect("balance");
+    assert_eq!(balance["address"], address);
+    assert_eq!(balance["balance_micro_zin"], 12_345_678);
+    assert_eq!(balance["balance_zin"], 12.345678);
+    assert_eq!(balance["state_height"], 42);
+    assert_eq!(balance["state_hash"], "22".repeat(32));
+    assert_eq!(balance["state_root"], "33".repeat(32));
+    assert_eq!(balance["consistency"], "committed");
+    assert!(balance.get("nonce").is_none());
+    let request = server.join().expect("server thread");
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, format!("/v1/accounts/{address}/balance"));
+    assert!(request.body.is_empty());
+}
+
+#[tokio::test]
 async fn requester_reputation_and_validators_use_openapi_routes() {
     let (url, server) = serve_once(
         "200 OK",
@@ -138,10 +161,20 @@ async fn requester_reputation_and_validators_use_openapi_routes() {
 
     let (url, server) = serve_once(
         "200 OK",
-        r#"{"success":true,"data":{"validators":[]},"error":null}"#,
+        r#"{"success":true,"data":[{"address":"1111111111111111111111111111111111111111","stake":50000000,"voting_power":50000000,"compute_power":1,"blocks_proposed":2,"proofs_submitted":3,"active":true,"suspended":false,"suspended_since_epoch":null,"consecutive_inactive_epochs":0,"joined_epoch":0,"activation_epoch":0,"last_proposed_block":42,"last_proposed_hash":"2222222222222222222222222222222222222222222222222222222222222222","storage_deposit":1000,"vrf_public_key":"3333333333333333333333333333333333333333333333333333333333333333","stats_source":"canonical_ledger","stats_ready":true,"stats_updated_through_height":42}],"error":null}"#,
     );
     let client = ZinchaClient::new(&url).expect("client");
-    client.validators().await.expect("validators");
+    let validators = client.validators().await.expect("validators");
+    let entries = validators
+        .as_array()
+        .expect("validator response is an array");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["address"], "11".repeat(20));
+    assert_eq!(entries[0]["stake"], 50_000_000);
+    assert_eq!(entries[0]["voting_power"], 50_000_000);
+    assert_eq!(entries[0]["vrf_public_key"], "33".repeat(32));
+    assert_eq!(entries[0]["stats_ready"], true);
+    assert!(entries[0].get("stake_micro_zin").is_none());
     let request = server.join().expect("server thread");
     assert_eq!(request.path, "/v1/consensus/validators");
 }
