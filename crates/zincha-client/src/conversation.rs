@@ -2420,9 +2420,11 @@ mod tests {
     #[tokio::test]
     async fn pinned_transport_supports_negotiated_http2() {
         let (certificate, private_key, pin) = rotation_test_identity();
-        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        // Reserve the port without listening so connection attempts are refused,
+        // and later fixture servers cannot accidentally reuse the same port.
+        let unavailable = tokio::net::TcpSocket::new_v4().unwrap();
+        unavailable.bind("127.0.0.1:0".parse().unwrap()).unwrap();
         let unavailable_port = unavailable.local_addr().unwrap().port();
-        drop(unavailable);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let profile = ConversationProfileV2 {
@@ -2486,9 +2488,10 @@ mod tests {
         let (old_certificate, old_key, old_pin) = rotation_test_identity();
         let (next_certificate, next_key, next_pin) = rotation_test_identity();
         assert_ne!(old_pin.sha256, next_pin.sha256);
-        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        // Keep this bound, non-listening socket alive throughout the matrix.
+        let unavailable = tokio::net::TcpSocket::new_v4().unwrap();
+        unavailable.bind("127.0.0.1:0".parse().unwrap()).unwrap();
         let unavailable_port = unavailable.local_addr().unwrap().port();
-        drop(unavailable);
         let mut tasks = Vec::new();
 
         let (old_only, task, old_only_requests) = spawn_rotation_profile_server(
