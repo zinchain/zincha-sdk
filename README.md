@@ -223,31 +223,39 @@ To dry-run local packaging after building the CLI:
 
 ```bash
 cargo build --release -p zincha-cli
-scripts/package-cli-binary.sh v0.1.0 "$(rustc -vV | sed -n 's/^host: //p')" local target/release/zincha
+scripts/package-cli-binary.sh v0.1.2 "$(rustc -vV | sed -n 's/^host: //p')" local target/release/zincha
 ```
 
-## Vega v0.1.0 binary release
+## Vega CLI v0.1.2 binary release
 
-The `v0.1.0` tag identifies the SDK CLI source paired with the Vega node source
-release in `zinchain/zincha`. Rust 1.94.0 is pinned by `rust-toolchain.toml`; build
-the CLI with `cargo build --release --locked -p zincha-cli`.
+Download the current CLI for Linux x86/ARM, macOS Intel/Apple Silicon or Windows
+x64 from [the Vega CLI v0.1.2 prerelease](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.2).
+It includes the same runtime fixes as Cargo `zincha-cli 0.1.2`. The node remains
+at its separate `v0.1.0` release; a CLI patch does not rebuild or deploy the node.
+Rust 1.94.0 is pinned by `rust-toolchain.toml`; build the CLI with
+`cargo build --release --locked -p zincha-cli`.
 
-`Release Binaries` is manually dispatched with `tag=v0.1.0` after the source tag
-and `ZINCHA_RELEASES_TOKEN` release-environment secret are configured. It runs the
+`Release Binaries` is manually dispatched with the immutable SDK source tag
+and `ZINCHA_RELEASES_TOKEN` release-environment secret configured. It runs the
 offline gate before creating the draft aggregate release, then builds and uploads
 one platform at a time. CI and release validation share a concurrency group, and
 Rust, TypeScript, and Python compatibility tests execute sequentially.
 
 The release workflow uses frozen pnpm dependencies and fixed runner generations.
-It uploads five CLI archives and matching provenance manifests to
-`zinchain/zincha-releases`. After both Linux node archives have also uploaded,
-run that repository's `Finalize Release` with `prerelease=true`. Keep
-`force_republish=false` for the first release. Creating a source tag alone does
-not publish binaries or deploy Vega.
+It uploads five CLI archives, matching manifests and signed build provenance to
+`zinchain/zincha-releases`. For a CLI-only patch, run that repository's
+`Finalize Release` with `release_kind=cli`, `prerelease=true` and
+`force_republish=false`, then `Verify CLI Prerelease Downloads` with the tag and
+full SDK source commit. That workflow downloads and checks the published bytes
+and runs native live-Vega transfer/finality tests on each platform sequentially.
+A combined CLI/node release instead uses `release_kind=combined` and requires
+both Linux node archives too. Creating a tag alone does not publish or deploy.
 
 To recover a failed platform upload, dispatch the current `main` workflow with the
 original release `tag` and a comma-separated `platforms` subset (for example,
 `macos-x86_64,macos-aarch64,windows-x86_64`). The default is `all`. Every selected
-platform still builds and tests the tagged source, and finalization still requires
-all seven CLI/node archives. Keep existing successful assets and leave
-`force_republish=false`; do not move the source tag to repair workflow tooling.
+platform still builds and tests the tagged source. Finalization requires all five
+CLI archives, or all seven CLI/node archives for `combined`. Keep successful
+assets and leave `force_republish=false`; do not move the source tag to repair
+workflow tooling. See the [release hub's maintainer flow](https://github.com/zinchain/zincha-releases#maintainer-flow--cli-only-patch)
+for integrity checks, evidence retention and recovery.

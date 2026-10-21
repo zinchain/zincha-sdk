@@ -16,7 +16,8 @@ Cargo/crates.io, npm, and PyPI publishing are configured for
 | PyPI | [zincha](https://pypi.org/project/zincha/0.1.1/) | `0.1.1` | Python client, including conversations |
 
 The initial SDK packages target the **Vega testnet**, not a mainnet launch.
-SDK versions are independent of the node/CLI binary release tag `v0.1.0`.
+SDK registry versions are independent of the node release tag `v0.1.0`.
+The current prebuilt CLI release is `v0.1.2`, matching Cargo CLI `0.1.2`.
 Cargo `0.1.2`, npm `0.2.2` and Python `0.1.1` include the live-Vega fixes
 described in [the patch-release validation](LIVE_REGISTRY_PATCH_RELEASE_2026_10_21.md).
 Cargo `0.1.1` already included the transaction fixes but displayed the stale CLI
@@ -64,10 +65,12 @@ use the explicit promotion procedure below after validation.
 
 Rust libraries and the executable require a Rust toolchain and native build
 tools; release validation uses Rust 1.94.0. Prebuilt CLI archives are also
-available from [zincha-releases](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.0).
-Those `v0.1.0` prebuilt CLI binaries predate these SDK fixes; use the current
-Cargo package until a new binary release is built and finalized. The node binary
-is unaffected. The npm client requires Node 22.6+ in Node. Python supports 3.9+.
+available from [the Vega CLI v0.1.2 prerelease](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.2).
+Those five native CLI archives include the same runtime fixes as the current
+Cargo CLI. Check the release checksums before running a download. The node
+binary remains unchanged at `v0.1.0`. All five prebuilt CLI downloads passed
+[sequential native live-Vega validation](https://github.com/zinchain/zincha-releases/blob/main/validation/v0.1.2.json).
+The npm client requires Node 22.6+ in Node. Python supports 3.9+.
 
 ## Live-client validation
 

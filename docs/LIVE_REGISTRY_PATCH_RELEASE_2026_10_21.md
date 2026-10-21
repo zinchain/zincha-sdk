@@ -110,6 +110,12 @@ Use the current install commands in [PACKAGE_PUBLISHING.md](PACKAGE_PUBLISHING.m
 These remain **Vega testnet SDK releases**. npm's `latest` tag does not designate
 a mainnet launch.
 
-The `zincha-releases` repository's existing `v0.1.0` prebuilt CLI archives still
-predate these SDK fixes. A separate CLI binary build/finalization is required
-to update that download channel; this package campaign did not rebuild it.
+At completion of this registry campaign, `zincha-releases` still provided the
+older `v0.1.0` prebuilt CLI archives. A separate CLI binary build/finalization
+was required to update that channel; this package campaign did not rebuild it.
+
+Follow-up: [CLI v0.1.2 prebuilt archives](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.2)
+were built and finalized separately after this registry campaign. Their
+[download-validation record](https://github.com/zinchain/zincha-releases/blob/main/validation/v0.1.2.json)
+records the native platform results. The original `v0.1.0` archives remain
+available as historical artifacts.
