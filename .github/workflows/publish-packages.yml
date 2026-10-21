@@ -46,7 +46,11 @@ jobs:
           ref: ${{ inputs.source_ref }}
       - id: source
         run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Isolate Rust toolchain installation
+        run: echo "RUSTUP_HOME=$RUNNER_TEMP/zincha-rustup" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          components: rustfmt, clippy
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -85,7 +89,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.build.outputs.commit }}
+      - name: Isolate Rust toolchain installation
+        run: echo "RUSTUP_HOME=$RUNNER_TEMP/zincha-rustup" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          components: rustfmt, clippy
       - uses: actions/setup-node@v4
         with:
           node-version: 22
