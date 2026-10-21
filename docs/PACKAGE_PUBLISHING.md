@@ -1,31 +1,52 @@
-# SDK registry packages
+# SDK package publishing
 
-The initial package set uses the SDK runtime shipped with the Vega `v0.1.0`
-binary release. Packaging changes add registry metadata, licenses and standalone
-test fixtures; they do not change transaction encoding or the node runtime.
-The existing binary/source `v0.1.0` tags must not be moved.
+## Setup status — completed October 21, 2026
 
-| Registry | Package | Initial version | Purpose |
+Cargo/crates.io, npm, and PyPI publishing are configured for
+**zinchain/zincha-sdk**. Future releases use GitHub Actions trusted publishing
+(short-lived OIDC credentials); no stored registry token is needed.
+
+| Registry | Package | Published version | Purpose |
 | --- | --- | --- | --- |
-| crates.io | `zincha-primitives` | `0.1.0` | Types, cryptography and signing |
-| crates.io | `zincha-client` | `0.1.0` | Rust RPC and conversation clients |
-| crates.io | `zincha-cli-core` | `0.1.0` | Shared public CLI implementation |
-| crates.io | `zincha-cli` | `0.1.0` | Installs the `zincha` executable |
-| npm | `@zincha/client` | `0.2.0` | JavaScript/TypeScript client, including conversations |
-| PyPI | `zincha` | `0.1.0` | Python client, including conversations |
+| crates.io | [zincha-primitives](https://crates.io/crates/zincha-primitives/0.1.0) | `0.1.0` | Types, cryptography and signing |
+| crates.io | [zincha-client](https://crates.io/crates/zincha-client/0.1.0) | `0.1.0` | Rust RPC and conversation clients |
+| crates.io | [zincha-cli-core](https://crates.io/crates/zincha-cli-core/0.1.0) | `0.1.0` | Shared public CLI implementation |
+| crates.io | [zincha-cli](https://crates.io/crates/zincha-cli/0.1.0) | `0.1.0` | Installs the `zincha` executable |
+| npm | [@zincha/client](https://www.npmjs.com/package/@zincha/client/v/0.2.1) | `0.2.1`, channel `vega` | JavaScript/TypeScript client, including conversations |
+| PyPI | [zincha](https://pypi.org/project/zincha/0.1.0/) | `0.1.0` | Python client, including conversations |
 
-TypeScript already had version `0.2.0` in the released SDK source. Package
-versions belong to their respective SDK APIs; the chain binary tag remains
-`v0.1.0`. npm initially uses the `vega` distribution tag. These packages target
-the Vega testnet, not a mainnet launch. The registry workflow is manual and
-defaults to validation without uploading.
+The initial SDK packages target the **Vega testnet**, not a mainnet launch.
+SDK versions are independent of the node/CLI binary release tag `v0.1.0`.
+The npm `0.2.1` release changed release metadata and documentation; its compiled
+JavaScript and declarations were unchanged from `0.2.0`.
 
-The npm-only `0.2.1` patch activates trusted publishing with unchanged SDK runtime
-code. Use its reviewed source commit for that upload, rather than the initial
-`dc2f222` source. Rust and Python versions remain unchanged; select `npm`, not
-`all`, for this patch.
+### Verified publishing state
 
-## Installation after publication
+| Registry | Completed verification | Evidence |
+| --- | --- | --- |
+| crates.io | All four `0.1.0` crates published and checksums verified. A trusted publisher is configured separately for each crate. OIDC exchange succeeded without the bootstrap token, and existing versions matched the sealed manifest. The next new Rust version will exercise the first OIDC upload. | [Initial publication](https://github.com/zinchain/zincha-sdk/actions/runs/39572570719), [trusted-authentication verification](https://github.com/zinchain/zincha-sdk/actions/runs/39637419749) |
+| npm | `0.2.0` bootstrap and `0.2.1` trusted uploads completed. `vega` points to `0.2.1`; the trusted publisher is valid. Public archive, installed exports, signatures and attestations verified. | [Initial publication](https://github.com/zinchain/zincha-sdk/actions/runs/39640410838), [trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39645127528) |
+| PyPI | `0.1.0` published using the pending publisher, activating it on first use. Wheel and source hashes match the release manifest; both attestations verified. All 60 Python tests passed against a clean installation from public PyPI. | [Trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39648460574), [public provenance](https://pypi.org/project/zincha/0.1.0/#security) |
+
+The temporary **CARGO_REGISTRY_TOKEN** and **NPM_TOKEN** GitHub secrets were
+removed, and their registry tokens were revoked. No PyPI token was created.
+Leave **ZINCHA_RELEASES_TOKEN** unchanged: it serves GitHub binary releases,
+not package registries. Account ownership, verified email and 2FA remain in place.
+
+All publishers are bound to these settings:
+
+| Field | Configured value |
+| --- | --- |
+| GitHub owner | `zinchain` |
+| Repository | `zincha-sdk` |
+| Workflow filename | `publish-packages.yml` |
+| GitHub environment | `release` |
+
+npm permits direct `npm publish`; this workflow does not use staged publishing.
+The existing `release` environment still requires its configured approval.
+Registry trust and GitHub release approval are separate checks.
+
+## Install the current packages
 
 ```sh
 cargo add zincha-client@0.1.0 zincha-primitives@0.1.0
@@ -34,363 +55,232 @@ npm install @zincha/client@0.2.1
 python -m pip install zincha==0.1.0
 ```
 
+Use `npm install @zincha/client@vega` to follow the Vega channel. Do not assume
+npm's `latest` tag tracks `vega`.
+
 Rust libraries and the executable require a Rust toolchain and native build
 tools; release validation uses Rust 1.94.0. Prebuilt CLI archives are also
 available from [zincha-releases](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.0).
-The npm client requires Node 22.6+ when used in Node. Python supports 3.9+.
+The npm client requires Node 22.6+ in Node. Python supports 3.9+.
 
-## Start here
+## Future releases
 
-All registry publishing runs from **zinchain/zincha-sdk**, not `zincha`,
-`zincha-dev`, or `zincha-releases`. GitHub release binaries and package registries
-are separate destinations: `ZINCHA_RELEASES_TOKEN` cannot publish to crates.io,
-npm, or PyPI.
+### Step 1 — Choose the packages and update their versions
 
-For the first package release, use this exact **source_ref**:
+1. Start from current `zincha-sdk` `main` and decide which registry needs a
+   release. An npm-only change does not require a Rust or Python release.
+   Documentation-only changes do not require republishing any package.
+2. Choose unused versions appropriate to the API changes. Check the registry
+   pages before preparing the release; published versions are immutable.
+3. Update the relevant files:
 
-```text
-dc2f22254ce2dc3df9efa1b4908a1f45a5694b31
-```
+   | Release | Files to update |
+   | --- | --- |
+   | Rust | `[workspace.package].version` in root `Cargo.toml`; the explicit `version` constraints on internal `zincha-*` path dependencies in `crates/*/Cargo.toml`; the affected workspace entries in `Cargo.lock` |
+   | npm | `version` in `sdk/typescript/package.json`; update `sdk/typescript/pnpm-lock.yaml` when dependency declarations change |
+   | PyPI | `[project].version` in `sdk/python/pyproject.toml` |
 
-This source already passed the
-[SDK tests](https://github.com/zinchain/zincha-sdk/actions/runs/39569080671)
-and [archive build and clean-install checks](https://github.com/zinchain/zincha-sdk/actions/runs/39569831733).
-Later documentation/workflow changes do not replace that initial package source.
-For subsequent releases, use the full reviewed commit with the new versions.
-Never move the existing `v0.1.0` tags or change the contents of a published version.
+   All four Rust crates currently inherit one workspace version and publish as
+   a set. Keep their internal dependency constraints aligned with that version.
+   Refresh `Cargo.lock` with `cargo update --workspace` and review the diff for
+   unintended dependency upgrades. A TypeScript version-only change does not
+   require a dependency update or an npm `package-lock.json`.
+4. Update the affected package README and compatibility/release notes. If
+   canonical licenses, OpenAPI or test vectors changed, refresh the packaged
+   copies with `python3 scripts/sync-package-files.py --write`, then review them.
+5. Commit and push the reviewed changes to `main`. Record the full 40-character
+   commit SHA with `git rev-parse HEAD`; this is the release's **source_ref**.
+   Wait for [SDK CI](https://github.com/zinchain/zincha-sdk/actions/workflows/ci.yml)
+   to pass for that commit. CI runs SDK tests sequentially, followed by the
+   Python 3.9–3.12 compatibility jobs one at a time.
 
-Complete each registry separately. Account creation, email verification, 2FA,
-and entering new tokens are maintainer steps. Once access is configured, a
-maintainer or authorized release operator can run the workflow and verify uploads.
-Do not send tokens through chat, issues, source files, or build artifacts.
+Do not reuse the initial source commit for a new release. Do not move existing
+`v0.1.0` tags. Registry publication is manually dispatched and requires no new
+Git tag; binary-release tagging/finalization remains a separate process.
 
-## Where to save the initial GitHub secrets
+### Step 2 — Start the publishing workflow
 
-Use these steps whenever this guide says to save an environment secret:
+1. Open [SDK Registry Packages](https://github.com/zinchain/zincha-sdk/actions/workflows/publish-packages.yml)
+   in **zinchain/zincha-sdk**.
+2. Click **Run workflow**. If the button is absent, sign into GitHub with
+   repository write access.
+3. Leave **Use workflow from** set to **main**. This selects the workflow code;
+   **source_ref** separately selects the package code.
+4. Paste the full reviewed commit SHA from Step 1 into **source_ref**, rather
+   than the moving name `main`.
+5. Choose these inputs:
 
-1. Open [zincha-sdk environments](https://github.com/zinchain/zincha-sdk/settings/environments).
-2. Select the existing **release** environment. Do not create a similarly named
-   environment or change its reviewer protection.
-3. Scroll to **Environment secrets** and click **Add environment secret**.
-4. Enter the exact secret name from the registry instructions below.
-5. Paste the registry token into **Value**, then click **Add secret**.
-6. Verify that the secret's **name** appears in the `release` environment list.
-   GitHub hides the value after saving; that is expected.
-
-Creating a token on a registry does **not** automatically save it in GitHub.
-A GitHub Actions **variable** is also not a secret. A token saved in another
-repository or environment is not available to this workflow.
-
-| Destination | GitHub secret | Needed when |
-| --- | --- | --- |
-| crates.io | `CARGO_REGISTRY_TOKEN` | First upload, before trusted publishing exists |
-| npm | `NPM_TOKEN` | First upload, before trusted publishing exists |
-| PyPI | None | Configure a pending trusted publisher instead |
-| GitHub release assets | `ZINCHA_RELEASES_TOKEN` | Existing binary-release workflow; leave it unchanged |
-
-## How to run the registry workflow
-
-1. Open [SDK Registry Packages](https://github.com/zinchain/zincha-sdk/actions/workflows/publish-packages.yml).
-2. Click **Run workflow** near the top right of the run list. If it is absent,
-   sign into GitHub with repository write access.
-3. Leave **Use workflow from** set to **main**. This chooses the workflow code;
-   the separate **source_ref** chooses the package code.
-4. Paste the full package commit into **source_ref**. For this initial release,
-   use the commit in **Start here**, not the moving `main` name.
-5. Select the requested **registry**, **crates_auth**, and **npm_auth** values:
-
-   | Task | registry | crates_auth | npm_auth |
+   | Intended release | registry | crates_auth | npm_auth |
    | --- | --- | --- | --- |
-   | Build and test without uploading | `validate` | `auto` | `auto` |
-   | Initial Rust upload | `crates` | `auto` | `auto` |
-   | Verify/use Rust trusted publishing | `crates` | `trusted` | `auto` |
-   | Initial npm upload | `npm` | `auto` | `auto` |
-   | Verify/use npm trusted publishing | `npm` | `auto` | `trusted` |
-   | Initial or subsequent Python upload | `pypi` | `auto` | `auto` |
+   | Validation only; no upload | `validate` | `trusted` | `trusted` |
+   | Four Rust crates | `crates` | `trusted` | `trusted` |
+   | JavaScript/TypeScript SDK | `npm` | `trusted` | `trusted` |
+   | Python SDK | `pypi` | `trusted` | `trusted` |
+   | All registries, each with new versions | `all` | `trusted` | `trusted` |
 
-   Authentication inputs for other registries are unused. In `trusted` mode,
-   the corresponding bootstrap secret is not passed to the publisher, even
-   when it remains stored in the environment.
-
+   Inputs for an unselected registry are unused. Set both authentication
+   selectors explicitly to `trusted`; the form defaults to `auto`.
+   `trusted` prevents fallback to a stored bootstrap secret. PyPI always uses
+   trusted publishing and has no separate authentication selector.
 6. Click the green **Run workflow** button and open the new run. Refresh the
-   list if it has not appeared yet.
-7. Wait for **build** to finish. It runs the SDK checks sequentially, builds
-   seven archives, tests clean installations, and saves a checksum manifest.
-8. If the run says **Waiting for review**, click **Review deployments**, select
-   **release**, and approve the intended publication. If GitHub prevents
-   self-review, another configured reviewer must approve it; do not disable
-   the environment's protection rules.
-9. Wait for **publish** to finish. A green `build` alone does not mean packages
-   were uploaded. In `validate` mode, `publish` is deliberately skipped.
-10. Follow the registry-specific verification steps below and save the run URL.
-    Download the run's `sdk-registry-packages-<commit>` artifact; its
-    `PACKAGE_MANIFEST.json` records package versions, source, sizes, and hashes.
+   run list if necessary.
 
-Use `all` only when all three registries are ready for the intended versions.
-A Rust retry can skip exact existing versions, but the npm and PyPI upload
-steps do not implement that same retry behavior. If one registry fails, inspect
-what was uploaded before retrying only the affected registry.
+Prefer one registry per run. Use `all` only when every included package is
+ready for its intended release; it is not a shortcut for publishing whichever
+packages changed. In particular, unchanged npm/PyPI versions will fail upload.
+An optional `validate` run can preview packaging, but every publishing run
+performs the full build and validation again.
 
-## crates.io: four Rust packages
+### Step 3 — Review the build and approve the release
 
-### Step 1 — Create and verify the owner account
+1. Wait for **build** to succeed. It validates all SDKs sequentially, builds
+   seven archives, verifies package contents and tests clean installations,
+   even when only one registry was selected.
+2. In the run's **Artifacts** section, download
+   `sdk-registry-packages-<source-commit>`. Open `PACKAGE_MANIFEST.json` and check
+   its source SHA, package names, versions, sizes and SHA-256 hashes against
+   the intended release.
+3. If the run says **Waiting for review**, select **Review deployments**, check
+   **release**, and approve that publication. Use another configured reviewer
+   if self-review is prohibited; keep the environment protection rules intact.
+4. Wait for **publish** to succeed. A green `build` alone does not mean anything
+   was uploaded. In `validate` mode, `publish` is deliberately skipped.
+5. Save this run's URL and artifact outside GitHub's 30-day artifact retention
+   window. Keep the manifest from this exact publishing run for Step 4.
 
-1. Open [crates.io](https://crates.io/) and sign in with the GitHub account that
-   should own the crates.
-2. Open [account profile settings](https://crates.io/settings/profile). Under
-   **User Email**, click **Edit**, enter the maintainer email, and click **Save**.
-   Signing in with GitHub does not automatically populate this field.
-3. Open the verification email from crates.io and follow its link. Return to
-   profile settings and confirm verification is complete. Creating an API
-   token is possible before this step, but publishing is not.
-4. Keep this account signed in for Step 4. The first publishing account becomes
-   the crate owner; being a GitHub repository collaborator alone does not make
-   someone a crates.io owner.
+The publish job downloads and checks the same archives approved in that run.
+A separate build of the same source, especially Python distributions, can have
+different archive hashes because of build timestamps. Do not substitute a
+previous validation run's manifest for the publishing run's manifest.
 
-### Step 2 — Save the initial publish token in GitHub
+### Step 4 — Verify the public release
 
-1. Open [crates.io API tokens](https://crates.io/settings/tokens).
-2. Click **New Token**. Set **Name** to `zincha-sdk-initial-publish` and
-   **Expiration** to **7 days**.
-3. Under **Scopes**, select **publish-new** and **publish-update**. Leave
-   **change-owners**, **trusted-publishing**, and **yank** unchecked for this
-   upload-only token; Step 4 configures trusted publishing through the website.
-4. Under **Crates**, click **Add pattern** once per name and enter exactly
-   `zincha-primitives`, `zincha-client`, `zincha-cli-core`, and `zincha-cli` in
-   four separate **Crate name pattern** fields. Do not leave it unrestricted.
-5. Click **Generate Token**. Copy the token once and save it as
-   **CARGO_REGISTRY_TOKEN** using the GitHub
-   environment-secret instructions above. Keep its name/expiry in the release
-   record so the correct token can be revoked later.
-6. Verify the GitHub secret name is present before proceeding. If the one-time
-   token value was lost before saving, revoke it on crates.io and create a new
-   one; GitHub cannot recover a value that was never saved.
+Perform the checks for the selected registry below, one at a time. Record the
+public package URLs, the source and workflow commits, the run URL, the manifest,
+and the verification results. Then update this guide's published-version table
+and installation examples as appropriate. Do not put credentials in evidence.
 
-### Step 3 — Publish and verify all four crates
+#### Rust / crates.io
 
-1. Run the workflow with the initial source commit, **registry = crates**,
-   **crates_auth = auto**, and workflow branch **main**.
-2. Approve the `release` deployment when requested.
-3. Open the **Publish crates in dependency order** log. Publication is
-   sequential: primitives → client → CLI core → CLI.
-4. Confirm that `publish` succeeds and all four pages show version **0.1.0**:
+1. Check **Obtain short-lived crates.io credentials after initial bootstrap**
+   and **Publish crates in dependency order** both succeeded. The dependency
+   order is primitives → client → CLI core → CLI.
+2. Open each crate's new version page. Compare its registry `checksum` from
+   `https://crates.io/api/v1/crates/<crate-name>/<version>` with the corresponding
+   manifest `sha256`, and confirm `yanked` is `false`.
+3. In a temporary consumer project outside the checkout, use the new versions
+   of `zincha-client` and `zincha-primitives` and run `cargo check`. Also test
+   `cargo install zincha-cli --version <version> --locked --root <temporary-dir>`
+   and the installed `zincha --help`. Replace angle-bracket placeholders before
+   running commands; use a temporary install root to preserve an existing CLI.
+4. Keep the exact upload result for the first new Rust release: initial setup
+   proved OIDC credential exchange and existing-version checksums, not a new
+   version upload using OIDC.
 
-   - [zincha-primitives](https://crates.io/crates/zincha-primitives/0.1.0)
-   - [zincha-client](https://crates.io/crates/zincha-client/0.1.0)
-   - [zincha-cli-core](https://crates.io/crates/zincha-cli-core/0.1.0)
-   - [zincha-cli](https://crates.io/crates/zincha-cli/0.1.0)
+#### npm / @zincha/client
 
-5. Compare each registry version's `checksum` with its `sha256` in the saved
-   manifest. The public JSON URL is
-   `https://crates.io/api/v1/crates/<crate-name>/0.1.0`; also verify `yanked`
-   is `false`. The release operator can perform this check automatically.
-6. If only publication fails, fix the reported cause, then open that run and
-   select **Re-run jobs → Re-run failed jobs**. This reuses the successful
-   build's artifacts; approve `release` again if prompted. A new workflow run
-   also works, but must use the **same source** and `registry = crates`.
-   The script skips an existing version only when its checksum matches and
-   it is not yanked. It refuses changed contents. If the error was HTTP 503,
-   check whether the version appeared before retrying: a network/server error
-   does not by itself prove the upload was rejected.
+1. Confirm the new version exists, `vega` points to it, and provenance is
+   present on the package page. The workflow publishes with `--tag vega`; it
+   does not intentionally move `latest` or create a mainnet release.
+2. Check registry metadata. Substitute the intended new version for the
+   example value before running:
 
-### Step 4 — Configure and verify trusted publishing
+   ```sh
+   SDK_NPM_VERSION=0.2.2
+   npm view "@zincha/client@$SDK_NPM_VERSION" version dist-tags dist.tarball dist.integrity
+   ```
 
-This step becomes available only after Step 3. Configure **each** crate; one
-crate's settings do not cover the other three.
+3. Download `dist.tarball` and compare its SHA-256 with this run's manifest.
+   `dist.integrity` is an SRI digest (normally SHA-512), not the manifest's
+   SHA-256; do not compare the two strings directly.
+4. In a new temporary directory outside the checkout, run `npm init -y`, then
+   `npm install --ignore-scripts "@zincha/client@$SDK_NPM_VERSION"` and
+   `npm audit signatures`. Verify both `@zincha/client` and
+   `@zincha/client/conversation-node` import successfully. Check the installed
+   version and provenance point to the intended release.
+5. Allow for npm processing delay after a successful upload. During initial
+   publication, metadata was temporarily unavailable after the workflow passed.
+   Recheck the public version before considering any retry; do not upload it
+   again merely because the package page has not appeared yet.
 
-1. While signed into the owner account, open each crate's settings:
+#### Python / PyPI
 
-   - [zincha-primitives settings](https://crates.io/crates/zincha-primitives/settings)
-   - [zincha-client settings](https://crates.io/crates/zincha-client/settings)
-   - [zincha-cli-core settings](https://crates.io/crates/zincha-cli-core/settings)
-   - [zincha-cli settings](https://crates.io/crates/zincha-cli/settings)
+1. Open the new release's **Files** tab at
+   `https://pypi.org/project/zincha/<version>/`. It must list both the wheel and
+   source distribution with provenance.
+2. Retrieve `https://pypi.org/pypi/zincha/<version>/json`. Compare each file's
+   `digests.sha256` and size with this run's manifest, confirm it is not yanked,
+   then download both public files and verify their bytes/hashes as well.
+3. Use a fresh virtual environment outside the checkout to install from
+   public PyPI. Substitute the intended new version for this example:
 
-2. Find **Trusted Publishing**, click **Add**, and select **GitHub**.
-3. Enter these values exactly, then save:
+   ```sh
+   SDK_PYPI_VERSION=0.1.1
+   python3 -m venv .venv
+   .venv/bin/python -m pip --isolated install --index-url https://pypi.org/simple "zincha==$SDK_PYPI_VERSION"
+   .venv/bin/python -m pip check
+   .venv/bin/python -I -c 'from importlib.metadata import version; from zincha import Keypair, ZinchaClient, ConversationClient; assert Keypair.generate().address().startswith("zn1"); assert ZinchaClient.for_release("vega"); assert callable(ConversationClient); print(version("zincha"))'
+   ```
 
-   | Field | Value |
-   | --- | --- |
-   | Repository owner | `zinchain` |
-   | Repository name | `zincha-sdk` |
-   | Workflow filename | `publish-packages.yml` |
-   | Environment | `release` |
+4. Unpack the downloaded source distribution into that temporary directory.
+   Run its `tests` directory against the installed wheel using
+   `.venv/bin/python -I -m unittest discover -s zincha-<version>/tests`.
+   Isolated mode prevents importing the source checkout instead of the
+   installed package.
+5. Verify both public attestations with `pypi-attestations` in a separate tool
+   environment. For each wheel/source filename, run
+   `pypi-attestations verify pypi --repository https://github.com/zinchain/zincha-sdk pypi:<filename>`.
+   The initial release used verifier `0.0.30`. Check the public **Release
+   security** panel identifies `zinchain/zincha-sdk`, `publish-packages.yml`,
+   and the intended run. The attestation's publishing commit identifies the
+   workflow revision; the archived manifest/build log records **source_ref**.
 
-   Enter only the workflow filename, not `.github/workflows/` and not the
-   display name “SDK Registry Packages”. `zinchain` is the GitHub owner; it
-   need not match the crates.io display name.
+## Retry and recovery
 
-4. Return to each settings page and confirm its publisher lists all four values.
-5. Keep the bootstrap secret temporarily. Rerun the workflow with the **same
-   initial source commit**, **registry = crates**, **crates_auth = trusted**.
-   This forces short-lived OIDC credentials and excludes the bootstrap secret.
-6. Confirm **Obtain short-lived crates.io credentials after initial bootstrap**
-   succeeds and the publish step reports all four versions already present
-   with the expected checksums. This checks OIDC exchange and installed
-   package identity without creating another version. It is not a test upload
-   with the new credential; the next real version will exercise that upload.
-   Keep the four verified publisher settings as part of the verification record.
-7. Only after those checks, delete **CARGO_REGISTRY_TOKEN** from the GitHub
-   `release` environment. Leave **ZINCHA_RELEASES_TOKEN** intact.
-8. On the [crates.io token page](https://crates.io/settings/tokens), revoke only
-   the bootstrap token created in Step 2. Deleting the GitHub secret does not
-   revoke the token at crates.io.
-9. For later Rust releases, use `crates_auth = trusted` and a reviewed source
-   commit with incremented versions. No stored crates.io token is needed.
-
-If OIDC fails, check the four configuration fields against the actual workflow
-repository, filename, and environment. Do not remove the working bootstrap
-credential until the mismatch is resolved. Add other intended crate owners
-separately; trusted publishing does not grant them ownership.
-
-See the [official crates.io trusted-publishing guide](https://crates.io/docs/trusted-publishing).
-
-## npm: @zincha/client
-
-### Step 1 — Establish account and scope ownership
-
-1. Create or sign into the maintainer account on [npm](https://www.npmjs.com/).
-   Verify its email, enable 2FA, and store recovery codes safely.
-2. Confirm you control the **@zincha** scope. An npm user named `zincha` owns
-   its personal scope; alternatively, an npm organization named `zincha`
-   can own the scope and grant the maintainer publishing access. Do not create
-   an organization if the intended scope already belongs to your user account.
-3. Verify access through npm's account/organization settings. GitHub ownership
-   of `zinchain` does not automatically grant npm scope ownership. Resolve a
-   scope conflict before uploading; do not silently rename the package.
-
-### Step 2 — Save a short-lived initial publish token
-
-1. Open your npm profile menu → **Access Tokens** → **Generate New Token**.
-2. Give it a recognizable bootstrap name and a short expiration.
-3. Under **Packages and scopes**, choose **Read and write (publish and stage)**,
-   then restrict it to **@zincha**. The package does not yet exist,
-   so selecting only an existing package will not cover the first upload.
-4. For this noninteractive bootstrap, enable **Bypass two-factor authentication**
-   on this narrowly scoped token. Keep account 2FA enabled. Organization
-   administration permission alone does not grant package publication.
-5. Generate the token and save it as **NPM_TOKEN** in the GitHub `release`
-   environment using the instructions above.
-
-The existing token's details page displays its 2FA setting but does not let you
-change it. If **Bypass two-factor authentication** was left unchecked, create
-a replacement token with the settings above and update the existing GitHub
-`NPM_TOKEN` secret. Do not paste its value into chat or logs. Revoke the old
-token after confirming the replacement is saved.
-
-The [official token guide](https://docs.npmjs.com/creating-and-viewing-access-tokens/)
-explains the current form and permissions.
-
-### Step 3 — Publish the actual SDK
-
-1. Run the workflow with the initial source commit and **registry = npm**.
-2. Approve `release`, then wait for **publish** to succeed.
-3. Verify [@zincha/client](https://www.npmjs.com/package/@zincha/client)
-   contains **0.2.0**, has provenance, and has `vega` pointing to that version.
-   A terminal check is `npm view @zincha/client@0.2.0 version dist-tags dist.integrity`.
-4. Save the run URL and archive manifest. Do not upload an empty placeholder.
-
-### Step 4 — Configure trusted publishing for future versions
-
-Account-level 2FA must be enabled before npm allows these package settings to
-be saved. The bootstrap token's publishing-only 2FA bypass does not cover this
-administrative action. If npm redirects to **Please configure 2FA to edit this
-package**, check the account's registered security keys and write-action 2FA
-setting in the same browser session used for package settings. If needed,
-complete [account 2FA setup](https://docs.npmjs.com/configuring-two-factor-authentication/)
-and save the recovery codes privately. If 2FA is already enabled, sign out and
-sign back in with the security key before returning to package settings. A
-continuing redirect is an unresolved npm administration problem; do not disable
-2FA, repeatedly recreate keys, or treat the unsaved publisher as configured.
-
-1. Open the package page → **Settings** → **Trusted Publisher** and choose GitHub.
-2. Set owner `zinchain`, repository `zincha-sdk`, workflow
-   `publish-packages.yml`, and environment `release`.
-3. Where npm offers **Allowed actions**, explicitly allow direct **npm publish**.
-   This workflow does not use staged publication.
-4. Save the configuration when the next reviewed version is ready. npm requires
-   its **first successful trusted publication within two days** of creation.
-   Otherwise the configuration expires and must be deleted and recreated.
-   Saving the settings or running a dry run does not prove activation. Do not
-   change package contents under version `0.2.0` or attempt to republish it
-   simply to test authentication.
-5. For the first intended OIDC publication, select **registry = npm** and
-   **npm_auth = trusted**. This excludes `NPM_TOKEN` from the publishing step,
-   so a failed OIDC exchange cannot silently fall back to the bootstrap token.
-   Confirm the new version, provenance, and validated publisher status before
-   deleting `NPM_TOKEN` from GitHub and revoking the bootstrap token on npm.
-   Retain it securely during this transition; do not paste it into logs.
-
-Unlike the Rust uploader, rerunning the npm step with an already published
-version fails. Trusted publishing and GitHub's release approval are separate
-checks. See [npm's trusted-publisher instructions](https://docs.npmjs.com/trusted-publishers/).
-
-## PyPI: zincha
-
-### Step 1 — Create and secure the maintainer account
-
-1. Create an account at [PyPI registration](https://pypi.org/account/register/)
-   or sign into the intended existing account.
-2. Verify its email and configure 2FA with recovery codes.
-3. Use **pypi.org**, not TestPyPI, for this release. A TestPyPI account or
-   publisher does not configure the production registry.
-
-### Step 2 — Add a pending publisher (no API token)
-
-1. Open [PyPI account publishing](https://pypi.org/manage/account/publishing/).
-2. Under **Add a new pending publisher**, choose **GitHub**.
-3. Fill in the form and save it:
-
-   | Field | Value |
-   | --- | --- |
-   | PyPI project name | `zincha` |
-   | Owner | `zinchain` |
-   | Repository name | `zincha-sdk` |
-   | Workflow name | `publish-packages.yml` |
-   | Environment name | `release` |
-
-4. Confirm the pending publisher appears in the account's list. It authorizes
-   project creation on first use; it does not reserve the name in advance.
-
-### Step 3 — Publish and verify
-
-1. Run the workflow with the initial source commit and **registry = pypi**.
-2. Approve `release` and wait for **publish** to succeed. No PyPI secret is needed.
-3. Verify [zincha 0.1.0](https://pypi.org/project/zincha/0.1.0/) exists and its
-   **Download files** tab lists both a wheel and a source distribution.
-4. Compare both file hashes with `PACKAGE_MANIFEST.json`. Confirm the pending
-   publisher became an active publisher under the project's publishing settings.
-5. Add other intended project maintainers after creation. Use a new version for
-   subsequent releases; the workflow does not skip existing PyPI uploads.
-
-See [PyPI's pending-publisher guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
-
-## Troubleshooting
-
-| Symptom | Check and action |
+| Situation | Action |
 | --- | --- |
-| `CARGO_REGISTRY_TOKEN` is missing | Save the crates.io token under **zinchain/zincha-sdk → Settings → Environments → release → Environment secrets**. Creating it on crates.io alone is insufficient. |
-| Initial crates run tries OIDC and fails | Use `crates_auth = auto` and verify the bootstrap secret exists; initial crate creation needs that token. |
-| Crates publish is denied | Check verified email, token expiry, new-crate permission/name restrictions, and ownership if the name already exists. |
-| Crates requires a verified email | Open [profile settings](https://crates.io/settings/profile), add/save an email if empty, then follow the verification email. GitHub login and token creation do not complete this step. |
-| Crates returns HTTP 503 | Inspect registry state, then retry the failed publish job with unchanged artifacts. If the service keeps failing, preserve the evidence and wait for registry recovery. |
-| Rust checksum mismatch | Stop. Compare the source commit, package manifest, compiler and generated archives. Do not bypass the check or overwrite a version. |
-| Trusted publishing rejects the workflow | Check `zinchain`, `zincha-sdk`, `publish-packages.yml`, and `release` exactly on every package. |
-| Run is waiting for review | Approve the `release` deployment using an eligible configured reviewer. |
-| npm returns 403 | Check scope ownership, direct-publish permission, token expiry and bootstrap 2FA policy, or OIDC publisher permissions after migration. |
-| PyPI reports an invalid publisher | Check production PyPI, the pending project name `zincha`, and the exact GitHub fields. |
-| npm/PyPI says the version already exists | Check whether an earlier run already uploaded it. Do not blindly rerun `all` or change the same version's contents. |
-| Build passes, package page is absent | Check that `registry` was not `validate`, that release approval happened, and that **publish** succeeded. |
+| Build or test failure | Investigate and fix the cause; commit a correction and validate the new source. Do not bypass failed checks. |
+| Waiting for review | Approve the intended `release` deployment with an eligible reviewer; leave protection enabled. |
+| Trusted authentication rejected | Check owner `zinchain`, repo `zincha-sdk`, workflow filename `publish-packages.yml`, environment `release`, and the workflow's `id-token: write` permission. For npm, direct publishing must be allowed. Do not recreate bootstrap tokens as the first response. |
+| Rust upload interrupted | Inspect all four registry versions first. If retrying the same release, prefer **Re-run jobs → Re-run failed jobs** to reuse its successful build and artifacts. The uploader skips an existing version only when its checksum matches exactly and it is not yanked. |
+| Rust checksum differs | Stop and compare source and artifacts. Do not bypass the check or modify an already published version. Even a new commit with unchanged Rust code may produce different package bytes. |
+| npm/PyPI upload reports a timeout or server error | Check the public version and hashes before retrying. The server may have accepted the upload. Do not automatically rerun publication. |
+| npm/PyPI version already exists | These workflow steps do not skip existing uploads. Verify the existing release; use a new version for changed contents. |
+| PyPI accepted one file but not the other | Preserve the successful file and exact build artifacts. Plan recovery to upload only the missing verified file; the current workflow cannot automatically resume a partial Python upload. Do not blindly rerun both files or enable skipping without checking identity. |
+| An `all` run partially succeeded | Verify every registry, then recover only the incomplete publication. A new single-registry run rebuilds archives; retain the original manifest and compare before uploading. |
+| npm package settings redirect to 2FA | Use the owner account's correct browser session and complete its 2FA/sign-in check. Do not disable 2FA. |
+| New maintainer needs access | Registry ownership and GitHub reviewer/write access are separate. Add only intended maintainers; trusted publishing does not make GitHub collaborators registry owners. |
 
-## Local validation and release records
+Existing publishers do not need to be recreated for every version. If the
+repository, workflow filename or environment changes, update the affected
+registry trust settings before publishing. For a genuinely new package name,
+configure its own publisher/initial-publication flow; the existing setup does
+not automatically authorize additional crates or npm packages.
 
-The workflow validates archives against the exact package-source checkout
-before publishing. It builds four crates, one npm tarball, one Python wheel,
-and one Python source distribution. Retain the run URL and manifest for each
-registry, and compare registry checksums after publication.
+Official references: [crates.io trusted publishing](https://crates.io/docs/trusted-publishing),
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers/),
+[PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/),
+[PyPI attestation verification](https://docs.pypi.org/attestations/consuming-attestations/).
 
-For local validation, install Rust 1.94.0, Node 22, npm, pnpm 9.15.9, Python
-3.12+, `build==1.3.0`, and `twine==6.2.0`, plus SDK dependencies, then run these
-commands sequentially:
+## Initial-release provenance and archived setup instructions
+
+The first Rust packages, npm `0.2.0`, and Python `0.1.0` used package source
+`dc2f22254ce2dc3df9efa1b4908a1f45a5694b31`. The npm `0.2.1` trusted release used
+`90b8b655e7e7d5392b3dcd5adbbcdaad6103d1a0`. Publication evidence is linked in the
+setup table above. These source references are historical records, not defaults
+for the next release.
+
+The [previous bootstrap guide](https://github.com/zinchain/zincha-sdk/blob/90b8b655e7e7d5392b3dcd5adbbcdaad6103d1a0/docs/PACKAGE_PUBLISHING.md)
+retains account, first-token, pending-publisher and token-cleanup instructions
+for reference. Those steps are complete for the packages listed here. Do not
+repeat initial uploads or restore the removed tokens for normal releases.
+
+## Optional local release validation
+
+GitHub Actions performs release validation on Ubuntu with Rust 1.94.0, Node 22,
+npm 11.15.0, pnpm 9.15.9, Python 3.12, `build==1.3.0`, and `twine==6.2.0`.
+For local validation, install those tools and declared SDK dependencies, then
+run from the repository root, sequentially:
 
 ```sh
 python3 scripts/sync-package-files.py
@@ -399,19 +289,13 @@ scripts/build-registry-packages.sh
 scripts/smoke-registry-packages.sh
 ```
 
-The workflow installs npm 11.15.0, which supports trusted publishing. Python
-3.12+ here is for packaging tools; the distributed SDK supports Python 3.9+.
-Package sources must be committed, and `dist/packages` must be empty before
-building. Use `OUT_DIR` for a fresh output location and `PYTHON_BIN` for an
-isolated Python tool environment. The fixture synchronization check compares
-package-local copies with canonical vectors and OpenAPI; refresh copies with
-`--write` after those sources change. Packaging does not change `skill.md` or
-OpenAPI semantics.
+The package builder requires a clean committed checkout and an empty
+`dist/packages` directory. Use `OUT_DIR` to build elsewhere, pass that same
+path to `scripts/smoke-registry-packages.sh`, and use `PYTHON_BIN` when an
+isolated Python tool environment is needed. Keep the hosted release's manifest
+as the authority for its uploaded files; local archives are validation evidence.
 
-## Additional distribution channels
-
-Homebrew for the prebuilt CLI and an OCI container image for node operators
-are useful next steps. The conversation service can have its own operator
-container. They are deployment conveniences, not additional client libraries.
-A separate conversation SDK, an npm wrapper that downloads the Rust binary,
-or extra language packages are unnecessary for the current public surface.
+Packaging documentation alone does not change `skill.md`, OpenAPI, SDK runtime
+behavior or node consensus. GitHub binary releases remain a separate workflow.
+Homebrew and operator container images are possible later distribution channels,
+not prerequisites for these registry releases.
