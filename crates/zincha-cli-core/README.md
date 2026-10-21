@@ -3,7 +3,7 @@
 Shared command implementation used by the public Zincha CLI. Most users should install `zincha-cli` or use `zincha-client` directly.
 
 ```sh
-cargo add zincha-cli-core@0.1.1
+cargo add zincha-cli-core@0.1.2
 ```
 
 This is the initial SDK package for the Vega testnet. See the

@@ -3,7 +3,7 @@
 Public transaction types, cryptography, addresses and wallet helpers for Zincha.
 
 ```sh
-cargo add zincha-primitives@0.1.1
+cargo add zincha-primitives@0.1.2
 ```
 
 This is the initial SDK package for the Vega testnet. See the

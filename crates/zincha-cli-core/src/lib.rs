@@ -16,11 +16,7 @@ mod watch;
 pub use output::emit;
 
 #[derive(Debug, Parser)]
-#[command(
-    name = "zincha",
-    about = "Public Zincha developer CLI",
-    version = "0.1.0"
-)]
+#[command(name = "zincha", about = "Public Zincha developer CLI", version)]
 pub struct Cli {
     #[arg(long, global = true, default_value = "http://127.0.0.1:9944")]
     pub api_url: String,

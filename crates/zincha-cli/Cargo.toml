@@ -18,11 +18,11 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 tokio.workspace = true
-zincha-cli-core = { version = "0.1.1", path = "../zincha-cli-core" }
+zincha-cli-core = { version = "0.1.2", path = "../zincha-cli-core" }
 
 [dev-dependencies]
 bincode.workspace = true
-zincha-primitives = { version = "0.1.1", path = "../zincha-primitives" }
+zincha-primitives = { version = "0.1.2", path = "../zincha-primitives" }
 hex.workspace = true
 rcgen.workspace = true
 rustls.workspace = true

@@ -222,7 +222,10 @@ fn help_and_version_are_available() {
 
     let version = zincha().arg("--version").output().expect("run version");
     assert_success(&version);
-    assert!(stdout(&version).starts_with("zincha 0.1.0"));
+    assert_eq!(
+        stdout(&version).trim(),
+        concat!("zincha ", env!("CARGO_PKG_VERSION"))
+    );
 }
 
 #[test]

@@ -2849,7 +2849,7 @@ dependencies = [
 
 [[package]]
 name = "zincha-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "zincha-cli-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2887,7 +2887,7 @@ dependencies = [
 
 [[package]]
 name = "zincha-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2922,7 +2922,7 @@ dependencies = [
 
 [[package]]
 name = "zincha-primitives"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "argon2",
  "bincode",

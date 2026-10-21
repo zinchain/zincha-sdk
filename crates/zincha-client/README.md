@@ -3,7 +3,7 @@
 Rust HTTP, WebSocket and conversation clients for Zincha.
 
 ```sh
-cargo add zincha-client@0.1.1
+cargo add zincha-client@0.1.2
 ```
 
 This is the initial SDK package for the Vega testnet. See the
