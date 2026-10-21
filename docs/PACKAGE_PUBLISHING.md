@@ -252,14 +252,20 @@ See the [official crates.io trusted-publishing guide](https://crates.io/docs/tru
 
 1. Open your npm profile menu → **Access Tokens** → **Generate New Token**.
 2. Give it a recognizable bootstrap name and a short expiration.
-3. Under **Packages and scopes**, choose the permission that permits direct
-   publication, then restrict it to **@zincha**. The package does not yet exist,
+3. Under **Packages and scopes**, choose **Read and write (publish and stage)**,
+   then restrict it to **@zincha**. The package does not yet exist,
    so selecting only an existing package will not cover the first upload.
 4. For this noninteractive bootstrap, enable **Bypass two-factor authentication**
    on this narrowly scoped token. Keep account 2FA enabled. Organization
    administration permission alone does not grant package publication.
 5. Generate the token and save it as **NPM_TOKEN** in the GitHub `release`
    environment using the instructions above.
+
+The existing token's details page displays its 2FA setting but does not let you
+change it. If **Bypass two-factor authentication** was left unchecked, create
+a replacement token with the settings above and update the existing GitHub
+`NPM_TOKEN` secret. Do not paste its value into chat or logs. Revoke the old
+token after confirming the replacement is saved.
 
 The [official token guide](https://docs.npmjs.com/creating-and-viewing-access-tokens/)
 explains the current form and permissions.
@@ -280,9 +286,12 @@ explains the current form and permissions.
    `publish-packages.yml`, and environment `release`.
 3. Where npm offers **Allowed actions**, explicitly allow direct **npm publish**.
    This workflow does not use staged publication.
-4. Save the configuration. Coordinate its activation with the next planned
-   version and npm's current activation-window requirements; do not change
-   package contents under version `0.2.0` simply to test it.
+4. Save the configuration when the next reviewed version is ready. npm requires
+   its **first successful trusted publication within two days** of creation.
+   Otherwise the configuration expires and must be deleted and recreated.
+   Saving the settings or running a dry run does not prove activation. Do not
+   change package contents under version `0.2.0` or attempt to republish it
+   simply to test authentication.
 5. For the first intended OIDC publication, remove `NPM_TOKEN` from GitHub so
    the workflow uses trusted publishing. Confirm the new version and provenance
    before revoking the bootstrap token on npm. Retain it securely during this
