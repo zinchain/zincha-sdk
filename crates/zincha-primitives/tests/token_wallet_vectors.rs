@@ -8,7 +8,7 @@ const FEE: u64 = 1_000;
 
 fn fixture_path() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../sdk/testdata/golden-token-operations.json")
+        .join("tests/fixtures/golden-token-operations.json")
 }
 
 fn wallet(nonce: u64, timestamp: u64) -> AgentWallet {

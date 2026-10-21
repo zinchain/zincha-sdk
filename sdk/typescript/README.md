@@ -17,6 +17,19 @@ The `TransactionStatus` interface and generated OpenAPI schema expose those
 fields with typed receipt events, state changes, contract context, and operation
 variants.
 
+## Install
+
+After the initial registry publication:
+
+```sh
+npm install @zincha/client@0.2.0
+# Equivalent Vega channel: npm install @zincha/client@vega
+```
+
+Node-only pinned TLS support is exported from
+`@zincha/client/conversation-node`; browser consumers use `@zincha/client`.
+The npm package contains compiled ESM, declarations, sources and the license.
+
 ## Transfer + read
 
 ```ts

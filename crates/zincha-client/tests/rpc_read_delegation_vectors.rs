@@ -3,10 +3,8 @@ use zincha_primitives::crypto::Keypair;
 
 #[test]
 fn delegated_request_signature_matches_cross_language_vector() {
-    let vector: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-rpc-read-delegation-v1.json"
-    ))
-    .unwrap();
+    let vector: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/golden-rpc-read-delegation-v1.json")).unwrap();
     let request = &vector["delegated_request"];
     let secret: [u8; 32] = hex::decode(vector["delegate_secret_key"].as_str().unwrap())
         .unwrap()

@@ -88,7 +88,7 @@ from zincha import (
 
 
 GOLDEN = json.loads(
-    (Path(__file__).resolve().parents[2] / "testdata" / "golden-transfer.json").read_text()
+    (Path(__file__).resolve().parent / "fixtures" / "golden-transfer.json").read_text()
 )
 
 
@@ -962,7 +962,7 @@ class TaskSubmitEncoderTests(unittest.TestCase):
 
 
 def _python_fixture_path(name: str) -> Path:
-    return Path(__file__).resolve().parents[2] / "testdata" / name
+    return Path(__file__).resolve().parent / "fixtures" / name
 
 
 class GoldenVectorTests(unittest.TestCase):
@@ -2323,7 +2323,7 @@ class GoldenVectorTests(unittest.TestCase):
 
     def test_rpc_read_delegation_matches_shared_golden_vector(self):
         vector = json.loads(
-            (Path(__file__).resolve().parents[2] / "testdata" / "golden-rpc-read-delegation-v1.json").read_text()
+            (Path(__file__).resolve().parent / "fixtures" / "golden-rpc-read-delegation-v1.json").read_text()
         )
         self.assertEqual(
             derive_rpc_read_delegation_id(vector["delegator"], vector["delegate_public_key"], vector["service_id"]),

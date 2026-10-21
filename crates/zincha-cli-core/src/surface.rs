@@ -378,7 +378,7 @@ mod tests {
     fn account_query_manifest_targets_documented_balance_endpoint() {
         let spec: serde_json::Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../openapi/openapi.json"
+            "/tests/fixtures/openapi.json"
         )))
         .expect("public OpenAPI artifact");
         let account = TYPED_QUERY_ENDPOINTS

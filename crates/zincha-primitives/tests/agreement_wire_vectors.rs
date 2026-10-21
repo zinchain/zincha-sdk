@@ -13,10 +13,8 @@ fn encoded<T: Serialize>(value: &T) -> String {
 
 #[test]
 fn agreement_lifecycle_fixture_matches_rust_bincode() {
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-agreement-lifecycle.json"
-    ))
-    .unwrap();
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/golden-agreement-lifecycle.json")).unwrap();
     let a = Address::from_raw_hex(&"11".repeat(20)).unwrap();
     let b = Address::from_raw_hex(&"22".repeat(20)).unwrap();
     let c = Address::from_raw_hex(&"33".repeat(20)).unwrap();

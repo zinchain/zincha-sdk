@@ -1,0 +1,120 @@
+name: SDK Registry Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Reviewed package source commit or tag"
+        required: true
+        default: main
+        type: string
+      registry:
+        description: "Build/validate only, or publish the validated packages"
+        required: true
+        default: validate
+        type: choice
+        options: [validate, crates, npm, pypi, all]
+
+concurrency:
+  group: sdk-validation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RUST_TEST_THREADS: "1"
+  CARGO_BUILD_JOBS: "1"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - id: source
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@1.94.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install packaging tools and declared dependencies
+        run: |
+          npm install --global npm@11.15.0 pnpm@9.15.9
+          python -m pip install 'build==1.3.0' 'twine==6.2.0' ./sdk/python
+          pnpm --dir sdk/typescript install --frozen-lockfile
+      - name: Validate all SDKs sequentially
+        run: scripts/ci-offline.sh
+      - name: Build and verify all registry archives sequentially
+        run: scripts/build-registry-packages.sh
+      - name: Test clean archive installations
+        run: scripts/smoke-registry-packages.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-registry-packages-${{ steps.source.outputs.commit }}
+          path: dist/packages/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: inputs.registry != 'validate'
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CARGO_BOOTSTRAP_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+      - uses: dtolnay/rust-toolchain@1.94.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm install --global npm@11.15.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-registry-packages-${{ needs.build.outputs.commit }}
+          path: dist/packages
+      - name: Verify downloaded archives against pinned source and manifest
+        run: python scripts/check-registry-archives.py dist/packages --verify-manifest
+      - name: Obtain short-lived crates.io credentials after initial bootstrap
+        if: (inputs.registry == 'crates' || inputs.registry == 'all') && env.CARGO_BOOTSTRAP_TOKEN == ''
+        uses: rust-lang/crates-io-auth-action@v1
+        id: crates-auth
+      - name: Publish crates in dependency order
+        if: inputs.registry == 'crates' || inputs.registry == 'all'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.crates-auth.outputs.token }}
+        run: python scripts/publish-crates.py dist/packages
+      - name: Publish npm package with provenance and Vega channel
+        if: inputs.registry == 'npm' || inputs.registry == 'all'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish dist/packages/*.tgz --access public --tag vega --provenance --ignore-scripts
+      - name: Select Python distributions only
+        if: inputs.registry == 'pypi' || inputs.registry == 'all'
+        run: |
+          mkdir dist/pypi
+          cp dist/packages/*.whl dist/packages/*.tar.gz dist/pypi/
+      - name: Publish Python distributions with trusted publishing
+        if: inputs.registry == 'pypi' || inputs.registry == 'all'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pypi

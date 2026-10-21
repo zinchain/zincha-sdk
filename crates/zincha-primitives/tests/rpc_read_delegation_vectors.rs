@@ -8,10 +8,8 @@ use zincha_primitives::{
 
 #[test]
 fn rpc_read_delegation_matches_cross_language_vector() {
-    let vector: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-rpc-read-delegation-v1.json"
-    ))
-    .unwrap();
+    let vector: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/golden-rpc-read-delegation-v1.json")).unwrap();
     let delegator = Address::from_hex(vector["delegator"].as_str().unwrap()).unwrap();
     let public_key: [u8; 32] = hex::decode(vector["delegate_public_key"].as_str().unwrap())
         .unwrap()

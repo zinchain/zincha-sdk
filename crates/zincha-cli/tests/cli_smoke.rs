@@ -631,10 +631,9 @@ fn tx_transfer_builds_signed_transaction_without_network_submission() {
 
 #[test]
 fn tx_reactivate_validator_matches_the_canonical_298_byte_vector() {
-    let golden: Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-staking-validator.json"
-    ))
-    .expect("staking golden vector");
+    let golden: Value =
+        serde_json::from_str(include_str!("fixtures/golden-staking-validator.json"))
+            .expect("staking golden vector");
     let transaction = &golden["validator_reactivate"]["transaction"];
     let secret_key = golden["secret_hex"].as_str().expect("secret key");
     let fee = transaction["fee_micro_zin"].as_u64().unwrap().to_string();

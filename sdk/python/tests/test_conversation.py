@@ -381,7 +381,7 @@ class ConversationTests(unittest.TestCase):
             decode_conversation_profile(b"x" * 4097)
 
     def test_profile_v2_matches_cross_language_golden_vector(self):
-        path = Path(__file__).parents[2] / "testdata" / "golden-conversation-profile-v2.json"
+        path = Path(__file__).parent / "fixtures" / "golden-conversation-profile-v2.json"
         vector = json.loads(path.read_text())
         encoded = encode_conversation_profile(vector["profile"])
         self.assertEqual(encoded.decode(), vector["canonical_json"])
@@ -686,7 +686,7 @@ class ConversationTests(unittest.TestCase):
         import json
         from pathlib import Path
 
-        path = Path(__file__).parents[2] / "testdata" / "golden-conversation-v1.json"
+        path = Path(__file__).parent / "fixtures" / "golden-conversation-v1.json"
         golden = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(delegation_signing_bytes(golden["delegation"]).hex(), golden["delegation_signing_hex"])
         digest = conversation_payload_digest(golden["payload"])
@@ -700,7 +700,7 @@ class ConversationTests(unittest.TestCase):
         import json
         from pathlib import Path
 
-        path = Path(__file__).parents[2] / "testdata" / "golden-conversation-e2e-v1.json"
+        path = Path(__file__).parent / "fixtures" / "golden-conversation-e2e-v1.json"
         golden = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(
             decrypt_conversation_e2e(

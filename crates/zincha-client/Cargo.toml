@@ -7,6 +7,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "README.md"
+include = ["src/**", "tests/**", "Cargo.toml", "README.md", "LICENSE"]
+keywords = ["zincha", "blockchain", "sdk"]
 
 [dependencies]
 anyhow.workspace = true
@@ -33,7 +36,7 @@ uuid.workspace = true
 webpki-roots.workspace = true
 x25519-dalek.workspace = true
 x509-parser.workspace = true
-zincha-primitives = { path = "../zincha-primitives" }
+zincha-primitives = { version = "0.1.0", path = "../zincha-primitives" }
 
 [dev-dependencies]
 h2.workspace = true

@@ -7,6 +7,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "README.md"
+include = ["src/**", "tests/**", "Cargo.toml", "README.md", "LICENSE"]
+keywords = ["zincha", "blockchain", "sdk"]
 
 [[bin]]
 name = "zincha"
@@ -15,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 tokio.workspace = true
-zincha-cli-core = { path = "../zincha-cli-core" }
+zincha-cli-core = { version = "0.1.0", path = "../zincha-cli-core" }
 
 [dev-dependencies]
 hex.workspace = true

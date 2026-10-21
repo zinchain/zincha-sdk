@@ -7,6 +7,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "README.md"
+include = ["src/**", "tests/**", "Cargo.toml", "README.md", "LICENSE"]
+keywords = ["zincha", "blockchain", "sdk"]
 
 [dependencies]
 argon2.workspace = true

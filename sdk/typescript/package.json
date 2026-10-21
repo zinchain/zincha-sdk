@@ -18,16 +18,18 @@
   "files": [
     "dist",
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22.6"
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc -p tsconfig.typecheck.json",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "prepack": "npm run build"
   },
   "license": "Apache-2.0",
   "devDependencies": {
@@ -42,5 +44,19 @@
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
     "undici": "^7.16.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zinchain/zincha-sdk.git",
+    "directory": "sdk/typescript"
+  },
+  "homepage": "https://zincha.com",
+  "bugs": {
+    "url": "https://github.com/zinchain/zincha-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "tag": "vega"
   }
 }

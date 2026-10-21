@@ -5,8 +5,9 @@ of truth for transaction serialization, hashes, and signatures.
 
 It targets Python 3.9+ and uses `cryptography`, `jcs`, and `PyNaCl` for
 conversation transport, canonical JSON, and encryption. Install the package
-with `python -m pip install -e sdk/python` from the repository root to install
-these runtime dependencies. It writes
+with `python -m pip install zincha==0.1.0` after its initial PyPI publication.
+For source development, use `python -m pip install -e sdk/python` from the
+repository root. Both forms install these runtime dependencies. It writes
 addresses, hashes, public keys, and signatures in the current fixed-width binary
 form required by protocol/storage format 58. Its signed transactions are checked
 byte-for-byte against the Rust-generated golden vectors.

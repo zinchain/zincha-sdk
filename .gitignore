@@ -27,3 +27,8 @@ lcov.info
 
 # Compiled SDK output
 **/dist/
+
+# Registry package build outputs
+**/build/
+**/*.egg-info/
+*.tgz

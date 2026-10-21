@@ -2043,7 +2043,7 @@ mod tests {
     #[test]
     fn protocol_bytes_match_cross_language_golden() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../sdk/testdata/golden-conversation-v1.json");
+            .join("tests/fixtures/golden-conversation-v1.json");
         let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         let delegation: ConversationKeyDelegationV1 =
             serde_json::from_value(value["delegation"].clone()).unwrap();
@@ -2070,7 +2070,7 @@ mod tests {
     #[test]
     fn e2e_decrypts_cross_language_golden() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../sdk/testdata/golden-conversation-e2e-v1.json");
+            .join("tests/fixtures/golden-conversation-e2e-v1.json");
         let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         let payload: MessagePayload = serde_json::from_value(value["payload"].clone()).unwrap();
         let secret: [u8; 32] = hex::decode(value["recipient_secret_hex"].as_str().unwrap())
@@ -2190,7 +2190,7 @@ mod tests {
     #[test]
     fn profile_v2_matches_cross_language_golden_vector() {
         let vector: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../sdk/testdata/golden-conversation-profile-v2.json"
+            "../tests/fixtures/golden-conversation-profile-v2.json"
         ))
         .unwrap();
         let profile: ConversationProfileV2 =

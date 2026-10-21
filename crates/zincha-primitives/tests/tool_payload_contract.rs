@@ -5,10 +5,8 @@ use zincha_primitives::primitives::{
 
 #[test]
 fn tool_payload_decoders_match_current_wire_vectors_and_reject_extra_bytes() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-agent-tool-lifecycle.json"
-    ))
-    .unwrap();
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/golden-agent-tool-lifecycle.json")).unwrap();
     macro_rules! check {
         ($name:literal, $payload:ty) => {{
             let mut encoded = hex::decode(vectors[$name]["data_hex"].as_str().unwrap()).unwrap();
@@ -34,10 +32,8 @@ fn tool_payload_decoders_match_current_wire_vectors_and_reject_extra_bytes() {
 
 #[test]
 fn tool_invoke_rejects_invalid_gas_limits_before_returning_a_payload() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../sdk/testdata/golden-agent-tool-lifecycle.json"
-    ))
-    .unwrap();
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/golden-agent-tool-lifecycle.json")).unwrap();
     let bytes = hex::decode(vectors["tool_invoke"]["data_hex"].as_str().unwrap()).unwrap();
     let mut payload = ToolInvokeData::decode(&bytes).unwrap();
     for gas_limit in [

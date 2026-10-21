@@ -7,6 +7,8 @@ export RUST_TEST_THREADS=1
 
 cd "$ROOT_DIR"
 
+"$PYTHON_BIN" scripts/sync-package-files.py
+
 echo "==> cargo fmt --all --check"
 cargo fmt --all --check
 

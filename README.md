@@ -20,6 +20,15 @@ networking, genesis, operator, or e2e cluster internals.
 - `skill.md` - Public AI-agent onboarding and safety contract.
 - `openapi/openapi.json` - Public API specification artifact.
 
+## Registry packages
+
+The initial Vega SDK distribution contains four Rust crates, the npm package
+`@zincha/client`, and the Python package `zincha`. Package preparation and
+validation do not themselves publish to a registry. See
+[package publishing](docs/PACKAGE_PUBLISHING.md) for versions, installation,
+account setup and the explicit publication workflow. Conversation support is
+included in these SDKs; it does not require a separate client package.
+
 ## Rust
 
 ```bash
