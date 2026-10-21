@@ -9,11 +9,11 @@ on:
         default: main
         type: string
       registry:
-        description: "Build/validate only, or publish the validated packages"
+        description: "Validate, publish packages, or promote the tested npm Vega version to latest"
         required: true
         default: validate
         type: choice
-        options: [validate, crates, npm, pypi, all]
+        options: [validate, crates, npm, pypi, all, promote-npm-latest]
       crates_auth:
         description: "Crates authentication: auto uses the bootstrap secret if present; trusted requires OIDC"
         required: true
@@ -43,6 +43,7 @@ env:
 
 jobs:
   build:
+    if: inputs.registry != 'promote-npm-latest'
     runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.source.outputs.commit }}
@@ -82,7 +83,7 @@ jobs:
           retention-days: 30
 
   publish:
-    if: inputs.registry != 'validate'
+    if: inputs.registry != 'validate' && inputs.registry != 'promote-npm-latest'
     needs: build
     runs-on: ubuntu-24.04
     environment: release
@@ -138,3 +139,33 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/pypi
+
+  promote-npm-latest:
+    if: inputs.registry == 'promote-npm-latest'
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted dist-tag support
+        run: npm install --global npm@11.21.0
+      - name: Promote the reviewed published version to latest
+        env:
+          NODE_AUTH_TOKEN: ""
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./sdk/typescript/package.json').version")"
+          published="$(npm view "@zincha/client@$version" version)"
+          test "$published" = "$version"
+          test "$(npm view @zincha/client@vega version)" = "$version"
+          npm dist-tag add "@zincha/client@$version" latest
+          test "$(npm view @zincha/client@latest version)" = "$version"
+          npm dist-tag ls @zincha/client

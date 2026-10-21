@@ -222,6 +222,32 @@ and installation examples as appropriate. Do not put credentials in evidence.
    Recheck the public version before considering any retry; do not upload it
    again merely because the package page has not appeared yet.
 
+#### Make a tested npm release the default
+
+Publishing under `vega` leaves npm's separate `latest` tag unchanged. The default
+package page and plain `npm install @zincha/client` therefore continue to use
+that older version and its README until `latest` is promoted.
+
+After registry hash/provenance checks and live tests pass:
+
+1. In the existing npm trusted publisher for `zinchain/zincha-sdk`,
+   `publish-packages.yml`, environment `release`, enable **Allow npm dist-tag**.
+   Keep the other identity and publishing permissions unchanged. This is an
+   explicit additional permission; npm may require password/2FA confirmation.
+2. Run **SDK Registry Packages** from `main` with `registry=promote-npm-latest`
+   and `source_ref` set to the reviewed commit that supplied the npm version.
+   Keep both authentication selectors `trusted`.
+3. Approve the existing `release` environment after confirming the intended
+   version. This mode uploads no archives and runs no package build. It uses
+   npm 11.21.0's trusted tag support, checks that the published version and the
+   current `vega` tag match the selected source version, then updates `latest`.
+4. Verify `npm view @zincha/client dist-tags --json` shows both tags on the
+   intended version. Test a fresh unversioned install. Allow registry/website
+   caches to refresh before treating an old web-page display as a failure.
+
+The `latest` label identifies the default SDK installation; it does not certify
+a mainnet launch. Do not republish an immutable version just to change a tag.
+
 #### Python / PyPI
 
 1. Open the new release's **Files** tab at
