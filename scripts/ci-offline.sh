@@ -3,17 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+export RUST_TEST_THREADS=1
 
 cd "$ROOT_DIR"
 
 echo "==> cargo fmt --all --check"
 cargo fmt --all --check
 
-echo "==> cargo test --workspace --all-targets"
-cargo test --workspace --all-targets
+echo "==> cargo test --locked --workspace --all-targets"
+cargo test --locked --workspace --all-targets
 
-echo "==> cargo build -p zincha-cli"
-cargo build -p zincha-cli
+echo "==> cargo build --locked -p zincha-cli"
+cargo build --locked -p zincha-cli
 
 echo "==> Python SDK unittest"
 (
@@ -33,14 +34,14 @@ echo "==> TypeScript SDK tests"
         if [ ! -d node_modules ]; then
             pnpm install --frozen-lockfile
         fi
-        pnpm test
+        pnpm exec node --experimental-strip-types --test --test-concurrency=1 test/*.test.ts
         pnpm typecheck
         pnpm build
     elif command -v npm >/dev/null 2>&1; then
         if [ ! -d node_modules ]; then
             npm install --no-audit --no-fund
         fi
-        npm test
+        node --experimental-strip-types --test --test-concurrency=1 test/*.test.ts
         npm run typecheck
         npm run build
     else

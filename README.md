@@ -205,3 +205,22 @@ To dry-run local packaging after building the CLI:
 cargo build --release -p zincha-cli
 scripts/package-cli-binary.sh v0.1.0 "$(rustc -vV | sed -n 's/^host: //p')" local target/release/zincha
 ```
+
+## Vega v0.1.0 binary release
+
+The `v0.1.0` tag identifies the SDK CLI source paired with the Vega node source
+release in `zinchain/zincha`. Rust 1.94.0 is pinned by `rust-toolchain.toml`; build
+the CLI with `cargo build --release --locked -p zincha-cli`.
+
+`Release Binaries` is manually dispatched with `tag=v0.1.0` after the source tag
+and `ZINCHA_RELEASES_TOKEN` release-environment secret are configured. It runs the
+offline gate before creating the draft aggregate release, then builds and uploads
+one platform at a time. CI and release validation share a concurrency group, and
+Rust, TypeScript, and Python compatibility tests execute sequentially.
+
+The release workflow uses frozen pnpm dependencies and fixed runner generations.
+It uploads five CLI archives and matching provenance manifests to
+`zinchain/zincha-releases`. After both Linux node archives have also uploaded,
+run that repository's `Finalize Release` with `prerelease=true`. Keep
+`force_republish=false` for the first release. Creating a source tag alone does
+not publish binaries or deploy Vega.
