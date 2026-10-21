@@ -8,6 +8,11 @@ on:
         description: "Release tag to build, for example v0.1.0"
         required: true
         type: string
+      platforms:
+        description: "Comma-separated platforms to build, or all (use a subset to retry missing assets)"
+        required: false
+        default: all
+        type: string
       force_republish:
         description: "Replace existing assets in zincha-releases"
         required: false
@@ -67,6 +72,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       force_republish: ${{ steps.tag.outputs.force_republish }}
+      matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
       - name: Resolve tag
         id: tag
@@ -88,6 +94,33 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "force_republish=$FORCE_REPUBLISH" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve selected platforms
+        id: platforms
+        env:
+          INPUT_PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+
+          platforms = [
+              {"os": "ubuntu-24.04", "target": "x86_64-unknown-linux-gnu", "platform": "linux-x86_64", "binary": "zincha"},
+              {"os": "ubuntu-24.04-arm", "target": "aarch64-unknown-linux-gnu", "platform": "linux-aarch64", "binary": "zincha"},
+              {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "platform": "macos-x86_64", "binary": "zincha"},
+              {"os": "macos-15", "target": "aarch64-apple-darwin", "platform": "macos-aarch64", "binary": "zincha"},
+              {"os": "windows-2022", "target": "x86_64-pc-windows-msvc", "platform": "windows-x86_64", "binary": "zincha.exe"},
+          ]
+          requested = os.environ["INPUT_PLATFORMS"].strip() or "all"
+          if requested != "all":
+              names = [name.strip() for name in requested.split(",")]
+              allowed = {platform["platform"] for platform in platforms}
+              if len(names) != len(set(names)) or not set(names) <= allowed:
+                  raise SystemExit("Invalid or duplicate platforms; select from: " + ", ".join(sorted(allowed)))
+              platforms = [platform for platform in platforms if platform["platform"] in names]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("matrix=" + json.dumps({"include": platforms}, separators=(",", ":")) + "\n")
+          PYTHON
 
       - name: Ensure aggregate release exists
         env:
@@ -114,28 +147,7 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 1
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x86_64
-            binary: zincha
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            platform: linux-aarch64
-            binary: zincha
-          - os: macos-15-intel
-            target: x86_64-apple-darwin
-            platform: macos-x86_64
-            binary: zincha
-          - os: macos-15
-            target: aarch64-apple-darwin
-            platform: macos-aarch64
-            binary: zincha
-          - os: windows-2022
-            target: x86_64-pc-windows-msvc
-            platform: windows-x86_64
-            binary: zincha.exe
+      matrix: ${{ fromJSON(needs.ensure-release.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     environment: release
     env:
@@ -193,10 +205,8 @@ jobs:
             echo "::error::ZINCHA_RELEASES_TOKEN is required to upload to zinchain/zincha-releases"
             exit 1
           fi
-          args=()
+          args=(release upload "$TAG_NAME" -R zinchain/zincha-releases)
           if [ "$FORCE_REPUBLISH" = "true" ]; then
             args+=(--clobber)
           fi
-          gh release upload "$TAG_NAME" -R zinchain/zincha-releases \
-            dist/zincha-"$TAG_NAME"-"$PLATFORM".* \
-            "${args[@]}"
+          gh "${args[@]}" dist/zincha-"$TAG_NAME"-"$PLATFORM".*

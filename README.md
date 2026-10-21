@@ -224,3 +224,10 @@ It uploads five CLI archives and matching provenance manifests to
 run that repository's `Finalize Release` with `prerelease=true`. Keep
 `force_republish=false` for the first release. Creating a source tag alone does
 not publish binaries or deploy Vega.
+
+To recover a failed platform upload, dispatch the current `main` workflow with the
+original release `tag` and a comma-separated `platforms` subset (for example,
+`macos-x86_64,macos-aarch64,windows-x86_64`). The default is `all`. Every selected
+platform still builds and tests the tagged source, and finalization still requires
+all seven CLI/node archives. Keep existing successful assets and leave
+`force_republish=false`; do not move the source tag to repair workflow tooling.
