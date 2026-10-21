@@ -155,7 +155,18 @@ scripts/live-vega-smoke.sh
 ```
 
 The live smoke uses read-only `zincha --release vega` commands by default.
-Mutating faucet/submit coverage must remain opt-in.
+For the opt-in faucet/transfer check:
+
+```bash
+ZINCHA_LIVE_MUTATING=1 ZINCHA_LIVE_TIMEOUT_SECS=120 scripts/live-vega-smoke.sh
+```
+
+It creates disposable keys, requests 5 ZIN from the Vega faucet, transfers
+1,000 micro-ZIN, waits for canonical confirmation and finalized-header proof,
+and checks both balances and nonce advancement. Keys are removed on exit.
+It only targets canonical Vega; scheduled checks remain read-only.
+See [registry live validation](docs/LIVE_REGISTRY_VALIDATION_2026_10_21.md)
+for published-version results and fixes awaiting a package release.
 
 ## Protocol alignment
 

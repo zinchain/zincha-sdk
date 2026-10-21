@@ -21,6 +21,8 @@ tokio.workspace = true
 zincha-cli-core = { version = "0.1.0", path = "../zincha-cli-core" }
 
 [dev-dependencies]
+bincode.workspace = true
+zincha-primitives = { version = "0.1.0", path = "../zincha-primitives" }
 hex.workspace = true
 rcgen.workspace = true
 rustls.workspace = true

@@ -1,0 +1,578 @@
+{
+  "date": "2026-10-21",
+  "generated_at_utc": "2026-10-21T21:42:22.507861+00:00",
+  "network": {
+    "rpc": "https://vega.zincha.com",
+    "chain_id": "zincha-vega-1",
+    "node_version": "0.1.0"
+  },
+  "execution": "all live tests and regression suites sequential; RUST_TEST_THREADS=1; Node test-concurrency=1",
+  "source_parent": "0379723328087d1cd7b95f8a77cf07e908c90c32",
+  "published_artifacts": {
+    "cargo": {
+      "zincha-primitives": {
+        "version": "0.1.0",
+        "crate_sha256": "2ea4638c289aa52db8525edb4f0432fe74f11e98ecff4b84ed541af08b53be83"
+      },
+      "zincha-client": {
+        "version": "0.1.0",
+        "crate_sha256": "72798f6ca2bba26bfc21d69b2499333b622dd2d1aca4d745e1f03227c9275f2f"
+      },
+      "zincha-cli-core": {
+        "version": "0.1.0",
+        "crate_sha256": "61d102a9f47ad27453a1b6ee6f5b70ab581e221c9e48aa030f54e8581cc20028"
+      },
+      "zincha-cli": {
+        "version": "0.1.0",
+        "crate_sha256": "18a7bff3661d6c3880cc4abef26bcde5dc22f27cb05eb95e274e87cf43d09c7c"
+      }
+    },
+    "npm": {
+      "name": "@zincha/client",
+      "version": "0.2.1",
+      "integrity": "sha512-28x2DmVCns7O4qZVM23DGX0UgLDWqLAiZMtLo+tMKK/UpYfgoSpfSvirYCJ8dnz+ajmYVvGgp1q2aDQ9QR9/iQ=="
+    },
+    "pypi": {
+      "name": "zincha",
+      "version": "0.1.0",
+      "wheel_sha256": "922825e66fb3b833c6d7b3448ef633f05e0639dc05f6538ae3eb6a37e0773d74"
+    }
+  },
+  "cli_binary_sha256": {
+    "published": "20208d547c98b01e5853303e7fda4810eb6fa859d999cbf78e39c731c20e8c70",
+    "fixed": "6a39e8d526dc5d657aebb0e8ab3cd8396f4abf36684b753c03db17d285a3b804"
+  },
+  "unpublished_fixed_archives": {
+    "zincha-0.1.0-py3-none-any.whl": "0b5ea2318eacda3691ae5b79df9e0083a4497eb1ebe6f64577664040eb2de370",
+    "zincha-client-0.2.1.tgz": "9e31b662be170030abbc4ca2aaa72f86c56442935f40c10c52d48177d8a90d7b"
+  },
+  "tested_source_sha256": {
+    "Cargo.lock": "0e15de21cd51db3818436ee759f4abca9f4b23db93bea1e72dc406fd0821930c",
+    "crates/zincha-cli/Cargo.toml": "19776535952d179c785f63c75175dba71204d7028c2c6a87c979277675aeab13",
+    "crates/zincha-client/src/lib.rs": "033feb17100798e14c367c005b53cfbae3d5aa80b7ca1174d10228211db2accd",
+    "crates/zincha-client/tests/http_contract.rs": "5b62634316e7ee64ca9b370f0d71fc007293bd0b1a59cce7f2db6bfad5ef92af",
+    "crates/zincha-cli-core/src/tx.rs": "f18cf854d4e8c8f1009b1fdce78f236bd98011f4bcd9561baeca8f4131ea1016",
+    "crates/zincha-cli/tests/cli_smoke.rs": "26fbdbcd05b2ee5b20dfed8cf9a4894e8897d44470c8523dcff3ba691b839a5e",
+    "sdk/typescript/src/transaction.ts": "8a62dc83b2f614bd04a3f9bb1ade1ea313104f1788cf404b18264f880f1de74d",
+    "sdk/typescript/test/sdk.test.ts": "b987e7b957911a170f43db92bede30e85b78648cf4edc723a17e92dd56540612",
+    "sdk/python/src/zincha/transaction.py": "b43684340e75a47afa45585aa063c00123af5729f1ff6b85c53bdafd67648bd9",
+    "sdk/python/tests/test_sdk.py": "6ee3e333979723668d92e5ea19cdde140bcbbafafe607564f12efd8d7807156a",
+    "scripts/live-vega-transfer.py": "0f9088261a6c906738a0dc6a53116502c808842b2f8c92b0559a38787a08dd5c",
+    "scripts/live-vega-smoke.sh": "26aa8cdd7a54202ab6e98d37e522ef5b7656a0972bf70e01cd41a1c794feca2e"
+  },
+  "failures": {
+    "published_cli_faucet": "Error: API request failed with HTTP 404: not found",
+    "published_cli_transfer": "Error: API request failed with HTTP 422: Validation failed: Invalid transaction: Invalid transaction validity window: ttl_blocks 128 outside allowed range 1..=64",
+    "published_npm": {
+      "name": "ZinchaApiError",
+      "message": "Validation failed: Invalid transaction: Fee 10 below base fee requirement 30 (gas=30 \u00d7 base_fee=1)",
+      "status": 422,
+      "data": null
+    },
+    "published_pypi": {
+      "type": "ZinchaApiError",
+      "message": "Validation failed: Invalid transaction: Fee 10 below base fee requirement 30 (gas=30 \u00d7 base_fee=1)"
+    },
+    "harness_finality_race": "Rust initial check saw finalized tip 1101413 vs confirmed transaction 1101415. Reconciled same transaction without resubmission; exact finalized anchor proof subsequently passed.",
+    "stale_test": "Offline CLI test relied on swallowed connection refusal and guessed chain ID; now explicitly supplies --offline and --chain-id."
+  },
+  "checks": {
+    "rust_all_targets": {
+      "passed": 205,
+      "failed": 0,
+      "ignored": 0
+    },
+    "typescript": {
+      "passed": 76,
+      "failed": 0
+    },
+    "python": {
+      "passed": 61,
+      "failed": 0
+    },
+    "typescript_typecheck": "passed",
+    "typescript_build": "passed",
+    "clippy": {
+      "status": "failed_existing_baseline",
+      "diagnostic_count": 30,
+      "baseline_commit": "0379723328087d1cd7b95f8a77cf07e908c90c32",
+      "baseline_diagnostics_match_exactly": true,
+      "note": "Warnings promoted to errors in unchanged zincha-primitives; not a green strict-lint gate."
+    },
+    "public_artifact_checks": "passed",
+    "formatting": "passed",
+    "package_fixture_sync": "passed",
+    "public_dependency_boundary": "passed",
+    "shell_syntax": "passed"
+  },
+  "transfers": [
+    {
+      "label": "published-cli",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "06ed9d02554b32c95eb9acc5d7747bf85dbea449709bc68d28b817a378d54063",
+        "block_number": 1100478,
+        "block_timestamp_ms": 1792617223044,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 500000,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 499970,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 0,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "11b5efdba8abae7345986b89b506368efd217c2f1c19cc854d9b7242fb55bbd6",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "block_hash": "06ed9d02554b32c95eb9acc5d7747bf85dbea449709bc68d28b817a378d54063",
+        "block_number": 1100478,
+        "parent_hash": "b4313d0c6cf684d510ef0b843f1d9ef8d9f227888d776d0380b0be016d8a2524",
+        "snapshot_finalized_floor": 1100478,
+        "timestamp": 1792617223044,
+        "tx_count": 1
+      }
+    },
+    {
+      "label": "published-rust",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "8ab183d30c114bce203a271373eb40746c1fd30adc11859b031fa5069ec42ebd",
+        "block_number": 1101415,
+        "block_timestamp_ms": 1792618153703,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 500000,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 499970,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 1,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "b973357ddb2f7a80c6cf03dd6faaa3bc1bd9cf8b8fd9d7be8a069f1b431f698f",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "has_more": true,
+        "headers": [
+          {
+            "block_hash": "e43f725a3ee14426afbfd3665015b55586bdeb9b58e4023694073c87be24dfec",
+            "block_number": 1101416,
+            "parent_hash": "8ab183d30c114bce203a271373eb40746c1fd30adc11859b031fa5069ec42ebd",
+            "timestamp": 1792618154706,
+            "tx_count": 0
+          }
+        ],
+        "missing_height": null,
+        "next_anchor": {
+          "block_hash": "e43f725a3ee14426afbfd3665015b55586bdeb9b58e4023694073c87be24dfec",
+          "block_number": 1101416
+        },
+        "requested_anchor": {
+          "block_hash": "8ab183d30c114bce203a271373eb40746c1fd30adc11859b031fa5069ec42ebd",
+          "block_number": 1101415
+        },
+        "snapshot_finalized_floor": 1102109,
+        "snapshot_tip": {
+          "block_hash": "a8af87cb643fe43848726aed6f64bbb67e446241a5629f412c29955a01eb7eae",
+          "block_number": 1102109,
+          "parent_hash": "db81e4ce681e72f6f3140a483baf8bb3a18a7bdaa5a3c2d80917f05f95cb5488",
+          "timestamp": 1792618838616,
+          "tx_count": 0
+        }
+      }
+    },
+    {
+      "label": "published-npm",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "151c45f70d502948fb786b1906fe3e3b41123ea408f2c9b295caba8c447e18a2",
+        "block_number": 1101548,
+        "block_timestamp_ms": 1792618287041,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 2,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "55279c004f61095e7777ca3b2a89e6e7afe8a1fdeffde5d1306c8eaa7762aad0",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "requested_anchor": {
+          "block_number": 1101548,
+          "block_hash": "151c45f70d502948fb786b1906fe3e3b41123ea408f2c9b295caba8c447e18a2"
+        },
+        "snapshot_tip": {
+          "block_number": 1101548,
+          "block_hash": "151c45f70d502948fb786b1906fe3e3b41123ea408f2c9b295caba8c447e18a2",
+          "parent_hash": "f853a40e1bb01cfc8c79cf0990e85e92da7c91272ba3efd452cc1b4e04e1f07d",
+          "tx_count": 1,
+          "timestamp": 1792618287041
+        },
+        "headers": [],
+        "missing_height": null,
+        "next_anchor": {
+          "block_number": 1101548,
+          "block_hash": "151c45f70d502948fb786b1906fe3e3b41123ea408f2c9b295caba8c447e18a2"
+        },
+        "has_more": false,
+        "snapshot_finalized_floor": 1101548
+      }
+    },
+    {
+      "label": "published-pypi",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "e72a39d139b0c1557744cfc9dc685750a13acda7be5f336d18394e14a5c710cc",
+        "block_number": 1101614,
+        "block_timestamp_ms": 1792618353212,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 3,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "d95251d74b62b628890feb1087c4593d475e328901ee5cdb04ac0f01d4444006",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "requested_anchor": {
+          "block_number": 1101614,
+          "block_hash": "e72a39d139b0c1557744cfc9dc685750a13acda7be5f336d18394e14a5c710cc"
+        },
+        "snapshot_tip": {
+          "block_number": 1101614,
+          "block_hash": "e72a39d139b0c1557744cfc9dc685750a13acda7be5f336d18394e14a5c710cc",
+          "parent_hash": "c8ad8390f661d223727613d38d44aefac3708ef38c7cce49b2adab6d8eb19ec3",
+          "tx_count": 1,
+          "timestamp": 1792618353212
+        },
+        "headers": [],
+        "missing_height": null,
+        "next_anchor": {
+          "block_number": 1101614,
+          "block_hash": "e72a39d139b0c1557744cfc9dc685750a13acda7be5f336d18394e14a5c710cc"
+        },
+        "has_more": false,
+        "snapshot_finalized_floor": 1101614
+      }
+    },
+    {
+      "label": "fixed-cli",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "dbe69d52c9d0c2ea7772219698112da114270468ffb4fef18de51d7c8fd9fd15",
+        "block_number": 1101859,
+        "block_timestamp_ms": 1792618597848,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 500000,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 499970,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 0,
+        "recipient": "zn1ec770963ffd0a614f8ed715b3b4b0944ccacd375",
+        "sender": "zn15c6375f3c377f4c380f0b1b2a38434de549e4f8d",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "f49b225cd54cbf0464bef7d1832944beead6990c0e8fdade6eb25fbc2be086f9",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "has_more": true,
+        "headers": [
+          {
+            "block_hash": "6c8ef2a06d2bd03037eb617b6461ef79fbed7b8584c8c05bfcefaa33a2d3eb50",
+            "block_number": 1101860,
+            "parent_hash": "dbe69d52c9d0c2ea7772219698112da114270468ffb4fef18de51d7c8fd9fd15",
+            "timestamp": 1792618598850,
+            "tx_count": 0
+          }
+        ],
+        "missing_height": null,
+        "next_anchor": {
+          "block_hash": "6c8ef2a06d2bd03037eb617b6461ef79fbed7b8584c8c05bfcefaa33a2d3eb50",
+          "block_number": 1101860
+        },
+        "requested_anchor": {
+          "block_hash": "dbe69d52c9d0c2ea7772219698112da114270468ffb4fef18de51d7c8fd9fd15",
+          "block_number": 1101859
+        },
+        "snapshot_finalized_floor": 1101861,
+        "snapshot_tip": {
+          "block_hash": "0fc02c4c634316e95a4c05f449db704db8886d55f3ce9d12c8688ca81b7120a6",
+          "block_number": 1101861,
+          "parent_hash": "6c8ef2a06d2bd03037eb617b6461ef79fbed7b8584c8c05bfcefaa33a2d3eb50",
+          "timestamp": 1792618599852,
+          "tx_count": 0
+        }
+      }
+    },
+    {
+      "label": "fixed-npm",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "a117532786b02dcf5a8c083cc0f1625467433d81c28be564cf074a2a16969d7f",
+        "block_number": 1102014,
+        "block_timestamp_ms": 1792618744368,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 4,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "68a6f0468c07f60c5e3e814e8a60780da364357c3c7149f7d03726c3a9349d29",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "requested_anchor": {
+          "block_number": 1102014,
+          "block_hash": "a117532786b02dcf5a8c083cc0f1625467433d81c28be564cf074a2a16969d7f"
+        },
+        "snapshot_tip": {
+          "block_number": 1102015,
+          "block_hash": "8e2b214a4a5954fbf4329a7a92ecbb0fafa4569c1b6c8abb62a58b82d126c934",
+          "parent_hash": "a117532786b02dcf5a8c083cc0f1625467433d81c28be564cf074a2a16969d7f",
+          "tx_count": 0,
+          "timestamp": 1792618745371
+        },
+        "headers": [
+          {
+            "block_number": 1102015,
+            "block_hash": "8e2b214a4a5954fbf4329a7a92ecbb0fafa4569c1b6c8abb62a58b82d126c934",
+            "parent_hash": "a117532786b02dcf5a8c083cc0f1625467433d81c28be564cf074a2a16969d7f",
+            "tx_count": 0,
+            "timestamp": 1792618745371
+          }
+        ],
+        "missing_height": null,
+        "next_anchor": {
+          "block_number": 1102015,
+          "block_hash": "8e2b214a4a5954fbf4329a7a92ecbb0fafa4569c1b6c8abb62a58b82d126c934"
+        },
+        "has_more": false,
+        "snapshot_finalized_floor": 1102015
+      }
+    },
+    {
+      "label": "fixed-pypi",
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "d4f31643044d7d5e81bb4d0a529c46158782bc8b978a058cd1b55044ce69eb0a",
+        "block_number": 1102088,
+        "block_timestamp_ms": 1792618818561,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 5,
+        "recipient": "zn129dfa64ab81fdb705d036892f71903f39e310d22",
+        "sender": "zn1a8d6cde6830b24627d7bd6c54ab75df7a5fe2730",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "386971421f91eb838c1eeb80acebc3e4110df92b766f07703874b02fd2fc6915",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "balance_and_nonce_checks": "passed",
+      "finality_proof": {
+        "requested_anchor": {
+          "block_number": 1102088,
+          "block_hash": "d4f31643044d7d5e81bb4d0a529c46158782bc8b978a058cd1b55044ce69eb0a"
+        },
+        "snapshot_tip": {
+          "block_number": 1102089,
+          "block_hash": "2b060ed120f177886d42cddf7cbc4955b881e246b7bd4c74ced151a8e1d35562",
+          "parent_hash": "d4f31643044d7d5e81bb4d0a529c46158782bc8b978a058cd1b55044ce69eb0a",
+          "tx_count": 0,
+          "timestamp": 1792618819564
+        },
+        "headers": [
+          {
+            "block_number": 1102089,
+            "block_hash": "2b060ed120f177886d42cddf7cbc4955b881e246b7bd4c74ced151a8e1d35562",
+            "parent_hash": "d4f31643044d7d5e81bb4d0a529c46158782bc8b978a058cd1b55044ce69eb0a",
+            "tx_count": 0,
+            "timestamp": 1792618819564
+          }
+        ],
+        "missing_height": null,
+        "next_anchor": {
+          "block_number": 1102089,
+          "block_hash": "2b060ed120f177886d42cddf7cbc4955b881e246b7bd4c74ced151a8e1d35562"
+        },
+        "has_more": false,
+        "snapshot_finalized_floor": 1102089
+      }
+    }
+  ],
+  "limits": "Native transfers and public RPC reads only. No benchmark, conversation, contract, or every-endpoint qualification. Fixed archives are local test builds; registry versions were not republished.",
+  "validation_log_sha256": {
+    "rust-regression.log": "e948732116b7b52e671f7292166acfb8a889d33232978a5320679c79582ed93c",
+    "rust-regression-fixed.log": "fca283049bb91b115de112e235e4a8e8d3eb96b4caf27141961e9005e949b320",
+    "typescript-regression.log": "d0db2a2eca4788346d98eacc6981f23f9eb7f56dc46d7905f053eb03dcaedcc7",
+    "python-regression.log": "3b7fafa14cac2c6128091129b5bb75b642da802ec5f75c4321bf57c4e80da51b",
+    "typescript-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typescript-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rust-clippy.log": "af1358c9f5056aa2443dfc5ad121eb249aa3e444ee582f805951ea1e306777b4",
+    "rust-clippy-baseline.log": "3d27b2009306086452443cb2fcb98cca0710e6fd3ef9009e630f65cde81ca1fa",
+    "rust-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "package-sync.log": "ccd366a87fb1cd80d052b6fecabad95d09d523b9d6dba835563cc61bcc6d642c",
+    "public-artifacts.log": "88161d3662336528c70ad0b3454e6c87668c16900a8a25ac638b217646fb73a2",
+    "public-boundary.log": "c3699ff62b6f66b8560d7ef4979581be55b2188bd95206cf25ebc55ae10f269b"
+  }
+}

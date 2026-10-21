@@ -14,6 +14,7 @@ from zincha import (
     TX_TYPE_WIRE_CODES,
     bytes_to_hex,
     create_transfer_transaction,
+    estimate_transfer_fee_micro_zin,
     encode_agreement_accept_data,
     encode_agreement_cancel_data,
     encode_agreement_create_data,
@@ -581,6 +582,11 @@ class PythonSdkTests(unittest.TestCase):
         self.assertEqual(calls[0][1], "https://vega.zincha.com/v1/chain/info")
         self.assertEqual(calls[1][1], "https://faucet.vega.zincha.com/v1/faucet")
 
+    def test_transfer_fee_includes_transaction_base_and_operation_gas(self):
+        self.assertEqual(estimate_transfer_fee_micro_zin(0), 0)
+        self.assertEqual(estimate_transfer_fee_micro_zin(1), 30)
+        self.assertEqual(estimate_transfer_fee_micro_zin(10), 300)
+
     def test_build_transfer_uses_chain_info_nonce_fee_and_validity(self):
         keypair = Keypair.from_secret_hex(GOLDEN["secret_hex"])
 
@@ -629,7 +635,7 @@ class PythonSdkTests(unittest.TestCase):
         )
         self.assertEqual(signed.transaction.chain_id, "zincha-vega-1")
         self.assertEqual(signed.transaction.nonce, 3)
-        self.assertEqual(signed.transaction.fee, 100)
+        self.assertEqual(signed.transaction.fee, 300)
         self.assertEqual(signed.transaction.reference_block_height, 42)
         self.assertEqual(signed.transaction.max_valid_block_height, 142)
 

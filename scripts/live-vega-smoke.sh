@@ -83,9 +83,12 @@ run_json_check info "$ZINCHA_BIN" --json "${target_args[@]}" info
 run_json_check query "$ZINCHA_BIN" --json "${target_args[@]}" query /v1/chain/info
 
 if [[ "$ZINCHA_LIVE_MUTATING" == "1" ]]; then
-    echo "error: mutating live Vega smoke is intentionally not implemented yet" >&2
-    echo "read-only live checks passed; add faucet/submit coverage when the faucet flow is stable" >&2
-    exit 1
+    if [[ -n "$ZINCHA_LIVE_API_URL" || "$ZINCHA_LIVE_RELEASE" != "vega" ]]; then
+        echo "error: mutating smoke uses only the canonical Vega release and faucet" >&2
+        exit 1
+    fi
+    python3 "$ROOT_DIR/scripts/live-vega-transfer.py" --binary "$ZINCHA_BIN" \
+        --timeout "$ZINCHA_LIVE_TIMEOUT_SECS"
 fi
 
 echo "Live Vega smoke OK"

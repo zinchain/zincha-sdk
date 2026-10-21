@@ -104,6 +104,56 @@ fn content_length(headers: &str) -> usize {
         .unwrap_or(0)
 }
 
+#[test]
+fn release_client_selects_faucet_without_overriding_explicit_endpoints() {
+    for alias in ["vega", "testnet", "public-testnet"] {
+        let client = ZinchaClient::for_release(alias).expect("Vega client");
+        assert_eq!(client.base_url().as_str(), "https://vega.zincha.com/");
+        assert_eq!(
+            client.faucet_url().expect("Vega faucet").as_str(),
+            "https://faucet.vega.zincha.com/"
+        );
+    }
+    let custom = ZinchaClient::builder()
+        .release("vega")
+        .base_url("http://127.0.0.1:9944")
+        .build()
+        .expect("custom RPC");
+    assert!(custom.faucet_url().is_none());
+    assert_eq!(custom.base_url().as_str(), "http://127.0.0.1:9944/");
+    assert!(ZinchaClient::for_release("altair")
+        .expect("mainnet client")
+        .faucet_url()
+        .is_none());
+    assert!(ZinchaClient::for_release("invalid-release").is_err());
+}
+
+#[tokio::test]
+async fn faucet_override_routes_the_request_without_changing_rpc() {
+    let (url, server) = serve_once(
+        "200 OK",
+        r#"{"success":true,"data":{"tx_hash":"aabb","status":"pending"},"error":null}"#,
+    );
+    let client = ZinchaClient::builder()
+        .release("vega")
+        .faucet_url(&url)
+        .build()
+        .expect("client with explicit faucet");
+    let address = Keypair::generate().address().to_string();
+    let submitted = client
+        .request_faucet(&address, Some(5_000_000), None)
+        .await
+        .expect("faucet response");
+    assert_eq!(submitted["status"], "pending");
+    assert_eq!(client.base_url().as_str(), "https://vega.zincha.com/");
+    let request = server.join().expect("faucet server");
+    assert_eq!(request.method, "POST");
+    assert_eq!(request.path, "/v1/faucet");
+    let body: Value = serde_json::from_str(&request.body).expect("request body");
+    assert_eq!(body["address"], address);
+    assert_eq!(body["amount_micro_zin"], 5_000_000);
+}
+
 #[tokio::test]
 async fn chain_info_gets_public_endpoint_and_unwraps_data() {
     let (url, server) = serve_once(

@@ -22,7 +22,8 @@ import type {
 import { Keypair } from "./crypto.ts";
 
 export const ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
-export const TRANSFER_GAS = 10n;
+// Native empty-data transfer: transaction base (20) + transfer operation (10).
+export const TRANSFER_GAS = 30n;
 
 export const TX_TYPE_WIRE_CODES: Record<TxTypeName, number> = {
   transfer: 0,

@@ -63,6 +63,25 @@ tools; release validation uses Rust 1.94.0. Prebuilt CLI archives are also
 available from [zincha-releases](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.0).
 The npm client requires Node 22.6+ in Node. Python supports 3.9+.
 
+## Live-client validation and pending fixes
+
+The October 21 registry-install test exercised live Vega reads and real,
+faucet-funded native transfers through the Cargo CLI, Rust client, npm client
+and PyPI client. See [the detailed results](LIVE_REGISTRY_VALIDATION_2026_10_21.md).
+
+The currently published versions have defects in default faucet routing and
+transaction validity (Rust CLI), and transfer fee estimation (npm/Python).
+Their signing/submission paths confirmed transfers with explicit correct
+settings. Source fixes and regression tests are included in this repository;
+**a new package release is required to distribute them**. Do not overwrite an
+existing published version or describe the old defaults as fully passing.
+
+Before publishing the fixes, run the sequential offline checks below and the
+opt-in live transfer smoke from the README. After publishing, install the new
+versions from each registry into fresh consumer environments and repeat the
+live reads, submission, finality, nonce and balance checks. A successful build
+or package import alone does not establish live transaction compatibility.
+
 ## Future releases
 
 ### Step 1 — Choose the packages and update their versions

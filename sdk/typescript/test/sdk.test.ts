@@ -9,6 +9,7 @@ import {
   TX_TYPE_WIRE_CODES,
   bytesToHex,
   createTransferTransaction,
+  estimateTransferFeeMicroZin,
   encodeAgreementAcceptData,
   encodeAgreementCancelData,
   encodeAgreementCreateData,
@@ -2173,4 +2174,38 @@ test("RPC read delegation matches the shared golden vector", async () => {
   });
   assert.equal(headers["x-zincha-body-sha256"], request.body_sha256);
   assert.equal(headers["x-zincha-signature"], request.signature);
+});
+
+
+test("default transfer fee includes transaction base and operation gas", async () => {
+  assert.equal(estimateTransferFeeMicroZin(0), 0n);
+  assert.equal(estimateTransferFeeMicroZin(1), 30n);
+  assert.equal(estimateTransferFeeMicroZin(10), 300n);
+  const keypair = Keypair.fromSecretHex(golden.secret_hex);
+  const calls: string[] = [];
+  const client = ZinchaClient.forRelease("vega", { fetch: async (input) => {
+    const url = String(input);
+    calls.push(url);
+    let data;
+    if (url.endsWith("/v1/chain/info")) {
+      data = {
+        chain_id: "zincha-vega-1", next_base_fee: 1,
+        block_height: 200, latest_block_hash: "22".repeat(32),
+        transaction_ttl_blocks: 64, transaction_reference_block_height: 100,
+        transaction_reference_block_hash: "11".repeat(32),
+      };
+    } else if (url.endsWith(`/v1/accounts/${keypair.address()}/nonce`)) {
+      data = { next_nonce: 3 };
+    } else { throw new Error(`unexpected request: ${url}`); }
+    return new Response(JSON.stringify({ success: true, data }), { status: 200 });
+  } });
+  const signed = await client.buildTransfer(keypair, { recipient: golden.recipient, amountMicroZin: 1000 });
+  assert.equal(signed.transaction.fee, 30n);
+  assert.equal(signed.transaction.nonce, 3n);
+  assert.equal(signed.transaction.referenceBlockHeight, 100n);
+  assert.equal(signed.transaction.referenceBlockHash, "11".repeat(32));
+  assert.equal(signed.transaction.maxValidBlockHeight, 164n);
+  assert.equal(calls.length, 2);
+  const overridden = await client.buildTransfer(keypair, { recipient: golden.recipient, amountMicroZin: 1000, feeMicroZin: 90 });
+  assert.equal(overridden.transaction.fee, 90n);
 });

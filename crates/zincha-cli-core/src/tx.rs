@@ -22,9 +22,7 @@ use zincha_primitives::primitives::{
 };
 use zincha_primitives::wallet::AgentWallet;
 
-const DEFAULT_CHAIN_ID: &str = "zincha-vega-1";
 pub(crate) const DEFAULT_TX_FEE: u64 = 500_000;
-const DEFAULT_TTL_BLOCKS: u64 = 128;
 const DEFAULT_TOOL_SLA_MS: u64 = 3_600_000;
 const DEFAULT_TOOL_CHALLENGE_WINDOW_MS: u64 = 900_000;
 const DEFAULT_TOOL_MAX_RESULT_METADATA_BYTES: u32 = 4_096;
@@ -2398,6 +2396,7 @@ pub(crate) async fn resolve_wallet(
     build: &TxBuildArgs,
     client: &ZinchaClient,
 ) -> Result<AgentWallet> {
+    validate_reference_args(build)?;
     let keypair = load_keypair(&build.key_source)?;
     let address = keypair.address();
     if build.offline && (build.chain_id.is_none() || build.nonce.is_none()) {
@@ -2408,14 +2407,21 @@ pub(crate) async fn resolve_wallet(
         if build.offline || (!build.submit && build.nonce.is_some() && build.chain_id.is_some()) {
             None
         } else {
-            client.chain_info().await.ok()
+            Some(
+                client
+                    .chain_info()
+                    .await
+                    .context("load transaction chain metadata")?,
+            )
         };
 
     let chain_id = build
         .chain_id
         .clone()
         .or_else(|| extract_string(chain_info.as_ref(), &["chain_id", "chainId"]))
-        .unwrap_or_else(|| DEFAULT_CHAIN_ID.to_string());
+        .context(
+            "chain metadata is missing chain_id; specify --chain-id for offline construction",
+        )?;
     let nonce = match build.nonce {
         Some(nonce) => nonce,
         None if build.offline => bail!("--offline requires explicit --nonce"),
@@ -2442,34 +2448,57 @@ fn resolve_wallet_embed_url_from(build: &TxBuildArgs, env_value: Option<String>)
     build.embed_url.clone().or(env_value)
 }
 
+fn validate_reference_args(build: &TxBuildArgs) -> Result<()> {
+    if build.reference_block_height.is_some() != build.reference_block_hash.is_some() {
+        bail!("reference_block_height and reference_block_hash must be provided together");
+    }
+    if build.ttl_blocks == Some(0) {
+        bail!("--ttl-blocks must be positive");
+    }
+    Ok(())
+}
+
 fn apply_validity_window(
     wallet: &mut AgentWallet,
     build: &TxBuildArgs,
     chain_info: Option<&Value>,
 ) -> Result<()> {
-    match (
+    validate_reference_args(build)?;
+    // Explicit offline construction can still leave the window unset. Online
+    // construction must use the node's advertised transaction anchor and limit.
+    if chain_info.is_none() && build.reference_block_height.is_none() && build.ttl_blocks.is_none()
+    {
+        return Ok(());
+    }
+    let advertised_ttl = extract_u64(chain_info, &["transaction_ttl_blocks"]);
+    if chain_info.is_some() && advertised_ttl.is_none() {
+        bail!("chain metadata is missing transaction_ttl_blocks");
+    }
+    let ttl = build
+        .ttl_blocks
+        .or(advertised_ttl)
+        .context("--ttl-blocks is required with an explicit offline reference block")?;
+    if ttl == 0 || advertised_ttl.is_some_and(|limit| ttl > limit) {
+        bail!("transaction TTL must be positive and no greater than the advertised limit");
+    }
+    let (height, hash) = match (
         build.reference_block_height,
         build.reference_block_hash.as_ref(),
-        build.ttl_blocks,
     ) {
-        (Some(height), Some(hash), Some(ttl)) => {
-            wallet.set_transaction_validity_window(height, parse_hash(hash)?, ttl);
+        (Some(height), Some(hash)) => (height, parse_hash(hash)?),
+        (None, None) => {
+            let height = extract_u64(chain_info, &["transaction_reference_block_height"])
+                .context("chain metadata is missing transaction_reference_block_height")?;
+            let hash = extract_string(chain_info, &["transaction_reference_block_hash"])
+                .context("chain metadata is missing transaction_reference_block_hash")?;
+            (height, parse_hash(&hash)?)
         }
-        (Some(height), Some(hash), None) => {
-            wallet.set_transaction_validity_window(height, parse_hash(hash)?, DEFAULT_TTL_BLOCKS);
-        }
-        (None, None, None) => {
-            if let Some(info) = chain_info {
-                if let (Some(height), Some(hash)) = (
-                    extract_u64(Some(info), &["reference_block_height", "block_height", "height", "latest_block_height"]),
-                    extract_string(Some(info), &["reference_block_hash", "block_hash", "latest_block_hash"]),
-                ) {
-                    wallet.set_transaction_validity_window(height, parse_hash(&hash)?, build.ttl_blocks.unwrap_or(DEFAULT_TTL_BLOCKS));
-                }
-            }
-        }
-        _ => bail!("reference_block_height and reference_block_hash must be provided together; ttl_blocks is optional"),
-    }
+        _ => unreachable!("reference arguments validated above"),
+    };
+    height
+        .checked_add(ttl)
+        .context("transaction validity height overflow")?;
+    wallet.set_transaction_validity_window(height, hash, ttl);
     Ok(())
 }
 
@@ -2636,6 +2665,109 @@ fn extract_string(value: Option<&Value>, keys: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn validity_transaction(
+        build: &TxBuildArgs,
+        info: Option<&Value>,
+    ) -> Result<SignedTransaction> {
+        let mut wallet = AgentWallet::new(
+            zincha_primitives::crypto::Keypair::from_secret_bytes(&[7; 32]),
+            "zincha-vega-1",
+            "http://127.0.0.1:1",
+        );
+        apply_validity_window(&mut wallet, build, info)?;
+        wallet
+            .build_transfer(wallet.address(), 1, 30)
+            .map_err(Into::into)
+    }
+
+    fn validity_info() -> Value {
+        json!({
+            "block_height": 999, "latest_block_hash": "22".repeat(32),
+            "transaction_reference_block_height": 123,
+            "transaction_reference_block_hash": "11".repeat(32),
+            "transaction_ttl_blocks": 64,
+        })
+    }
+
+    #[test]
+    fn validity_defaults_use_advertised_anchor_and_ttl_not_chain_tip() {
+        let signed = validity_transaction(&TxBuildArgs::default(), Some(&validity_info())).unwrap();
+        assert_eq!(signed.transaction.reference_block_height, 123);
+        assert_eq!(
+            signed.transaction.reference_block_hash,
+            parse_hash(&"11".repeat(32)).unwrap()
+        );
+        assert_eq!(signed.transaction.max_valid_block_height, 187);
+    }
+
+    #[test]
+    fn validity_supports_ttl_override_and_explicit_anchor() {
+        let mut args = TxBuildArgs {
+            ttl_blocks: Some(32),
+            ..Default::default()
+        };
+        let signed = validity_transaction(&args, Some(&validity_info())).unwrap();
+        assert_eq!(signed.transaction.max_valid_block_height, 155);
+        args.reference_block_height = Some(100);
+        args.reference_block_hash = Some("33".repeat(32));
+        args.ttl_blocks = None;
+        let signed = validity_transaction(&args, Some(&validity_info())).unwrap();
+        assert_eq!(signed.transaction.reference_block_height, 100);
+        assert_eq!(
+            signed.transaction.reference_block_hash,
+            parse_hash(&"33".repeat(32)).unwrap()
+        );
+        assert_eq!(signed.transaction.max_valid_block_height, 164);
+        assert!(validity_transaction(&args, None).is_err());
+        args.ttl_blocks = Some(10);
+        assert_eq!(
+            validity_transaction(&args, None)
+                .unwrap()
+                .transaction
+                .max_valid_block_height,
+            110
+        );
+    }
+
+    #[test]
+    fn validity_rejects_invalid_or_missing_online_metadata() {
+        for ttl in [0, 65] {
+            let args = TxBuildArgs {
+                ttl_blocks: Some(ttl),
+                ..Default::default()
+            };
+            assert!(validity_transaction(&args, Some(&validity_info())).is_err());
+        }
+        for field in [
+            "transaction_reference_block_height",
+            "transaction_reference_block_hash",
+            "transaction_ttl_blocks",
+        ] {
+            let mut info = validity_info();
+            info.as_object_mut().unwrap().remove(field);
+            assert!(
+                validity_transaction(&TxBuildArgs::default(), Some(&info)).is_err(),
+                "{field}"
+            );
+        }
+        let mut args = TxBuildArgs {
+            reference_block_height: Some(u64::MAX),
+            reference_block_hash: Some("11".repeat(32)),
+            ttl_blocks: Some(1),
+            ..Default::default()
+        };
+        assert!(validity_transaction(&args, None).is_err());
+        args.reference_block_hash = None;
+        assert!(validity_transaction(&args, None).is_err());
+        assert_eq!(
+            validity_transaction(&TxBuildArgs::default(), None)
+                .unwrap()
+                .transaction
+                .max_valid_block_height,
+            0
+        );
+    }
 
     fn parse_tx_command(args: Vec<&'static str>) -> TxCommand {
         std::thread::Builder::new()

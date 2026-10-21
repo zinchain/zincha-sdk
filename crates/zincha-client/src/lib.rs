@@ -10,7 +10,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use zincha_primitives::crypto::{hash_bytes, Hash256, Keypair};
-use zincha_primitives::release::{canonical_rpc_url_for_alias, canonical_websocket_url_for_alias};
+use zincha_primitives::release::{canonical_websocket_url_for_alias, ReleaseName};
 
 pub mod conversation;
 
@@ -585,23 +585,32 @@ impl ZinchaClientBuilder {
     }
 
     pub fn build(self) -> Result<ZinchaClient> {
-        let release_url = match &self.release {
+        let release_spec = match &self.release {
             Some(alias) => Some(
-                canonical_rpc_url_for_alias(alias)
+                ReleaseName::parse_alias(alias)
                     .ok_or_else(|| anyhow::anyhow!("unknown release alias {alias}"))?
-                    .to_string(),
+                    .spec(),
             ),
             None => None,
         };
         let base_url = self
             .base_url
             .as_deref()
-            .or(release_url.as_deref())
+            .or(release_spec.as_ref().map(|spec| spec.canonical_rpc_url))
             .ok_or_else(|| anyhow::anyhow!("base_url or release is required"))?;
         let base_url = normalize_base_url(base_url)?;
         let faucet_url = self
             .faucet_url
             .as_deref()
+            .or_else(|| {
+                // An explicit RPC endpoint keeps its same-host faucet behavior.
+                // Only release-selected endpoints use the separate public faucet.
+                if self.base_url.is_some() {
+                    None
+                } else {
+                    release_spec.as_ref().and_then(|spec| spec.faucet_url)
+                }
+            })
             .map(normalize_base_url)
             .transpose()?;
         let websocket_url = match self.websocket_url.as_deref() {
@@ -1296,15 +1305,47 @@ fn is_pending_transaction_status(value: &Value) -> bool {
         .and_then(Value::as_str)
         .or_else(|| value.pointer("/transaction/status").and_then(Value::as_str))
         .unwrap_or("unknown");
-    matches!(
-        status,
-        "unknown" | "pending" | "accepted" | "queued" | "mempool" | "submitted"
-    )
+    // Prepared transactions are not final. Unknown future statuses and missing
+    // completion evidence must also keep polling rather than report success.
+    let terminal = value
+        .get("terminal")
+        .or_else(|| value.pointer("/transaction/terminal"))
+        .and_then(Value::as_bool)
+        == Some(true);
+    !(terminal && matches!(status, "confirmed" | "rejected"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transaction_wait_requires_explicit_terminal_outcome() {
+        for status in [
+            "unknown",
+            "pending",
+            "accepted",
+            "queued",
+            "prepared",
+            "new-status",
+        ] {
+            assert!(is_pending_transaction_status(
+                &json!({"status": status, "terminal": false})
+            ));
+            assert!(is_pending_transaction_status(
+                &json!({"status": status, "terminal": true})
+            ));
+        }
+        for status in ["confirmed", "rejected"] {
+            assert!(!is_pending_transaction_status(
+                &json!({"status": status, "terminal": true})
+            ));
+            assert!(is_pending_transaction_status(
+                &json!({"status": status, "terminal": false})
+            ));
+            assert!(is_pending_transaction_status(&json!({"status": status})));
+        }
+    }
 
     #[test]
     fn batch_request_uses_canonical_transaction_field() {

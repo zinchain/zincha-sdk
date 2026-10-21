@@ -610,6 +610,9 @@ fn tx_transfer_builds_signed_transaction_without_network_submission() {
             "1",
             "--nonce",
             "0",
+            "--chain-id",
+            "zincha-vega-1",
+            "--offline",
         ])
         .output()
         .expect("run tx transfer");
@@ -677,6 +680,135 @@ fn tx_reactivate_validator_matches_the_canonical_298_byte_vector() {
     assert_eq!(signed_tx_hex, transaction["signed_tx_hex"]);
     assert_eq!(signed_tx_hex.len() / 2, 298);
     assert!(payload["data"]["submission"].is_null());
+}
+
+#[test]
+fn tx_transfer_uses_advertised_validity_and_waits_past_prepared() {
+    let (secret, sender) = generated_keypair();
+    let (_, recipient) = generated_keypair();
+    let (listener, url) = bound_mock_server();
+    let server = serve_mock(
+        listener,
+        vec![
+            MockResponse {
+                method: "GET",
+                path: "/v1/chain/info".into(),
+                data: serde_json::json!({
+                    "chain_id": "zincha-vega-1", "block_height": 200,
+                    "latest_block_hash": "22".repeat(32),
+                    "transaction_reference_block_height": 100,
+                    "transaction_reference_block_hash": "11".repeat(32),
+                    "transaction_ttl_blocks": 64,
+                }),
+            },
+            MockResponse {
+                method: "GET",
+                path: format!("/v1/accounts/{sender}/nonce"),
+                data: serde_json::json!({"next_nonce": 2}),
+            },
+            // A build-only transaction still fetches canonical defaults when nonce
+            // and chain ID were not explicitly supplied.
+        ],
+    );
+    let output = zincha()
+        .args([
+            "--json",
+            "--api-url",
+            &url,
+            "tx",
+            "transfer",
+            "--secret-key",
+            &secret,
+            "--to",
+            &recipient,
+            "--amount",
+            "1000",
+        ])
+        .output()
+        .unwrap();
+    let payload = json_stdout(&output);
+    let signed: zincha_primitives::primitives::SignedTransaction = bincode::deserialize(
+        &hex::decode(payload["data"]["signed_tx_hex"].as_str().unwrap()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(signed.transaction.reference_block_height, 100);
+    assert_eq!(
+        signed.transaction.reference_block_hash.to_hex(),
+        "11".repeat(32)
+    );
+    assert_eq!(signed.transaction.max_valid_block_height, 164);
+    assert_eq!(signed.transaction.nonce, 2);
+    server.join().unwrap();
+
+    let (listener, url) = bound_mock_server();
+    let hash = signed.hash.to_hex();
+    let server = serve_mock(
+        listener,
+        vec![
+            MockResponse {
+                method: "GET",
+                path: format!("/v1/tx/{hash}"),
+                data: serde_json::json!({"status":"prepared", "terminal":false}),
+            },
+            MockResponse {
+                method: "GET",
+                path: format!("/v1/tx/{hash}"),
+                data: serde_json::json!({"status":"confirmed", "terminal":true, "source":"canonical_chain"}),
+            },
+        ],
+    );
+    let output = zincha()
+        .args([
+            "--json",
+            "--api-url",
+            &url,
+            "tx",
+            "wait",
+            &hash,
+            "--timeout-secs",
+            "5",
+            "--poll-interval-ms",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(json_stdout(&output)["data"]["status"], "confirmed");
+    server.join().unwrap();
+}
+
+#[test]
+fn tx_transfer_does_not_guess_missing_chain_metadata() {
+    let (secret, recipient) = generated_keypair();
+    let (listener, url) = bound_mock_server();
+    let server = serve_mock(
+        listener,
+        vec![MockResponse {
+            method: "GET",
+            path: "/v1/chain/info".into(),
+            data: serde_json::json!({}),
+        }],
+    );
+    let output = zincha()
+        .args([
+            "--json",
+            "--api-url",
+            &url,
+            "tx",
+            "transfer",
+            "--secret-key",
+            &secret,
+            "--to",
+            &recipient,
+            "--amount",
+            "1000",
+            "--nonce",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert_failure(&output);
+    assert!(stderr(&output).contains("chain metadata is missing chain_id"));
+    server.join().unwrap();
 }
 
 #[test]

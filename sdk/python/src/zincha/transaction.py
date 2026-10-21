@@ -19,7 +19,8 @@ from .crypto import (
 BigNumberish = Union[int, str]
 
 ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
-TRANSFER_GAS = 10
+# Native empty-data transfer: transaction base (20) + transfer operation (10).
+TRANSFER_GAS = 30
 
 TX_TYPE_WIRE_CODES: Dict[str, int] = {
     "transfer": 0,
