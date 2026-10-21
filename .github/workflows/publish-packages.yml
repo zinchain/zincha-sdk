@@ -20,6 +20,12 @@ on:
         default: auto
         type: choice
         options: [auto, trusted]
+      npm_auth:
+        description: "npm authentication: auto permits the bootstrap secret; trusted requires OIDC"
+        required: true
+        default: auto
+        type: choice
+        options: [auto, trusted]
 
 concurrency:
   group: sdk-validation
@@ -120,7 +126,7 @@ jobs:
       - name: Publish npm package with provenance and Vega channel
         if: inputs.registry == 'npm' || inputs.registry == 'all'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ inputs.npm_auth != 'trusted' && secrets.NPM_TOKEN || '' }}
         run: npm publish dist/packages/*.tgz --access public --tag vega --provenance --ignore-scripts
       - name: Select Python distributions only
         if: inputs.registry == 'pypi' || inputs.registry == 'all'

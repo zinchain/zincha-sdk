@@ -20,12 +20,17 @@ versions belong to their respective SDK APIs; the chain binary tag remains
 the Vega testnet, not a mainnet launch. The registry workflow is manual and
 defaults to validation without uploading.
 
+The npm-only `0.2.1` patch activates trusted publishing with unchanged SDK runtime
+code. Use its reviewed source commit for that upload, rather than the initial
+`dc2f222` source. Rust and Python versions remain unchanged; select `npm`, not
+`all`, for this patch.
+
 ## Installation after publication
 
 ```sh
 cargo add zincha-client@0.1.0 zincha-primitives@0.1.0
 cargo install zincha-cli --version 0.1.0 --locked
-npm install @zincha/client@0.2.0
+npm install @zincha/client@0.2.1
 python -m pip install zincha==0.1.0
 ```
 
@@ -92,15 +97,20 @@ repository or environment is not available to this workflow.
    the separate **source_ref** chooses the package code.
 4. Paste the full package commit into **source_ref**. For this initial release,
    use the commit in **Start here**, not the moving `main` name.
-5. Select the requested **registry** and **crates_auth** values:
+5. Select the requested **registry**, **crates_auth**, and **npm_auth** values:
 
-   | Task | registry | crates_auth |
-   | --- | --- | --- |
-   | Build and test without uploading | `validate` | `auto` |
-   | Initial Rust upload | `crates` | `auto` |
-   | Verify/use Rust trusted publishing | `crates` | `trusted` |
-   | Initial or subsequent npm upload | `npm` | `auto` (unused for npm) |
-   | Initial or subsequent Python upload | `pypi` | `auto` (unused for PyPI) |
+   | Task | registry | crates_auth | npm_auth |
+   | --- | --- | --- | --- |
+   | Build and test without uploading | `validate` | `auto` | `auto` |
+   | Initial Rust upload | `crates` | `auto` | `auto` |
+   | Verify/use Rust trusted publishing | `crates` | `trusted` | `auto` |
+   | Initial npm upload | `npm` | `auto` | `auto` |
+   | Verify/use npm trusted publishing | `npm` | `auto` | `trusted` |
+   | Initial or subsequent Python upload | `pypi` | `auto` | `auto` |
+
+   Authentication inputs for other registries are unused. In `trusted` mode,
+   the corresponding bootstrap secret is not passed to the publisher, even
+   when it remains stored in the environment.
 
 6. Click the green **Run workflow** button and open the new run. Refresh the
    list if it has not appeared yet.
@@ -281,6 +291,17 @@ explains the current form and permissions.
 
 ### Step 4 — Configure trusted publishing for future versions
 
+Account-level 2FA must be enabled before npm allows these package settings to
+be saved. The bootstrap token's publishing-only 2FA bypass does not cover this
+administrative action. If npm redirects to **Please configure 2FA to edit this
+package**, check the account's registered security keys and write-action 2FA
+setting in the same browser session used for package settings. If needed,
+complete [account 2FA setup](https://docs.npmjs.com/configuring-two-factor-authentication/)
+and save the recovery codes privately. If 2FA is already enabled, sign out and
+sign back in with the security key before returning to package settings. A
+continuing redirect is an unresolved npm administration problem; do not disable
+2FA, repeatedly recreate keys, or treat the unsaved publisher as configured.
+
 1. Open the package page → **Settings** → **Trusted Publisher** and choose GitHub.
 2. Set owner `zinchain`, repository `zincha-sdk`, workflow
    `publish-packages.yml`, and environment `release`.
@@ -292,10 +313,12 @@ explains the current form and permissions.
    Saving the settings or running a dry run does not prove activation. Do not
    change package contents under version `0.2.0` or attempt to republish it
    simply to test authentication.
-5. For the first intended OIDC publication, remove `NPM_TOKEN` from GitHub so
-   the workflow uses trusted publishing. Confirm the new version and provenance
-   before revoking the bootstrap token on npm. Retain it securely during this
-   transition; do not paste it into troubleshooting logs.
+5. For the first intended OIDC publication, select **registry = npm** and
+   **npm_auth = trusted**. This excludes `NPM_TOKEN` from the publishing step,
+   so a failed OIDC exchange cannot silently fall back to the bootstrap token.
+   Confirm the new version, provenance, and validated publisher status before
+   deleting `NPM_TOKEN` from GitHub and revoking the bootstrap token on npm.
+   Retain it securely during this transition; do not paste it into logs.
 
 Unlike the Rust uploader, rerunning the npm step with an already published
 version fails. Trusted publishing and GitHub's release approval are separate

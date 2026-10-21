@@ -22,7 +22,7 @@ variants.
 After the initial registry publication:
 
 ```sh
-npm install @zincha/client@0.2.0
+npm install @zincha/client@0.2.1
 # Equivalent Vega channel: npm install @zincha/client@vega
 ```
 
@@ -406,6 +406,11 @@ intentional protocol changes, then promote the reviewed fixtures to the SDK:
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors
 ```
+
+## 0.2.1 — trusted npm publishing
+
+Release metadata update for GitHub OIDC publishing. SDK runtime behavior,
+transaction encoding, dependencies, and public APIs are unchanged from 0.2.0.
 
 ## 0.2.0 — isomorphic build and external signers
 
