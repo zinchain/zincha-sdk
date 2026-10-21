@@ -127,9 +127,13 @@ what was uploaded before retrying only the affected registry.
 
 1. Open [crates.io](https://crates.io/) and sign in with the GitHub account that
    should own the crates.
-2. Open account settings, add the maintainer email if needed, and complete the
-   email verification link.
-3. Keep this account signed in for Step 4. The first publishing account becomes
+2. Open [account profile settings](https://crates.io/settings/profile). Under
+   **User Email**, click **Edit**, enter the maintainer email, and click **Save**.
+   Signing in with GitHub does not automatically populate this field.
+3. Open the verification email from crates.io and follow its link. Return to
+   profile settings and confirm verification is complete. Creating an API
+   token is possible before this step, but publishing is not.
+4. Keep this account signed in for Step 4. The first publishing account becomes
    the crate owner; being a GitHub repository collaborator alone does not make
    someone a crates.io owner.
 
@@ -170,9 +174,14 @@ what was uploaded before retrying only the affected registry.
    manifest. The public JSON URL is
    `https://crates.io/api/v1/crates/<crate-name>/0.1.0`; also verify `yanked`
    is `false`. The release operator can perform this check automatically.
-6. If publication stops partway, retain the logs and rerun the **same source**
-   with `registry = crates`. The script skips an existing version only when
-   its checksum matches and it is not yanked. It refuses changed contents.
+6. If only publication fails, fix the reported cause, then open that run and
+   select **Re-run jobs → Re-run failed jobs**. This reuses the successful
+   build's artifacts; approve `release` again if prompted. A new workflow run
+   also works, but must use the **same source** and `registry = crates`.
+   The script skips an existing version only when its checksum matches and
+   it is not yanked. It refuses changed contents. If the error was HTTP 503,
+   check whether the version appeared before retrying: a network/server error
+   does not by itself prove the upload was rejected.
 
 ### Step 4 — Configure and verify trusted publishing
 
@@ -330,6 +339,8 @@ See [PyPI's pending-publisher guide](https://docs.pypi.org/trusted-publishers/cr
 | `CARGO_REGISTRY_TOKEN` is missing | Save the crates.io token under **zinchain/zincha-sdk → Settings → Environments → release → Environment secrets**. Creating it on crates.io alone is insufficient. |
 | Initial crates run tries OIDC and fails | Use `crates_auth = auto` and verify the bootstrap secret exists; initial crate creation needs that token. |
 | Crates publish is denied | Check verified email, token expiry, new-crate permission/name restrictions, and ownership if the name already exists. |
+| Crates requires a verified email | Open [profile settings](https://crates.io/settings/profile), add/save an email if empty, then follow the verification email. GitHub login and token creation do not complete this step. |
+| Crates returns HTTP 503 | Inspect registry state, then retry the failed publish job with unchanged artifacts. If the service keeps failing, preserve the evidence and wait for registry recovery. |
 | Rust checksum mismatch | Stop. Compare the source commit, package manifest, compiler and generated archives. Do not bypass the check or overwrite a version. |
 | Trusted publishing rejects the workflow | Check `zinchain`, `zincha-sdk`, `publish-packages.yml`, and `release` exactly on every package. |
 | Run is waiting for review | Approve the `release` deployment using an eligible configured reviewer. |
