@@ -230,8 +230,10 @@ scripts/package-cli-binary.sh v0.1.2 "$(rustc -vV | sed -n 's/^host: //p')" loca
 
 Download the current CLI for Linux x86/ARM, macOS Intel/Apple Silicon or Windows
 x64 from [the Vega CLI v0.1.2 prerelease](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.2).
-It includes the same runtime fixes as Cargo `zincha-cli 0.1.2`. The node remains
-at its separate `v0.1.0` release; a CLI patch does not rebuild or deploy the node.
+It includes the same runtime fixes as Cargo `zincha-cli 0.1.2`. The same release
+page also provides the unchanged `zincha-node-v0.1.0` Linux x86/ARM archives and
+their original build manifests. Its aggregate checksums cover all seven archives;
+the node retains version `0.1.0` and has not been rebuilt or redeployed.
 Rust 1.94.0 is pinned by `rust-toolchain.toml`; build the CLI with
 `cargo build --release --locked -p zincha-cli`.
 
@@ -249,7 +251,9 @@ It uploads five CLI archives, matching manifests and signed build provenance to
 full SDK source commit. That workflow downloads and checks the published bytes
 and runs native live-Vega transfer/finality tests on each platform sequentially.
 A combined CLI/node release instead uses `release_kind=combined` and requires
-both Linux node archives too. Creating a tag alone does not publish or deploy.
+both Linux node archives too. When bundling an unchanged older node, specify
+its original `node_tag`; the finalizer independently compares the copied files
+with the original published release. Creating a tag alone does not publish or deploy.
 
 To recover a failed platform upload, dispatch the current `main` workflow with the
 original release `tag` and a comma-separated `platforms` subset (for example,

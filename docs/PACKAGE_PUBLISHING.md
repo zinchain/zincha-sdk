@@ -68,7 +68,9 @@ tools; release validation uses Rust 1.94.0. Prebuilt CLI archives are also
 available from [the Vega CLI v0.1.2 prerelease](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.2).
 Those five native CLI archives include the same runtime fixes as the current
 Cargo CLI. Check the release checksums before running a download. The node
-binary remains unchanged at `v0.1.0`. All five prebuilt CLI downloads passed
+binary remains unchanged at `v0.1.0` and its original Linux archives are also
+attached directly to the v0.1.2 release. The v0.1.2 aggregate checksums cover
+both component versions. All five prebuilt CLI downloads passed
 [sequential native live-Vega validation](https://github.com/zinchain/zincha-releases/blob/main/validation/v0.1.2.json).
 The npm client requires Node 22.6+ in Node. Python supports 3.9+.
 
