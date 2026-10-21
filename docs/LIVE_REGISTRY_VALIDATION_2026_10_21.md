@@ -1,13 +1,17 @@
 # Published-package live Vega validation — October 21, 2026
 
+This is the initial validation record, including the original failures. The
+subsequent package releases and their fresh registry-install results are recorded
+in [the patch-release validation](LIVE_REGISTRY_PATCH_RELEASE_2026_10_21.md).
+
 Registry installs successfully signed, submitted and confirmed native transfers
 through the Rust client, Cargo CLI, npm client and Python client. However,
 **the published defaults did not all pass**. The CLI needed explicit faucet and
 validity settings, and npm/Python needed an explicit correct fee. The fixes in
 this change passed live tests using their normal defaults.
 
-The current registry versions remain unchanged. A new release is required to
-ship these fixes. The fixed npm archive and Python wheel tested here are local,
+At this initial validation stage, the registry versions were unchanged and a
+new release was required. The fixed npm archive and Python wheel tested here are local,
 unpublished builds with unchanged version fields; their different hashes are
 recorded in the [evidence manifest](evidence/LIVE_REGISTRY_VALIDATION_2026_10_21.json).
 

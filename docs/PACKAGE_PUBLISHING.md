@@ -8,25 +8,27 @@ Cargo/crates.io, npm, and PyPI publishing are configured for
 
 | Registry | Package | Published version | Purpose |
 | --- | --- | --- | --- |
-| crates.io | [zincha-primitives](https://crates.io/crates/zincha-primitives/0.1.0) | `0.1.0` | Types, cryptography and signing |
-| crates.io | [zincha-client](https://crates.io/crates/zincha-client/0.1.0) | `0.1.0` | Rust RPC and conversation clients |
-| crates.io | [zincha-cli-core](https://crates.io/crates/zincha-cli-core/0.1.0) | `0.1.0` | Shared public CLI implementation |
-| crates.io | [zincha-cli](https://crates.io/crates/zincha-cli/0.1.0) | `0.1.0` | Installs the `zincha` executable |
-| npm | [@zincha/client](https://www.npmjs.com/package/@zincha/client/v/0.2.1) | `0.2.1`, channel `vega` | JavaScript/TypeScript client, including conversations |
-| PyPI | [zincha](https://pypi.org/project/zincha/0.1.0/) | `0.1.0` | Python client, including conversations |
+| crates.io | [zincha-primitives](https://crates.io/crates/zincha-primitives/0.1.2) | `0.1.2` | Types, cryptography and signing |
+| crates.io | [zincha-client](https://crates.io/crates/zincha-client/0.1.2) | `0.1.2` | Rust RPC and conversation clients |
+| crates.io | [zincha-cli-core](https://crates.io/crates/zincha-cli-core/0.1.2) | `0.1.2` | Shared public CLI implementation |
+| crates.io | [zincha-cli](https://crates.io/crates/zincha-cli/0.1.2) | `0.1.2` | Installs the `zincha` executable |
+| npm | [@zincha/client](https://www.npmjs.com/package/@zincha/client/v/0.2.2) | `0.2.2`, tags `latest` and `vega` | JavaScript/TypeScript client, including conversations |
+| PyPI | [zincha](https://pypi.org/project/zincha/0.1.1/) | `0.1.1` | Python client, including conversations |
 
 The initial SDK packages target the **Vega testnet**, not a mainnet launch.
 SDK versions are independent of the node/CLI binary release tag `v0.1.0`.
-The npm `0.2.1` release changed release metadata and documentation; its compiled
-JavaScript and declarations were unchanged from `0.2.0`.
+Cargo `0.1.2`, npm `0.2.2` and Python `0.1.1` include the live-Vega fixes
+described in [the patch-release validation](LIVE_REGISTRY_PATCH_RELEASE_2026_10_21.md).
+Cargo `0.1.1` already included the transaction fixes but displayed the stale CLI
+version `0.1.0`; use `0.1.2`, whose banner derives from package metadata.
 
 ### Verified publishing state
 
 | Registry | Completed verification | Evidence |
 | --- | --- | --- |
-| crates.io | All four `0.1.0` crates published and checksums verified. A trusted publisher is configured separately for each crate. OIDC exchange succeeded without the bootstrap token, and existing versions matched the sealed manifest. The next new Rust version will exercise the first OIDC upload. | [Initial publication](https://github.com/zinchain/zincha-sdk/actions/runs/39572570719), [trusted-authentication verification](https://github.com/zinchain/zincha-sdk/actions/runs/39637419749) |
-| npm | `0.2.0` bootstrap and `0.2.1` trusted uploads completed. `vega` points to `0.2.1`; the trusted publisher is valid. Public archive, installed exports, signatures and attestations verified. | [Initial publication](https://github.com/zinchain/zincha-sdk/actions/runs/39640410838), [trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39645127528) |
-| PyPI | `0.1.0` published using the pending publisher, activating it on first use. Wheel and source hashes match the release manifest; both attestations verified. All 60 Python tests passed against a clean installation from public PyPI. | [Trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39648460574), [public provenance](https://pypi.org/project/zincha/0.1.0/#security) |
+| crates.io | All four `0.1.2` crates published through OIDC; public downloads and registry checksums match the sealed manifest. Fresh CLI installation reports `zincha 0.1.2`. | [Trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39686098496) |
+| npm | `0.2.2` published through OIDC. Public archive, installed exports, signatures, attestations and live finalized transfer verified. `latest` and `vega` both select `0.2.2`; fresh plain install and website verified. | [Trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39683122678), [default-tag verification](https://github.com/zinchain/zincha-sdk/actions/runs/39688256183) |
+| PyPI | `0.1.1` published through OIDC. Public wheel/source hashes and both attestations verified; all 61 packaged Python tests and a live finalized transfer passed against a fresh installation. | [Trusted publication](https://github.com/zinchain/zincha-sdk/actions/runs/39683122678), [public provenance](https://pypi.org/project/zincha/0.1.1/#security) |
 
 The temporary **CARGO_REGISTRY_TOKEN** and **NPM_TOKEN** GitHub secrets were
 removed, and their registry tokens were revoked. No PyPI token was created.
@@ -42,41 +44,40 @@ All publishers are bound to these settings:
 | Workflow filename | `publish-packages.yml` |
 | GitHub environment | `release` |
 
-npm permits direct `npm publish`; this workflow does not use staged publishing.
+npm permits direct `npm publish` and the separately enabled `npm dist-tag`
+operation; this workflow does not use staged publishing.
 The existing `release` environment still requires its configured approval.
 Registry trust and GitHub release approval are separate checks.
 
 ## Install the current packages
 
 ```sh
-cargo add zincha-client@0.1.0 zincha-primitives@0.1.0
-cargo install zincha-cli --version 0.1.0 --locked
-npm install @zincha/client@0.2.1
-python -m pip install zincha==0.1.0
+cargo add zincha-client@0.1.2 zincha-primitives@0.1.2
+cargo install zincha-cli --version 0.1.2 --locked
+npm install @zincha/client@0.2.2
+python -m pip install zincha==0.1.1
 ```
 
-Use `npm install @zincha/client@vega` to follow the Vega channel. Do not assume
-npm's `latest` tag tracks `vega`.
+Plain `npm install @zincha/client` and `npm install @zincha/client@vega` both
+currently select `0.2.2`. Future `vega` uploads do not move `latest` automatically;
+use the explicit promotion procedure below after validation.
 
 Rust libraries and the executable require a Rust toolchain and native build
 tools; release validation uses Rust 1.94.0. Prebuilt CLI archives are also
 available from [zincha-releases](https://github.com/zinchain/zincha-releases/releases/tag/v0.1.0).
-The npm client requires Node 22.6+ in Node. Python supports 3.9+.
+Those `v0.1.0` prebuilt CLI binaries predate these SDK fixes; use the current
+Cargo package until a new binary release is built and finalized. The node binary
+is unaffected. The npm client requires Node 22.6+ in Node. Python supports 3.9+.
 
-## Live-client validation and pending fixes
+## Live-client validation
 
-The October 21 registry-install test exercised live Vega reads and real,
-faucet-funded native transfers through the Cargo CLI, Rust client, npm client
-and PyPI client. See [the detailed results](LIVE_REGISTRY_VALIDATION_2026_10_21.md).
+The current registry packages include the corrected release faucet, node-derived
+transaction validity, transfer fee estimation and terminal-receipt handling.
+The [initial validation](LIVE_REGISTRY_VALIDATION_2026_10_21.md) preserves the
+original failures; the [patch-release record](LIVE_REGISTRY_PATCH_RELEASE_2026_10_21.md)
+records the public artifacts and their fresh-install results.
 
-The currently published versions have defects in default faucet routing and
-transaction validity (Rust CLI), and transfer fee estimation (npm/Python).
-Their signing/submission paths confirmed transfers with explicit correct
-settings. Source fixes and regression tests are included in this repository;
-**a new package release is required to distribute them**. Do not overwrite an
-existing published version or describe the old defaults as fully passing.
-
-Before publishing the fixes, run the sequential offline checks below and the
+For every future runtime fix, run the sequential offline checks below and the
 opt-in live transfer smoke from the README. After publishing, install the new
 versions from each registry into fresh consumer environments and repeat the
 live reads, submission, finality, nonce and balance checks. A successful build
@@ -192,9 +193,9 @@ and installation examples as appropriate. Do not put credentials in evidence.
    `cargo install zincha-cli --version <version> --locked --root <temporary-dir>`
    and the installed `zincha --help`. Replace angle-bracket placeholders before
    running commands; use a temporary install root to preserve an existing CLI.
-4. Keep the exact upload result for the first new Rust release: initial setup
-   proved OIDC credential exchange and existing-version checksums, not a new
-   version upload using OIDC.
+4. Save the exact upload result and manifest. OIDC uploads were demonstrated
+   by `0.1.1` and `0.1.2`; each subsequent release still needs its own public
+   checksum and clean-install verification.
 
 #### npm / @zincha/client
 
@@ -231,7 +232,8 @@ that older version and its README until `latest` is promoted.
 After registry hash/provenance checks and live tests pass:
 
 1. In the existing npm trusted publisher for `zinchain/zincha-sdk`,
-   `publish-packages.yml`, environment `release`, enable **Allow npm dist-tag**.
+   `publish-packages.yml`, environment `release`, verify **Allow npm dist-tag**
+   is enabled (completed October 21).
    Keep the other identity and publishing permissions unchanged. This is an
    explicit additional permission; npm may require password/2FA confirmation.
 2. Run **SDK Registry Packages** from `main` with `registry=promote-npm-latest`
@@ -240,7 +242,10 @@ After registry hash/provenance checks and live tests pass:
 3. Approve the existing `release` environment after confirming the intended
    version. This mode uploads no archives and runs no package build. It uses
    npm 11.21.0's trusted tag support, checks that the published version and the
-   current `vega` tag match the selected source version, then updates `latest`.
+   current `vega` tag match the selected source version, then updates `latest`
+   only if needed. Verification requests fresh metadata
+   and allows up to 12 read-only observations, five seconds apart, for registry
+   propagation. A verification failure never repeats the tag write in that loop.
 4. Verify `npm view @zincha/client dist-tags --json` shows both tags on the
    intended version. Test a fresh unversioned install. Allow registry/website
    caches to refresh before treating an old web-page display as a failure.
@@ -311,9 +316,12 @@ Official references: [crates.io trusted publishing](https://crates.io/docs/trust
 
 The first Rust packages, npm `0.2.0`, and Python `0.1.0` used package source
 `dc2f22254ce2dc3df9efa1b4908a1f45a5694b31`. The npm `0.2.1` trusted release used
-`90b8b655e7e7d5392b3dcd5adbbcdaad6103d1a0`. Publication evidence is linked in the
-setup table above. These source references are historical records, not defaults
-for the next release.
+`90b8b655e7e7d5392b3dcd5adbbcdaad6103d1a0`. Initial evidence: [Cargo upload](https://github.com/zinchain/zincha-sdk/actions/runs/39572570719),
+[Cargo OIDC exchange](https://github.com/zinchain/zincha-sdk/actions/runs/39637419749),
+[npm bootstrap](https://github.com/zinchain/zincha-sdk/actions/runs/39640410838),
+[npm OIDC upload](https://github.com/zinchain/zincha-sdk/actions/runs/39645127528),
+and [PyPI first upload](https://github.com/zinchain/zincha-sdk/actions/runs/39648460574).
+These source references are historical records, not defaults for the next release.
 
 The [previous bootstrap guide](https://github.com/zinchain/zincha-sdk/blob/90b8b655e7e7d5392b3dcd5adbbcdaad6103d1a0/docs/PACKAGE_PUBLISHING.md)
 retains account, first-token, pending-publisher and token-cleanup instructions

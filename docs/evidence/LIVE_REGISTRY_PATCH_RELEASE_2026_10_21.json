@@ -1,0 +1,777 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-21",
+  "repository": "https://github.com/zinchain/zincha-sdk",
+  "source_commits": {
+    "npm_and_pypi": "7bf8ee8ece4fc7b87b52327a417efbe2d24b3380",
+    "cargo": "4badcd430558aca3a89d10008e6c11d4bcbc9247",
+    "npm_tag_workflow": "17cdd990c344efcf6ef07fb7a42e0487dee3cb44"
+  },
+  "publication_runs": {
+    "npm_pypi_and_cargo_0_1_1": 39683122678,
+    "cargo_0_1_2": 39686098496
+  },
+  "artifacts": [
+    {
+      "file": "zincha-client-0.2.2.tgz",
+      "registry": "npm",
+      "name": "@zincha/client",
+      "version": "0.2.2",
+      "sha256": "2b74fc800e3d0715501d7ab9c7d6be71e7da5004fb88cd02283cdd387227fc49",
+      "bytes": 126081
+    },
+    {
+      "file": "zincha-0.1.1-py3-none-any.whl",
+      "registry": "pypi",
+      "name": "zincha",
+      "version": "0.1.1",
+      "sha256": "a6c50a3d62ce32a4a147822dadf96076c279b93473f3302b35911b24d8fb6266",
+      "bytes": 52118
+    },
+    {
+      "file": "zincha-0.1.1.tar.gz",
+      "registry": "pypi",
+      "name": "zincha",
+      "version": "0.1.1",
+      "sha256": "05984da00323d0b0485f84de559582b8d3d99977d401abbf558ba449d2118ab3",
+      "bytes": 92364
+    },
+    {
+      "file": "zincha-primitives-0.1.2.crate",
+      "registry": "crates.io",
+      "name": "zincha-primitives",
+      "version": "0.1.2",
+      "sha256": "940425aa8c763f3cb811f9883e400fde988b3a36f5d62758cc9c274f0a3d8d46",
+      "bytes": 136263
+    },
+    {
+      "file": "zincha-client-0.1.2.crate",
+      "registry": "crates.io",
+      "name": "zincha-client",
+      "version": "0.1.2",
+      "sha256": "623829d2f68998f979ed7db25de7ab266a8ade90411a42070e341d82fdfeb78d",
+      "bytes": 58851
+    },
+    {
+      "file": "zincha-cli-core-0.1.2.crate",
+      "registry": "crates.io",
+      "name": "zincha-cli-core",
+      "version": "0.1.2",
+      "sha256": "102610af32994b4c6bb6b3c4cb812818dd026b64414c44a211cd5d56ca155e43",
+      "bytes": 112560
+    },
+    {
+      "file": "zincha-cli-0.1.2.crate",
+      "registry": "crates.io",
+      "name": "zincha-cli",
+      "version": "0.1.2",
+      "sha256": "267b6969dd7a761444ac425bfe6d412d27182c5e6ecd26b556b9c292ee0ad28e",
+      "bytes": 33746
+    }
+  ],
+  "environment": {
+    "os": "macOS-15.7.3-x86_64-i386-64bit-Mach-O",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02) (Homebrew)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "cargo": "cargo 1.94.0 (Homebrew)",
+    "node": "v24.19.0",
+    "npm": "11.6.2",
+    "python": "Python 3.12.13",
+    "python_process_architecture": "x86_64",
+    "host_note": "macOS compatibility testing with x86_64 Rust/Python processes; existing cache matches this Rust host. No performance claim."
+  },
+  "cargo_install": {
+    "packages": [
+      {
+        "name": "zincha-client",
+        "version": "0.1.2",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "623829d2f68998f979ed7db25de7ab266a8ade90411a42070e341d82fdfeb78d",
+        "dependencies": [
+          "anyhow",
+          "async-stream",
+          "base64 0.22.1",
+          "chacha20poly1305",
+          "ed25519-dalek",
+          "futures",
+          "hex",
+          "hkdf",
+          "rand 0.8.8",
+          "reqwest",
+          "rustls",
+          "rustls-pemfile",
+          "serde",
+          "serde_jcs",
+          "serde_json",
+          "sha2",
+          "subtle",
+          "tokio",
+          "tokio-tungstenite",
+          "url",
+          "uuid",
+          "webpki-roots 0.26.11",
+          "x25519-dalek",
+          "x509-parser",
+          "zincha-primitives"
+        ]
+      },
+      {
+        "name": "zincha-primitives",
+        "version": "0.1.2",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "940425aa8c763f3cb811f9883e400fde988b3a36f5d62758cc9c274f0a3d8d46",
+        "dependencies": [
+          "argon2",
+          "bincode",
+          "bip39",
+          "blake3",
+          "chacha20poly1305",
+          "ed25519-dalek",
+          "hex",
+          "hmac",
+          "pkcs8",
+          "rand 0.8.8",
+          "rpassword",
+          "serde",
+          "serde_json",
+          "sha2",
+          "thiserror 1.0.69",
+          "tracing",
+          "uuid"
+        ]
+      }
+    ],
+    "cli_version": "0.1.2",
+    "cli_sha256": "36e97cad5134365a79ca720aa51eff91a247dfb47ddc7805a732fcae54986cb0",
+    "rust_consumer_sha256": "4df5d9e1b94255c98ad8f89638978cd7b1e26e1da4adaa30c5e1817e78bfb257",
+    "build_profile": "dev",
+    "host": "x86_64-apple-darwin",
+    "purpose": "Functional registry-install validation, not a performance measurement"
+  },
+  "npm_default_install": {
+    "unversioned_install": true,
+    "version": "0.2.2",
+    "integrity": "sha512-D8/Z2BfxqZlegY6QPi5j6MFgwuD4reOFI+DFnqLLdncvRzSVJOKhaVfFG78MXmb44OZFYam1TqOVkxYKEs9s9Q==",
+    "registry": "https://registry.npmjs.org/@zincha/client/-/client-0.2.2.tgz",
+    "exports_passed": true,
+    "same_artifact_as_live_test": true
+  },
+  "npm_tags_after": {
+    "latest": "0.2.2",
+    "vega": "0.2.2"
+  },
+  "live_results": {
+    "cli": {
+      "chain_info": {
+        "archive_backfill_complete": true,
+        "archive_mode": true,
+        "base_fee_per_gas": 1,
+        "block_height": 1105629,
+        "canonical_rpc_url": "https://vega.zincha.com",
+        "canonical_websocket_url": "wss://vega.zincha.com",
+        "chain_id": "zincha-vega-1",
+        "contract_platform_profile_id": "4d378bdc6e2e48ee0f8bef121bf7a8e609bf0d0e100677bc528995cb78c743cc",
+        "contract_platform_profile_version": 1,
+        "explorer_url": "https://vega.zinscan.com",
+        "faucet_url": "https://faucet.vega.zincha.com",
+        "historical_reads_available": true,
+        "history_available_from": 0,
+        "history_available_to": 1105627,
+        "latest_block_hash": "452b8499e411772061bc721c33042c79e6e055f5b80d26e0bb02573edabee85d",
+        "next_base_fee": 1,
+        "release": "vega",
+        "release_name": "Vega",
+        "release_stage": "public-testnet",
+        "storage_mode": "archive",
+        "target_block_time_ms": 1000,
+        "transaction_reference_block_hash": "452b8499e411772061bc721c33042c79e6e055f5b80d26e0bb02573edabee85d",
+        "transaction_reference_block_height": 1105629,
+        "transaction_ttl_blocks": 64,
+        "version": "0.1.0"
+      },
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "47c5b7774942dfab6d39f672899882cd106e83a60a72878413232b43ae9c99fa",
+        "block_number": 1105634,
+        "block_timestamp_ms": 1792622317970,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 500000,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 499970,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 0,
+        "recipient": "zn10c48e7e09fdcc29386a2eb2310baf142f296cc86",
+        "sender": "zn18947b3713363cb046c9c47ad7e9772da9e192852",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "47a123cf62821b3e2b06ea8c315f0a7ebdd0d01e00cc2fa4429864ab4b6fcc55",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "finality_proof": {
+        "has_more": false,
+        "headers": [],
+        "missing_height": null,
+        "next_anchor": {
+          "block_hash": "47c5b7774942dfab6d39f672899882cd106e83a60a72878413232b43ae9c99fa",
+          "block_number": 1105634
+        },
+        "requested_anchor": {
+          "block_hash": "47c5b7774942dfab6d39f672899882cd106e83a60a72878413232b43ae9c99fa",
+          "block_number": 1105634
+        },
+        "snapshot_finalized_floor": 1105634,
+        "snapshot_tip": {
+          "block_hash": "47c5b7774942dfab6d39f672899882cd106e83a60a72878413232b43ae9c99fa",
+          "block_number": 1105634,
+          "parent_hash": "6ebce096ca1c8f2b96e2ca4e0cdb142853a1a4038abfe9698f864e966ae17320",
+          "timestamp": 1792622317970,
+          "tx_count": 1
+        }
+      },
+      "sender_before": {
+        "address": "zn18947b3713363cb046c9c47ad7e9772da9e192852",
+        "balance_micro_zin": 5000000,
+        "balance_zin": 5.0,
+        "consistency": "committed",
+        "state_hash": "84065c5cc71a0e6a9fad21443a64d7337ebae75d8622cd5583c80e0a8ad0748f",
+        "state_height": 1105631,
+        "state_root": "6d293d053dfa0cf0051e631f0ced53fd925869df6d4f981caec0fdbe815dace0"
+      },
+      "sender_after": {
+        "address": "zn18947b3713363cb046c9c47ad7e9772da9e192852",
+        "balance_micro_zin": 4998970,
+        "balance_zin": 4.99897,
+        "consistency": "committed",
+        "state_hash": "f375d98b6aba80eb7a721e8ffa56bdb27925adfc490b5cd3ba9451485871a2b2",
+        "state_height": 1105638,
+        "state_root": "614767221480d7ea18e69ba1e2c17be427612ea00bde4db044e0bf64a57a8a5a"
+      },
+      "recipient_before": {
+        "address": "zn10c48e7e09fdcc29386a2eb2310baf142f296cc86",
+        "balance_micro_zin": 0,
+        "balance_zin": 0.0,
+        "consistency": "committed",
+        "state_hash": "84065c5cc71a0e6a9fad21443a64d7337ebae75d8622cd5583c80e0a8ad0748f",
+        "state_height": 1105631,
+        "state_root": "6d293d053dfa0cf0051e631f0ced53fd925869df6d4f981caec0fdbe815dace0"
+      },
+      "recipient_after": {
+        "address": "zn10c48e7e09fdcc29386a2eb2310baf142f296cc86",
+        "balance_micro_zin": 1000,
+        "balance_zin": 0.001,
+        "consistency": "committed",
+        "state_hash": "f375d98b6aba80eb7a721e8ffa56bdb27925adfc490b5cd3ba9451485871a2b2",
+        "state_height": 1105638,
+        "state_root": "614767221480d7ea18e69ba1e2c17be427612ea00bde4db044e0bf64a57a8a5a"
+      },
+      "nonce_before": {
+        "address": "zn18947b3713363cb046c9c47ad7e9772da9e192852",
+        "committed_nonce": 0,
+        "consistency": "committed",
+        "next_nonce": 0,
+        "nonce": 0,
+        "state_hash": "815d6dda3f7566b68b95171369ecf17d4317efd568de9c223eeb2d40d07cb755",
+        "state_height": 1105632,
+        "state_root": "a217a4b0c79e8afed5086f8a2823fdb53dc54591e2c6b7695ed222741d5b0554"
+      },
+      "nonce_after": {
+        "address": "zn18947b3713363cb046c9c47ad7e9772da9e192852",
+        "committed_nonce": 1,
+        "consistency": "committed",
+        "next_nonce": 1,
+        "nonce": 1,
+        "state_hash": "d0c39d17cc035c5fa5b45dbd786395beda2d262b210c987fac306be67dd9f1f8",
+        "state_height": 1105639,
+        "state_root": "600b385a0e70b7d9cc6db47a83ac00cd7fc6521531797b2040780721583cab5d"
+      },
+      "passed": true,
+      "package": "zincha-cli=0.1.2",
+      "overrides": "No faucet, fee, reference-anchor or TTL override"
+    },
+    "rust": {
+      "chain_info": {
+        "archive_backfill_complete": true,
+        "archive_mode": true,
+        "base_fee_per_gas": 1,
+        "block_height": 1105672,
+        "canonical_rpc_url": "https://vega.zincha.com",
+        "canonical_websocket_url": "wss://vega.zincha.com",
+        "chain_id": "zincha-vega-1",
+        "contract_platform_profile_id": "4d378bdc6e2e48ee0f8bef121bf7a8e609bf0d0e100677bc528995cb78c743cc",
+        "contract_platform_profile_version": 1,
+        "explorer_url": "https://vega.zinscan.com",
+        "faucet_url": "https://faucet.vega.zincha.com",
+        "historical_reads_available": true,
+        "history_available_from": 0,
+        "history_available_to": 1105669,
+        "latest_block_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "next_base_fee": 1,
+        "release": "vega",
+        "release_name": "Vega",
+        "release_stage": "public-testnet",
+        "storage_mode": "archive",
+        "target_block_time_ms": 1000,
+        "transaction_reference_block_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "transaction_reference_block_height": 1105672,
+        "transaction_ttl_blocks": 64,
+        "version": "0.1.0"
+      },
+      "finalized_tip": {
+        "block_hash": "799bc85ad42cf1b211c86472eb5000876f2b3b1de507c7d438b3bf9a61b4283b",
+        "block_number": 1105673,
+        "parent_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "snapshot_finalized_floor": 1105673,
+        "timestamp": 1792622357070,
+        "tx_count": 1
+      },
+      "nonce_after": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 3,
+        "consistency": "committed",
+        "next_nonce": 3,
+        "nonce": 3,
+        "state_hash": "61e97310bd88a64bab0606b54947de1fa6dcccfa552c93e755dd80476954d866",
+        "state_height": 1105677,
+        "state_root": "ae37c4a8a25e4b286f096f80d4fab59ed3ae300445f9c6d5103311bdcced2e21"
+      },
+      "nonce_before": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 2,
+        "consistency": "committed",
+        "next_nonce": 2,
+        "nonce": 2,
+        "state_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "state_height": 1105672,
+        "state_root": "687fd6d581c10db3204db2f3844251a27044469a34cf30df1ccfb4a5dedd5b5e"
+      },
+      "package": "zincha-client=0.1.2; zincha-primitives=0.1.2",
+      "passed": true,
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "799bc85ad42cf1b211c86472eb5000876f2b3b1de507c7d438b3bf9a61b4283b",
+        "block_number": 1105673,
+        "block_timestamp_ms": 1792622357070,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 500000,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 499970,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 2,
+        "recipient": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "sender": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "52e3219155c3883c6d4d750c531e3fc8b7dff2c1cde0f22f27f4422701f62889",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "recipient_after": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 3000,
+        "balance_zin": 0.003,
+        "consistency": "committed",
+        "state_hash": "61e97310bd88a64bab0606b54947de1fa6dcccfa552c93e755dd80476954d866",
+        "state_height": 1105677,
+        "state_root": "ae37c4a8a25e4b286f096f80d4fab59ed3ae300445f9c6d5103311bdcced2e21"
+      },
+      "recipient_before": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 2000,
+        "balance_zin": 0.002,
+        "consistency": "committed",
+        "state_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "state_height": 1105672,
+        "state_root": "687fd6d581c10db3204db2f3844251a27044469a34cf30df1ccfb4a5dedd5b5e"
+      },
+      "sender_after": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 4996910,
+        "balance_zin": 4.99691,
+        "consistency": "committed",
+        "state_hash": "61e97310bd88a64bab0606b54947de1fa6dcccfa552c93e755dd80476954d866",
+        "state_height": 1105677,
+        "state_root": "ae37c4a8a25e4b286f096f80d4fab59ed3ae300445f9c6d5103311bdcced2e21"
+      },
+      "sender_before": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 4997940,
+        "balance_zin": 4.99794,
+        "consistency": "committed",
+        "state_hash": "fee523d6e506f9145297e0bdc8f946d6feded1a25db942f547bed9abb9ccdd10",
+        "state_height": 1105672,
+        "state_root": "687fd6d581c10db3204db2f3844251a27044469a34cf30df1ccfb4a5dedd5b5e"
+      },
+      "submission": {
+        "status": "pending",
+        "tx_hash": "52e3219155c3883c6d4d750c531e3fc8b7dff2c1cde0f22f27f4422701f62889"
+      }
+    },
+    "npm": {
+      "passed": true,
+      "info": {
+        "chain_id": "zincha-vega-1",
+        "release": "vega",
+        "release_name": "Vega",
+        "release_stage": "public-testnet",
+        "canonical_rpc_url": "https://vega.zincha.com",
+        "canonical_websocket_url": "wss://vega.zincha.com",
+        "explorer_url": "https://vega.zinscan.com",
+        "faucet_url": "https://faucet.vega.zincha.com",
+        "version": "0.1.0",
+        "block_height": 1104097,
+        "latest_block_hash": "d13f16331daee502f83c24ab8a28b594f9d97ccacf9b9deb03776264c3d677de",
+        "target_block_time_ms": 1000,
+        "transaction_ttl_blocks": 64,
+        "transaction_reference_block_height": 1104097,
+        "transaction_reference_block_hash": "d13f16331daee502f83c24ab8a28b594f9d97ccacf9b9deb03776264c3d677de",
+        "base_fee_per_gas": 1,
+        "next_base_fee": 1,
+        "contract_platform_profile_version": 1,
+        "contract_platform_profile_id": "4d378bdc6e2e48ee0f8bef121bf7a8e609bf0d0e100677bc528995cb78c743cc",
+        "storage_mode": "archive",
+        "archive_mode": true,
+        "historical_reads_available": true,
+        "history_available_from": 0,
+        "history_available_to": 1104093,
+        "archive_backfill_complete": true
+      },
+      "submission": {
+        "status": "pending",
+        "tx_hash": "4b460a6d970ba09004e5c67f7f5adf237be3c563b1554195b2e7066d60baf7a3"
+      },
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "faab5f894e38a3677ba6589c37c27a3c0eb729581ca3043f5f739f47a1d461ff",
+        "block_number": 1104098,
+        "block_timestamp_ms": 1792620798945,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 0,
+        "recipient": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "sender": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "4b460a6d970ba09004e5c67f7f5adf237be3c563b1554195b2e7066d60baf7a3",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "finalized": {
+        "block_number": 1104098,
+        "block_hash": "faab5f894e38a3677ba6589c37c27a3c0eb729581ca3043f5f739f47a1d461ff",
+        "parent_hash": "d13f16331daee502f83c24ab8a28b594f9d97ccacf9b9deb03776264c3d677de",
+        "tx_count": 1,
+        "timestamp": 1792620798945,
+        "snapshot_finalized_floor": 1104098
+      },
+      "senderBefore": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 5000000,
+        "balance_zin": 5,
+        "consistency": "committed",
+        "state_hash": "7566be0a57e882691b83756a07137e966bcf0ee15771ec00c28f61592cf3bc21",
+        "state_height": 1104096,
+        "state_root": "693b01ae732cad44fb21a05e1381b278f7f0845c9482257eab22b771e36a54da"
+      },
+      "senderAfter": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 4998970,
+        "balance_zin": 4.99897,
+        "consistency": "committed",
+        "state_hash": "da65a6f456f63635835fb14905c63f543213cb5cd2ac6b5610b199107e17753a",
+        "state_height": 1104102,
+        "state_root": "8bcbd73ebc8fd22ad4b89419430b313423c7dfd4aa4d1fa084b572b18e13b87b"
+      },
+      "recipientBefore": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 0,
+        "balance_zin": 0,
+        "consistency": "committed",
+        "state_hash": "7566be0a57e882691b83756a07137e966bcf0ee15771ec00c28f61592cf3bc21",
+        "state_height": 1104096,
+        "state_root": "693b01ae732cad44fb21a05e1381b278f7f0845c9482257eab22b771e36a54da"
+      },
+      "recipientAfter": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 1000,
+        "balance_zin": 0.001,
+        "consistency": "committed",
+        "state_hash": "da65a6f456f63635835fb14905c63f543213cb5cd2ac6b5610b199107e17753a",
+        "state_height": 1104102,
+        "state_root": "8bcbd73ebc8fd22ad4b89419430b313423c7dfd4aa4d1fa084b572b18e13b87b"
+      },
+      "nonceBefore": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 0,
+        "consistency": "committed",
+        "next_nonce": 0,
+        "nonce": 0,
+        "state_hash": "7566be0a57e882691b83756a07137e966bcf0ee15771ec00c28f61592cf3bc21",
+        "state_height": 1104096,
+        "state_root": "693b01ae732cad44fb21a05e1381b278f7f0845c9482257eab22b771e36a54da"
+      },
+      "nonceAfter": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 1,
+        "consistency": "committed",
+        "next_nonce": 1,
+        "nonce": 1,
+        "state_hash": "da65a6f456f63635835fb14905c63f543213cb5cd2ac6b5610b199107e17753a",
+        "state_height": 1104102,
+        "state_root": "8bcbd73ebc8fd22ad4b89419430b313423c7dfd4aa4d1fa084b572b18e13b87b"
+      }
+    },
+    "python": {
+      "passed": true,
+      "info": {
+        "chain_id": "zincha-vega-1",
+        "release": "vega",
+        "release_name": "Vega",
+        "release_stage": "public-testnet",
+        "canonical_rpc_url": "https://vega.zincha.com",
+        "canonical_websocket_url": "wss://vega.zincha.com",
+        "explorer_url": "https://vega.zinscan.com",
+        "faucet_url": "https://faucet.vega.zincha.com",
+        "version": "0.1.0",
+        "block_height": 1104201,
+        "latest_block_hash": "b7324978809f3b199222c6705bb0365055d9c5560f00994b40ed8affdddecf1c",
+        "target_block_time_ms": 1000,
+        "transaction_ttl_blocks": 64,
+        "transaction_reference_block_height": 1104201,
+        "transaction_reference_block_hash": "b7324978809f3b199222c6705bb0365055d9c5560f00994b40ed8affdddecf1c",
+        "base_fee_per_gas": 1,
+        "next_base_fee": 1,
+        "contract_platform_profile_version": 1,
+        "contract_platform_profile_id": "4d378bdc6e2e48ee0f8bef121bf7a8e609bf0d0e100677bc528995cb78c743cc",
+        "storage_mode": "archive",
+        "archive_mode": true,
+        "historical_reads_available": true,
+        "history_available_from": 0,
+        "history_available_to": 1104199,
+        "archive_backfill_complete": true
+      },
+      "submission": {
+        "status": "pending",
+        "tx_hash": "2f7c285684ea80e3f8b1da7f3de713c6343f38056e4b20a193466bdc8beb8256"
+      },
+      "receipt": {
+        "amount": 1000,
+        "base_fee_per_gas": 1,
+        "block_hash": "461ff58acdf3794a663d872f9a05b9394f39558093f995b3a7b2056237bf79e5",
+        "block_number": 1104204,
+        "block_timestamp_ms": 1792620905214,
+        "chain_id": "zincha-vega-1",
+        "contract_context": {
+          "deployed_contract_addresses": [],
+          "referenced_contract_addresses": [],
+          "resolved_contract_addresses": []
+        },
+        "effective_gas_price": 1,
+        "events": [],
+        "fee": 30,
+        "fee_base_fee_total": 30,
+        "fee_burned": 16,
+        "fee_charged": 30,
+        "fee_refunded": 0,
+        "fee_treasury": 7,
+        "fee_validator_base_fee": 7,
+        "fee_validator_tip": 0,
+        "gas_limit": 30,
+        "gas_used": 30,
+        "known": true,
+        "mempool_stage": null,
+        "nonce": 1,
+        "recipient": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "sender": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "source": "canonical_chain",
+        "state_changes": [],
+        "status": "confirmed",
+        "terminal": true,
+        "tx_hash": "2f7c285684ea80e3f8b1da7f3de713c6343f38056e4b20a193466bdc8beb8256",
+        "tx_index": 0,
+        "tx_type": "Transfer"
+      },
+      "finalized": {
+        "block_number": 1104204,
+        "block_hash": "461ff58acdf3794a663d872f9a05b9394f39558093f995b3a7b2056237bf79e5",
+        "parent_hash": "0d4c65aac36f0d9630511525b735abd15cf048344229321db43c3d3231c2e4ed",
+        "tx_count": 1,
+        "timestamp": 1792620905214,
+        "snapshot_finalized_floor": 1104204
+      },
+      "sender_before": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 4998970,
+        "balance_zin": 4.99897,
+        "consistency": "committed",
+        "state_hash": "49d54520febc1cecc1248f3203f4615873a4910781297bf580accb6b958d735b",
+        "state_height": 1104199,
+        "state_root": "5ba64b7a3a7391ed6c090b577ad95296aef8ab2f27a65ec762713b110d811349"
+      },
+      "sender_after": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "balance_micro_zin": 4997940,
+        "balance_zin": 4.99794,
+        "consistency": "committed",
+        "state_hash": "7f7f61d6f5a854b0ca8f7b535d232580b737b2fda9d619336132c761fbc4a51b",
+        "state_height": 1104208,
+        "state_root": "810d75ff7586dcbf3a9780debef51cf352d562a610afe55518066996e63f90fb"
+      },
+      "recipient_before": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 1000,
+        "balance_zin": 0.001,
+        "consistency": "committed",
+        "state_hash": "3603ce0d40375aeb23fc130d06bd3d6426c35cc525946dd4e41b7bd1068a8a73",
+        "state_height": 1104200,
+        "state_root": "5e435e300d535fe567afabfcaa6b29890f61988bda85bd6169809e267438bb5c"
+      },
+      "recipient_after": {
+        "address": "zn16cf3360836a0fc8dddc9f7d5dc3102e8c57d13ea",
+        "balance_micro_zin": 2000,
+        "balance_zin": 0.002,
+        "consistency": "committed",
+        "state_hash": "58bd3937efdac272ab28b8682c2dc76c160c1e341d0cb406845387b6c1b7b20d",
+        "state_height": 1104209,
+        "state_root": "1f28e5f4fb01229306aa02c506506e856e00d753ad0bed1e15e140b30b1f04a7"
+      },
+      "nonce_before": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 1,
+        "consistency": "committed",
+        "next_nonce": 1,
+        "nonce": 1,
+        "state_hash": "3603ce0d40375aeb23fc130d06bd3d6426c35cc525946dd4e41b7bd1068a8a73",
+        "state_height": 1104200,
+        "state_root": "5e435e300d535fe567afabfcaa6b29890f61988bda85bd6169809e267438bb5c"
+      },
+      "nonce_after": {
+        "address": "zn12ea16ec6596bd1eeb3e73c4959035ce64435938b",
+        "committed_nonce": 2,
+        "consistency": "committed",
+        "next_nonce": 2,
+        "nonce": 2,
+        "state_hash": "58bd3937efdac272ab28b8682c2dc76c160c1e341d0cb406845387b6c1b7b20d",
+        "state_height": 1104209,
+        "state_root": "1f28e5f4fb01229306aa02c506506e856e00d753ad0bed1e15e140b30b1f04a7"
+      }
+    }
+  },
+  "checks": {
+    "rust_tests": 205,
+    "typescript_tests": 76,
+    "python_tests": 61,
+    "python_compatibility": [
+      "3.9",
+      "3.10",
+      "3.11",
+      "3.12"
+    ],
+    "python_public_wheel_tests": 61,
+    "npm_registry_signature_and_attestation_verification": "passed for exact and unversioned installs",
+    "pypi_attestation_verification": "wheel and source passed",
+    "public_archive_hashes": "all match the respective publication manifests",
+    "cli_banner": "zincha 0.1.2",
+    "actionlint": "passed",
+    "strict_clippy": "Not green: 30 pre-existing unchanged primitives findings reproduced on prior source; no strict-Clippy pass claimed",
+    "workflow_fix_ci": {
+      "run": 39688198558,
+      "conclusion": "success"
+    }
+  },
+  "limitations": [
+    "Functional native-transfer checks, not TPS, RSS or endurance qualification",
+    "No node binary or validator deployment changed",
+    "Prebuilt CLI v0.1.0 in zincha-releases remains older than these packages"
+  ],
+  "retained_failures": [
+    {
+      "stage": "Cargo 0.1.1 installation",
+      "failure": "CLI banner remained 0.1.0",
+      "resolution": "Version derived from package metadata and regression assertion; Cargo 0.1.2 published and installed"
+    },
+    {
+      "stage": "npm/PyPI immediate publication lookup",
+      "failure": "Registry/index propagation delay",
+      "resolution": "Retried normal public-registry reads and installs; no duplicate publication"
+    },
+    {
+      "stage": "npm tag promotion run 39687938835",
+      "failure": "Write succeeded, immediate cached npm view failed verification",
+      "resolution": "Public tags and fresh install confirm 0.2.2; workflow uses prefer-online and bounded read-only retries, skipping an already-correct tag"
+    }
+  ],
+  "npm_website_verified": {
+    "version": "0.2.2",
+    "readme_install": "npm install @zincha/client@0.2.2",
+    "tags": {
+      "latest": "0.2.2",
+      "vega": "0.2.2"
+    }
+  },
+  "tag_promotion": {
+    "initial_run": 39687938835,
+    "initial_conclusion": "failure after successful tag write",
+    "corrected_verification_run": 39688256183,
+    "corrected_verification_conclusion": "success",
+    "workflow_source": "17cdd990c344efcf6ef07fb7a42e0487dee3cb44",
+    "source_ref": "7bf8ee8ece4fc7b87b52327a417efbe2d24b3380",
+    "runtime_package_republished": false
+  }
+}
