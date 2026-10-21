@@ -22,7 +22,7 @@ variants.
 After the initial registry publication:
 
 ```sh
-npm install @zincha/client@0.2.1
+npm install @zincha/client@0.2.2
 # Equivalent Vega channel: npm install @zincha/client@vega
 ```
 
@@ -406,6 +406,12 @@ intentional protocol changes, then promote the reviewed fixtures to the SDK:
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors
 ```
+
+## 0.2.2 — Vega transfer fee defaults
+
+Native transfer fee estimation now includes the base transaction charge: the
+default is 30 gas units, matching Vega execution. Explicit fee overrides remain
+supported. No wire-format or API changes.
 
 ## 0.2.1 — trusted npm publishing
 

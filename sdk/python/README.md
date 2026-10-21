@@ -5,7 +5,7 @@ of truth for transaction serialization, hashes, and signatures.
 
 It targets Python 3.9+ and uses `cryptography`, `jcs`, and `PyNaCl` for
 conversation transport, canonical JSON, and encryption. Install the package
-with `python -m pip install zincha==0.1.0` after its initial PyPI publication.
+with `python -m pip install zincha==0.1.1`.
 For source development, use `python -m pip install -e sdk/python` from the
 repository root. Both forms install these runtime dependencies. It writes
 addresses, hashes, public keys, and signatures in the current fixed-width binary
@@ -395,3 +395,9 @@ then promote the reviewed fixtures to the public SDK:
 ```bash
 ZINCHA_WRITE_SDK_GOLDEN=1 cargo test --test sdk_vectors
 ```
+
+## 0.1.1 — Vega transfer fee defaults
+
+Native transfer fee estimation now includes the base transaction charge: the
+default is 30 gas units, matching Vega execution. Explicit fee overrides remain
+supported. No wire-format or API changes.

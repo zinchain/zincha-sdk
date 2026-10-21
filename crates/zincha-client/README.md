@@ -3,7 +3,7 @@
 Rust HTTP, WebSocket and conversation clients for Zincha.
 
 ```sh
-cargo add zincha-client@0.1.0
+cargo add zincha-client@0.1.1
 ```
 
 This is the initial SDK package for the Vega testnet. See the
@@ -12,3 +12,9 @@ the [binary releases](https://github.com/zinchain/zincha-releases/releases/tag/v
 for prebuilt CLI downloads.
 
 Licensed under Apache-2.0.
+
+## 0.1.1
+
+Release-selected clients now use the release faucet URL unless explicitly
+overridden. Transaction waiting requires a terminal confirmed or rejected
+receipt, so a prepared receipt no longer ends the wait.

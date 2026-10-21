@@ -1,6 +1,6 @@
 {
   "name": "@zincha/client",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Isomorphic TypeScript client SDK for ZINCHA (Node, browser, MetaMask Snaps)",
   "type": "module",
   "exports": {
