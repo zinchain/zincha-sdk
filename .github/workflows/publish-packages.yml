@@ -163,9 +163,22 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p "require('./sdk/typescript/package.json').version")"
-          published="$(npm view "@zincha/client@$version" version)"
+          published="$(npm view --prefer-online "@zincha/client@$version" version)"
           test "$published" = "$version"
-          test "$(npm view @zincha/client@vega version)" = "$version"
-          npm dist-tag add "@zincha/client@$version" latest
-          test "$(npm view @zincha/client@latest version)" = "$version"
-          npm dist-tag ls @zincha/client
+          test "$(npm view --prefer-online @zincha/client@vega version)" = "$version"
+          if [ "$(npm view --prefer-online @zincha/client@latest version)" != "$version" ]; then
+            npm dist-tag add "@zincha/client@$version" latest
+          fi
+          # npm's preflight reads can cache the old tag, and registry replicas
+          # may lag a successful write. Retry only reads; never repeat the write.
+          for attempt in {1..12}; do
+            latest="$(npm view --prefer-online @zincha/client@latest version)"
+            if [ "$latest" = "$version" ]; then
+              npm dist-tag ls @zincha/client
+              exit 0
+            fi
+            echo "Waiting for npm latest metadata to refresh ($attempt/12): $latest"
+            if [ "$attempt" -lt 12 ]; then sleep 5; fi
+          done
+          echo "npm latest did not resolve to $version within the verification window" >&2
+          exit 1
